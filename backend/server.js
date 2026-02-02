@@ -20,6 +20,14 @@ const operatorsPath = path.join(__dirname, 'data', 'operators.json');
 const teachersPath = path.join(__dirname, 'data', 'teachers.json');
 // Path to courses data file
 const coursesPath = path.join(__dirname, 'data', 'courses.json');
+// Path to students data file
+const studentsPath = path.join(__dirname, 'data', 'students.json');
+// Path to payments data file
+const paymentsPath = path.join(__dirname, 'data', 'payments.json');
+// Path to teacher payments data file
+const teacherPaymentsPath = path.join(__dirname, 'data', 'teacherPayments.json');
+// Path to attendance data file
+const attendancePath = path.join(__dirname, 'data', 'attendance.json');
 
 // Helper function to read admin data
 const readAdminData = () => {
@@ -562,6 +570,149 @@ app.delete('/api/teachers/:id', (req, res) => {
   }
 });
 
+// Helper function to read students data
+const readStudentsData = () => {
+  try {
+    const data = fs.readFileSync(studentsPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    // If file doesn't exist or is invalid, return default structure
+    return { students: [] };
+  }
+};
+
+// Helper function to write students data
+const writeStudentsData = (data) => {
+  try {
+    // Ensure data directory exists
+    const dataDir = path.dirname(studentsPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(studentsPath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error writing students data:', error);
+    return false;
+  }
+};
+
+// Get all students
+app.get('/api/students', (req, res) => {
+  try {
+    const studentsData = readStudentsData();
+    res.json({
+      success: true,
+      students: studentsData.students
+    });
+  } catch (error) {
+    console.error('Get students error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Create new student
+app.post('/api/students', (req, res) => {
+  try {
+    const { fullName, dob, parentName, contactNumber, whatsappNumber, address, grade } = req.body;
+
+    if (!fullName || !dob || !parentName || !contactNumber || !address || !grade) {
+      return res.status(400).json({
+        success: false,
+        message: 'Full name, date of birth, parent name, contact number, address, and grade are required'
+      });
+    }
+
+    const studentsData = readStudentsData();
+    
+    // Calculate age for 2026
+    const birthDate = new Date(dob);
+    const year2026 = new Date('2026-01-01');
+    const age = year2026.getFullYear() - birthDate.getFullYear();
+    const monthDiff = year2026.getMonth() - birthDate.getMonth();
+    const calculatedAge = monthDiff < 0 || (monthDiff === 0 && year2026.getDate() < birthDate.getDate()) 
+      ? age - 1 
+      : age;
+
+    // Create new student
+    const newStudent = {
+      id: Date.now().toString(),
+      fullName,
+      age: calculatedAge,
+      dob,
+      parentName,
+      contactNumber,
+      whatsappNumber: whatsappNumber || contactNumber,
+      address,
+      grade,
+      createdAt: new Date().toISOString()
+    };
+
+    studentsData.students.push(newStudent);
+    
+    if (writeStudentsData(studentsData)) {
+      res.status(201).json({
+        success: true,
+        message: 'Student created successfully',
+        student: newStudent
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to save student data'
+      });
+    }
+  } catch (error) {
+    console.error('Create student error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Delete student
+app.delete('/api/students/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const studentsData = readStudentsData();
+    
+    const studentIndex = studentsData.students.findIndex(
+      student => student.id === id
+    );
+
+    if (studentIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    studentsData.students.splice(studentIndex, 1);
+    
+    if (writeStudentsData(studentsData)) {
+      res.json({
+        success: true,
+        message: 'Student deleted successfully'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete student'
+      });
+    }
+  } catch (error) {
+    console.error('Delete student error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // Helper function to read courses data
 const readCoursesData = () => {
   try {
@@ -601,6 +752,7 @@ app.get('/api/courses', (req, res) => {
       grade: course.grade,
       courseFee: course.courseFee,
       teacherPaymentPercentage: course.teacherPaymentPercentage,
+      enrolledStudents: course.enrolledStudents || [],
       createdAt: course.createdAt
     }));
     res.json({
@@ -669,6 +821,7 @@ app.post('/api/courses', (req, res) => {
       grade,
       courseFee: fee.toString(),
       teacherPaymentPercentage: percentage.toString(),
+      enrolledStudents: [],
       createdAt: new Date().toISOString()
     };
 
@@ -697,6 +850,285 @@ app.post('/api/courses', (req, res) => {
     }
   } catch (error) {
     console.error('Create course error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Update course (for enrolled students)
+app.put('/api/courses/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { enrolledStudents } = req.body;
+
+    if (!Array.isArray(enrolledStudents)) {
+      return res.status(400).json({
+        success: false,
+        message: 'enrolledStudents must be an array'
+      });
+    }
+
+    const coursesData = readCoursesData();
+    
+    const courseIndex = coursesData.courses.findIndex(
+      course => course.id === id
+    );
+
+    if (courseIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found'
+      });
+    }
+
+    // Update enrolled students
+    coursesData.courses[courseIndex].enrolledStudents = enrolledStudents;
+    
+    if (writeCoursesData(coursesData)) {
+      res.json({
+        success: true,
+        message: 'Course updated successfully',
+        course: coursesData.courses[courseIndex]
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update course'
+      });
+    }
+  } catch (error) {
+    console.error('Update course error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Helper function to read payments data
+const readPaymentsData = () => {
+  try {
+    const data = fs.readFileSync(paymentsPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    // If file doesn't exist or is invalid, return default structure
+    return { payments: [] };
+  }
+};
+
+// Helper function to write payments data
+const writePaymentsData = (data) => {
+  try {
+    // Ensure data directory exists
+    const dataDir = path.dirname(paymentsPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(paymentsPath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error writing payments data:', error);
+    return false;
+  }
+};
+
+// Get all payments
+app.get('/api/payments', (req, res) => {
+  try {
+    const paymentsData = readPaymentsData();
+    res.json({
+      success: true,
+      payments: paymentsData.payments
+    });
+  } catch (error) {
+    console.error('Get payments error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Mark payment as paid
+app.post('/api/payments', (req, res) => {
+  try {
+    const { studentId, monthKey, amount, paymentDate, courseId } = req.body;
+
+    if (!studentId || !monthKey || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student ID, month key, and amount are required'
+      });
+    }
+
+    const paymentsData = readPaymentsData();
+    
+    // Check if payment already exists for this student, month, and course
+    const paymentKey = courseId 
+      ? `${studentId}-${monthKey}-${courseId}`
+      : `${studentId}-${monthKey}`;
+    
+    const existingPayment = paymentsData.payments.find(
+      payment => {
+        if (courseId) {
+          return payment.studentId === studentId && 
+                 payment.monthKey === monthKey && 
+                 payment.courseId === courseId;
+        } else {
+          return payment.studentId === studentId && 
+                 payment.monthKey === monthKey && 
+                 !payment.courseId;
+        }
+      }
+    );
+
+    if (existingPayment) {
+      // Update existing payment
+      existingPayment.status = 'Paid';
+      existingPayment.paymentDate = paymentDate || new Date().toISOString();
+      existingPayment.amount = parseFloat(amount);
+    } else {
+      // Create new payment record
+      const newPayment = {
+        id: Date.now().toString() + (courseId ? `-${courseId}` : ''),
+        studentId,
+        monthKey,
+        courseId: courseId || null,
+        amount: parseFloat(amount),
+        status: 'Paid',
+        paymentDate: paymentDate || new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      };
+      paymentsData.payments.push(newPayment);
+    }
+    
+    if (writePaymentsData(paymentsData)) {
+      res.status(201).json({
+        success: true,
+        message: 'Payment recorded successfully',
+        payment: existingPayment || paymentsData.payments[paymentsData.payments.length - 1]
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to save payment data'
+      });
+    }
+  } catch (error) {
+    console.error('Create payment error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Helper function to read teacher payments data
+const readTeacherPaymentsData = () => {
+  try {
+    const data = fs.readFileSync(teacherPaymentsPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    // If file doesn't exist or is invalid, return default structure
+    return { advancePayments: [] };
+  }
+};
+
+// Helper function to write teacher payments data
+const writeTeacherPaymentsData = (data) => {
+  try {
+    // Ensure data directory exists
+    const dataDir = path.dirname(teacherPaymentsPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(teacherPaymentsPath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error writing teacher payments data:', error);
+    return false;
+  }
+};
+
+// Get all teacher advance payments
+app.get('/api/teacher-payments', (req, res) => {
+  try {
+    const teacherPaymentsData = readTeacherPaymentsData();
+    res.json({
+      success: true,
+      advancePayments: teacherPaymentsData.advancePayments
+    });
+  } catch (error) {
+    console.error('Get teacher payments error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get teacher advance payments by teacher ID
+app.get('/api/teacher-payments/:teacherId', (req, res) => {
+  try {
+    const { teacherId } = req.params;
+    const teacherPaymentsData = readTeacherPaymentsData();
+    const teacherPayments = teacherPaymentsData.advancePayments.filter(
+      payment => payment.teacherId === teacherId
+    );
+    res.json({
+      success: true,
+      advancePayments: teacherPayments
+    });
+  } catch (error) {
+    console.error('Get teacher payments error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Add advance payment for teacher
+app.post('/api/teacher-payments', (req, res) => {
+  try {
+    const { teacherId, amount, paymentDate, description } = req.body;
+
+    if (!teacherId || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: 'Teacher ID and amount are required'
+      });
+    }
+
+    const teacherPaymentsData = readTeacherPaymentsData();
+    
+    const newAdvancePayment = {
+      id: Date.now().toString(),
+      teacherId,
+      amount: parseFloat(amount),
+      paymentDate: paymentDate || new Date().toISOString(),
+      description: description || '',
+      createdAt: new Date().toISOString()
+    };
+    
+    teacherPaymentsData.advancePayments.push(newAdvancePayment);
+    
+    if (writeTeacherPaymentsData(teacherPaymentsData)) {
+      res.status(201).json({
+        success: true,
+        message: 'Advance payment recorded successfully',
+        advancePayment: newAdvancePayment
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to save teacher payment data'
+      });
+    }
+  } catch (error) {
+    console.error('Create teacher payment error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -736,6 +1168,95 @@ app.delete('/api/courses/:id', (req, res) => {
     }
   } catch (error) {
     console.error('Delete course error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Helper function to read attendance data
+const readAttendanceData = () => {
+  try {
+    const data = fs.readFileSync(attendancePath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    // If file doesn't exist or is invalid, return default structure
+    return { attendance: [] };
+  }
+};
+
+// Helper function to write attendance data
+const writeAttendanceData = (data) => {
+  try {
+    // Ensure data directory exists
+    const dataDir = path.dirname(attendancePath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(attendancePath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error writing attendance data:', error);
+    return false;
+  }
+};
+
+// Get all attendance records
+app.get('/api/attendance', (req, res) => {
+  try {
+    const attendanceData = readAttendanceData();
+    res.json({
+      success: true,
+      attendance: attendanceData.attendance
+    });
+  } catch (error) {
+    console.error('Get attendance error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Mark attendance
+app.post('/api/attendance', (req, res) => {
+  try {
+    const { studentId, courseId, date } = req.body;
+
+    if (!studentId || !courseId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student ID and Course ID are required'
+      });
+    }
+
+    const attendanceData = readAttendanceData();
+    
+    const newAttendance = {
+      id: Date.now().toString(),
+      studentId,
+      courseId,
+      date: date || new Date().toISOString(),
+      createdAt: new Date().toISOString()
+    };
+    
+    attendanceData.attendance.push(newAttendance);
+    
+    if (writeAttendanceData(attendanceData)) {
+      res.status(201).json({
+        success: true,
+        message: 'Attendance marked successfully',
+        attendance: newAttendance
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to save attendance data'
+      });
+    }
+  } catch (error) {
+    console.error('Create attendance error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

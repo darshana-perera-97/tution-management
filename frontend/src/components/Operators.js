@@ -179,7 +179,7 @@ const Operators = () => {
       </div>
 
       {/* Add Operator Modal */}
-      <Modal show={showModal} onHide={handleClose} centered>
+      <Modal show={showModal} onHide={handleClose} centered backdrop="static">
         <Modal.Header closeButton>
           <Modal.Title>Add New Operator</Modal.Title>
         </Modal.Header>

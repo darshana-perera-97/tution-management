@@ -4,21 +4,25 @@ import { useNavigate } from 'react-router-dom';
 import { 
   HiOutlineUser, 
   HiOutlineCog6Tooth, 
-  HiOutlineArrowRightOnRectangle 
+  HiOutlineArrowRightOnRectangle,
+  HiOutlineBars3
 } from 'react-icons/hi2';
 import '../App.css';
 
-const TopNavbar = ({ admin }) => {
+const TopNavbar = ({ admin, onMenuToggle }) => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
     localStorage.removeItem('admin');
     localStorage.removeItem('isAuthenticated');
-    navigate('/login');
+    navigate('/admin/login');
   };
 
   return (
     <Navbar className="top-navbar" expand="lg">
+      <button className="mobile-menu-toggle" onClick={onMenuToggle} aria-label="Toggle menu">
+        <HiOutlineBars3 />
+      </button>
       <Navbar.Brand className="top-navbar-brand">
         Admin Panel
       </Navbar.Brand>

@@ -8,11 +8,11 @@ import {
   HiOutlineBookOpen,
   HiOutlineCreditCard,
   HiOutlineDocumentChartBar,
-  HiOutlineCog6Tooth
+  HiOutlineClipboardDocumentCheck
 } from 'react-icons/hi2';
 import '../App.css';
 
-const Sidebar = ({ activeItem, onItemClick }) => {
+const Sidebar = ({ activeItem, onItemClick, className }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: HiOutlineChartBar },
     { id: 'students', label: 'Students', icon: HiOutlineUserGroup },
@@ -20,12 +20,12 @@ const Sidebar = ({ activeItem, onItemClick }) => {
     { id: 'operators', label: 'Operators', icon: HiOutlineBriefcase },
     { id: 'courses', label: 'Courses', icon: HiOutlineBookOpen },
     { id: 'payments', label: 'Payments', icon: HiOutlineCreditCard },
+    { id: 'attendance', label: 'Attendance', icon: HiOutlineClipboardDocumentCheck },
     { id: 'reports', label: 'Reports', icon: HiOutlineDocumentChartBar },
-    { id: 'settings', label: 'Settings', icon: HiOutlineCog6Tooth },
   ];
 
   return (
-    <div className="sidebar">
+    <div className={`sidebar ${className || ''}`}>
       <div className="sidebar-header">
         <h3 className="sidebar-logo">Tuition Management</h3>
       </div>

@@ -460,6 +460,7 @@ code {
 }
 
 .dashboard-stat-card {
+  height: 100%;
   border: 1px solid rgba(226, 232, 240, 0.8);
   border-radius: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.03);
@@ -495,6 +496,9 @@ code {
 .dashboard-stat-card .card-body {
   padding: 28px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
 
 .stat-icon {
@@ -562,8 +566,48 @@ code {
   letter-spacing: -0.5px;
 }
 
+/* Mobile Menu Toggle Button */
+.mobile-menu-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  color: #475569;
+  cursor: pointer;
+  padding: 8px;
+  margin-right: 12px;
+  transition: all 0.2s ease;
+}
+
+.mobile-menu-toggle:hover {
+  color: #6366f1;
+  transform: scale(1.1);
+}
+
+/* Sidebar Overlay for Mobile */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-overlay.active {
+  opacity: 1;
+}
+
 /* Responsive adjustments */
 @media (max-width: 992px) {
+  .mobile-menu-toggle {
+    display: block;
+  }
+
   .dashboard-content {
     margin-left: 0;
   }
@@ -571,32 +615,339 @@ code {
   .sidebar {
     transform: translateX(-100%);
     transition: transform 0.3s ease;
+    z-index: 1001;
   }
 
   .sidebar.open {
     transform: translateX(0);
   }
-}
 
-@media (max-width: 576px) {
-  .login-card .card-body {
-    padding: 2rem !important;
+  .sidebar-overlay {
+    display: block;
   }
 
-  .login-title {
-    font-size: 24px;
+  .sidebar-overlay.active {
+    opacity: 1;
+  }
+
+  .top-navbar {
+    padding: 12px 16px;
+  }
+
+  .top-navbar-brand {
+    font-size: 18px;
   }
 
   .dashboard-main {
-    padding: 15px;
+    padding: 20px 16px;
   }
 
+  .operators-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 16px;
+  }
+
+  .operators-header .d-flex {
+    width: 100%;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .add-operator-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .operators-table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .operators-table {
+    min-width: 600px;
+  }
+
+  .operators-table thead th,
+  .operators-table tbody td {
+    padding: 12px 10px;
+    font-size: 12px;
+  }
+
+  .action-btn {
+    padding: 6px 12px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .dashboard-stat-card .card-body {
+    padding: 20px;
+  }
+
+  .stat-icon {
+    font-size: 36px;
+  }
+
+  .stat-number {
+    font-size: 28px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+  }
+
+  .user-name {
+    display: none;
+  }
+
+  .top-navbar-user {
+    padding: 8px 12px;
+  }
+}
+
+@media (max-width: 768px) {
   .dashboard-title {
     font-size: 24px;
   }
 
+  .dashboard-subtitle {
+    font-size: 13px;
+  }
+
+  .dashboard-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+  }
+
+  .operators-header {
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+  }
+
+  .sidebar {
+    width: 240px;
+  }
+
+  .sidebar-logo {
+    font-size: 18px;
+  }
+
+  .sidebar-item {
+    padding: 12px 16px;
+    margin: 4px 8px;
+  }
+
+  .sidebar-icon {
+    font-size: 18px;
+    margin-right: 10px;
+  }
+
+  .sidebar-label {
+    font-size: 13px;
+  }
+
+  .detail-label {
+    min-width: 140px;
+    font-size: 13px;
+  }
+
+  .detail-value {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 576px) {
+  .login-container {
+    padding: 16px;
+  }
+
+  .login-card .card-body {
+    padding: 1.5rem !important;
+  }
+
+  .login-title {
+    font-size: 22px;
+  }
+
+  .login-subtitle {
+    font-size: 13px;
+  }
+
+  .form-control-custom {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  .login-button {
+    padding: 12px;
+    font-size: 14px;
+  }
+
+  .dashboard-main {
+    padding: 12px;
+  }
+
+  .dashboard-title {
+    font-size: 20px;
+  }
+
+  .dashboard-subtitle {
+    font-size: 12px;
+  }
+
+  .top-navbar {
+    padding: 10px 12px;
+  }
+
+  .top-navbar-brand {
+    font-size: 16px;
+  }
+
+  .sidebar {
+    width: 220px;
+  }
+
+  .sidebar-header {
+    padding: 16px;
+  }
+
+  .sidebar-logo {
+    font-size: 16px;
+  }
+
+  .sidebar-item {
+    padding: 10px 12px;
+    margin: 3px 6px;
+  }
+
+  .sidebar-icon {
+    font-size: 16px;
+    margin-right: 8px;
+  }
+
+  .sidebar-label {
+    font-size: 12px;
+  }
+
+  .stat-icon {
+    font-size: 32px;
+    margin-bottom: 12px;
+  }
+
   .stat-number {
     font-size: 24px;
+  }
+
+  .stat-label {
+    font-size: 10px;
+  }
+
+  .dashboard-stat-card .card-body {
+    padding: 16px;
+  }
+
+  .operators-table {
+    min-width: 500px;
+    font-size: 11px;
+  }
+
+  .operators-table thead th {
+    padding: 10px 8px;
+    font-size: 10px;
+  }
+
+  .operators-table tbody td {
+    padding: 10px 8px;
+    font-size: 11px;
+  }
+
+  .action-btn {
+    padding: 5px 10px;
+    font-size: 10px;
+  }
+
+  .add-operator-btn {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .operators-header {
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+  }
+
+  .detail-row {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px 0;
+  }
+
+  .detail-label {
+    min-width: auto;
+    margin-bottom: 4px;
+    margin-right: 0;
+  }
+
+  .detail-value {
+    width: 100%;
+  }
+
+  /* Modal Responsive */
+  .modal-dialog {
+    margin: 10px;
+  }
+
+  .modal-content {
+    border-radius: 12px;
+  }
+
+  .modal-header {
+    padding: 16px;
+  }
+
+  .modal-title {
+    font-size: 18px;
+  }
+
+  .modal-body {
+    padding: 16px;
+  }
+
+  .modal-footer {
+    padding: 12px 16px;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .modal-footer .btn {
+    width: 100%;
+    margin: 0;
+  }
+
+  /* Form Responsive */
+  .form-label {
+    font-size: 12px;
+  }
+
+  .form-control-custom {
+    font-size: 14px;
+  }
+
+  /* Table Actions on Mobile */
+  .d-flex.gap-2 {
+    flex-wrap: wrap;
+    gap: 6px !important;
+  }
+
+  .d-flex.gap-2 .btn {
+    flex: 1;
+    min-width: auto;
+  }
+
+  /* QR Scanner Responsive */
+  #qr-reader,
+  [id^="qr-reader-"] {
+    max-width: 100% !important;
   }
 }
 

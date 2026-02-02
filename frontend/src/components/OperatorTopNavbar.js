@@ -4,11 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { 
   HiOutlineUser, 
   HiOutlineCog6Tooth, 
-  HiOutlineArrowRightOnRectangle 
+  HiOutlineArrowRightOnRectangle,
+  HiOutlineBars3
 } from 'react-icons/hi2';
 import '../App.css';
 
-const OperatorTopNavbar = ({ operator }) => {
+const OperatorTopNavbar = ({ operator, onMenuToggle }) => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -19,6 +20,9 @@ const OperatorTopNavbar = ({ operator }) => {
 
   return (
     <Navbar className="top-navbar" expand="lg">
+      <button className="mobile-menu-toggle" onClick={onMenuToggle} aria-label="Toggle menu">
+        <HiOutlineBars3 />
+      </button>
       <Navbar.Brand className="top-navbar-brand">
         Operator Panel
       </Navbar.Brand>

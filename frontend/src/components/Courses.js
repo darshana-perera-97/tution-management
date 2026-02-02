@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Container, Button, Table, Modal, Form, Alert } from 'react-bootstrap';
+import { QRCodeSVG } from 'qrcode.react';
+import { Html5Qrcode } from 'html5-qrcode';
 import '../App.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5253';
@@ -7,9 +9,17 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5253';
 const Courses = () => {
   const [courses, setCourses] = useState([]);
   const [teachers, setTeachers] = useState([]);
+  const [students, setStudents] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showManageStudentsModal, setShowManageStudentsModal] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState(null);
+  const [studentIdInput, setStudentIdInput] = useState('');
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [qrScanResult, setQrScanResult] = useState('');
+  const [scannerInstance, setScannerInstance] = useState(null);
+  const qrScannerRef = useRef(null);
+  const fileInputRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -25,7 +35,136 @@ const Courses = () => {
   useEffect(() => {
     fetchCourses();
     fetchTeachers();
+    fetchStudents();
   }, []);
+
+  // Handle QR Scanner lifecycle
+  useEffect(() => {
+    let html5QrCode = null;
+    let isMounted = true;
+    
+    if (showQRScanner && qrScannerRef.current) {
+      const startScanner = async () => {
+        try {
+          const scannerId = qrScannerRef.current.id;
+          html5QrCode = new Html5Qrcode(scannerId);
+          
+          await html5QrCode.start(
+            { facingMode: "environment" }, // Use back camera
+            {
+              fps: 10,
+              qrbox: { width: 250, height: 250 }
+            },
+            (decodedText) => {
+              // Successfully scanned
+              if (!isMounted) return;
+              setQrScanResult(decodedText);
+              if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                  if (html5QrCode) {
+                    html5QrCode.clear();
+                  }
+                  if (isMounted) {
+                    setScannerInstance(null);
+                    setShowQRScanner(false);
+                  }
+                  // Auto-add student if valid
+                  if (decodedText) {
+                    // Use setTimeout to avoid state update issues
+                    setTimeout(async () => {
+                      const student = students.find(s => s.id === decodedText.trim());
+                      if (student && selectedCourse) {
+                        if (!gradesMatch(student.grade, selectedCourse.grade)) {
+                          setError(`Student grade (${student.grade}) does not match course grade (${selectedCourse.grade})`);
+                          return;
+                        }
+                        const currentEnrolled = selectedCourse.enrolledStudents || [];
+                        if (currentEnrolled.includes(decodedText.trim())) {
+                          setError('Student is already enrolled in this course.');
+                          return;
+                        }
+                        
+                        const updatedEnrolledStudents = [...currentEnrolled, decodedText.trim()];
+                        
+                        try {
+                          const response = await fetch(`${API_URL}/api/courses/${selectedCourse.id}`, {
+                            method: 'PUT',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              enrolledStudents: updatedEnrolledStudents
+                            }),
+                          });
+
+                          const data = await response.json();
+
+                          if (data.success) {
+                            const updatedCourse = {
+                              ...selectedCourse,
+                              enrolledStudents: updatedEnrolledStudents
+                            };
+                            setCourses(courses.map(c => c.id === selectedCourse.id ? updatedCourse : c));
+                            setSelectedCourse(updatedCourse);
+                            setSuccess(`Student ${student.fullName} added successfully!`);
+                            setTimeout(() => setSuccess(''), 3000);
+                          } else {
+                            setError(data.message || 'Failed to add student to course');
+                          }
+                        } catch (err) {
+                          console.error('Error adding student to course:', err);
+                          setError('Unable to connect to server. Please try again later.');
+                        }
+                      } else if (!student) {
+                        setError('Student ID not found. Please check and try again.');
+                      }
+                    }, 100);
+                  }
+                }).catch((err) => {
+                  // Ignore errors if scanner is already stopped
+                  if (err.message && !err.message.includes('not running')) {
+                    console.error('Error stopping scanner:', err);
+                  }
+                });
+              }
+            },
+            (errorMessage) => {
+              // Error handling is done internally by the library
+            }
+          );
+          
+          if (isMounted) {
+            setScannerInstance(html5QrCode);
+          }
+        } catch (err) {
+          console.error('Error starting QR scanner:', err);
+          if (isMounted) {
+            setError('Failed to start camera. Please check permissions and try again.');
+            setShowQRScanner(false);
+          }
+        }
+      };
+
+      startScanner();
+    }
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+          if (html5QrCode) {
+            html5QrCode.clear();
+          }
+        }).catch((err) => {
+          // Ignore errors if scanner is not running
+          if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
+            console.error('Error in cleanup:', err);
+          }
+        });
+      }
+    };
+  }, [showQRScanner, students, selectedCourse, courses]);
 
   const fetchCourses = async () => {
     try {
@@ -48,6 +187,18 @@ const Courses = () => {
       }
     } catch (err) {
       console.error('Error fetching teachers:', err);
+    }
+  };
+
+  const fetchStudents = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/students`);
+      const data = await response.json();
+      if (data.success) {
+        setStudents(data.students);
+      }
+    } catch (err) {
+      console.error('Error fetching students:', err);
     }
   };
 
@@ -134,9 +285,151 @@ const Courses = () => {
     setSelectedCourse(null);
   };
 
+  const handleManageStudents = (course) => {
+    setSelectedCourse(course);
+    setShowManageStudentsModal(true);
+    setStudentIdInput('');
+    setShowQRScanner(false);
+    setQrScanResult('');
+  };
+
+  const handleCloseManageStudentsModal = () => {
+    // Stop scanner if running
+    if (scannerInstance) {
+      scannerInstance.stop().then(() => {
+        if (scannerInstance) {
+          scannerInstance.clear();
+        }
+        setScannerInstance(null);
+      }).catch((err) => {
+        // Ignore errors if scanner is not running
+        if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
+          console.error('Error stopping scanner:', err);
+        }
+        setScannerInstance(null);
+      });
+    }
+    setShowManageStudentsModal(false);
+    setSelectedCourse(null);
+    setStudentIdInput('');
+    setShowQRScanner(false);
+    setQrScanResult('');
+  };
+
+  const handleAddStudent = async (studentId) => {
+    if (!studentId || !studentId.trim()) {
+      setError('Please enter a valid Student ID');
+      return;
+    }
+
+    const student = students.find(s => s.id === studentId.trim());
+    if (!student) {
+      setError('Student ID not found. Please check and try again.');
+      return;
+    }
+
+    if (!gradesMatch(student.grade, selectedCourse.grade)) {
+      setError(`Student grade (${student.grade}) does not match course grade (${selectedCourse.grade})`);
+      return;
+    }
+
+    const currentEnrolled = selectedCourse.enrolledStudents || [];
+    if (currentEnrolled.includes(studentId.trim())) {
+      setError('Student is already enrolled in this course.');
+      return;
+    }
+
+    const updatedEnrolledStudents = [...currentEnrolled, studentId.trim()];
+
+    try {
+      // Update course in backend
+      const response = await fetch(`${API_URL}/api/courses/${selectedCourse.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          enrolledStudents: updatedEnrolledStudents
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update local state
+        const updatedCourse = {
+          ...selectedCourse,
+          enrolledStudents: updatedEnrolledStudents
+        };
+        setCourses(courses.map(c => c.id === selectedCourse.id ? updatedCourse : c));
+        setSelectedCourse(updatedCourse);
+        setStudentIdInput('');
+        setQrScanResult('');
+        setError('');
+        setSuccess(`Student ${student.fullName} added successfully!`);
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(data.message || 'Failed to add student to course');
+      }
+    } catch (err) {
+      console.error('Error adding student to course:', err);
+      setError('Unable to connect to server. Please try again later.');
+    }
+  };
+
+  const handleRemoveStudent = async (studentId) => {
+    const currentEnrolled = selectedCourse.enrolledStudents || [];
+    const updatedEnrolled = currentEnrolled.filter(id => id !== studentId);
+    
+    try {
+      // Update course in backend
+      const response = await fetch(`${API_URL}/api/courses/${selectedCourse.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          enrolledStudents: updatedEnrolled
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update local state
+        const updatedCourse = {
+          ...selectedCourse,
+          enrolledStudents: updatedEnrolled
+        };
+        setCourses(courses.map(c => c.id === selectedCourse.id ? updatedCourse : c));
+        setSelectedCourse(updatedCourse);
+        
+        const student = students.find(s => s.id === studentId);
+        setSuccess(`Student ${student ? student.fullName : 'Unknown'} removed successfully!`);
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(data.message || 'Failed to remove student from course');
+      }
+    } catch (err) {
+      console.error('Error removing student from course:', err);
+      setError('Unable to connect to server. Please try again later.');
+    }
+  };
+
+
   const getTeacherName = (teacherId) => {
     const teacher = teachers.find(t => t.id === teacherId);
     return teacher ? teacher.name : 'Unknown';
+  };
+
+  const normalizeGrade = (grade) => {
+    if (!grade) return '';
+    // Remove "Grade " prefix if present and trim
+    return grade.toString().replace(/^Grade\s+/i, '').trim();
+  };
+
+  const gradesMatch = (grade1, grade2) => {
+    return normalizeGrade(grade1) === normalizeGrade(grade2);
   };
 
   return (
@@ -196,9 +489,9 @@ const Courses = () => {
                   <td>{course.subject || '-'}</td>
                   <td>{getTeacherName(course.teacherId)}</td>
                   <td>{course.grade}</td>
-                  <td>{course.courseFee ? `$${parseFloat(course.courseFee).toFixed(2)}` : '-'}</td>
+                  <td>{course.courseFee ? `Rs. ${parseFloat(course.courseFee).toFixed(2)}` : '-'}</td>
                   <td>
-                    <div className="d-flex gap-2">
+                    <div className="d-flex gap-2 flex-wrap">
                       <Button
                         variant="primary"
                         size="sm"
@@ -206,6 +499,14 @@ const Courses = () => {
                         className="action-btn"
                       >
                         View More
+                      </Button>
+                      <Button
+                        variant="success"
+                        size="sm"
+                        onClick={() => handleManageStudents(course)}
+                        className="action-btn"
+                      >
+                        Manage Students
                       </Button>
                       <Button
                         variant="danger"
@@ -225,7 +526,7 @@ const Courses = () => {
       </div>
 
       {/* Add Course Modal */}
-      <Modal show={showModal} onHide={handleClose} centered>
+      <Modal show={showModal} onHide={handleClose} centered backdrop="static">
         <Modal.Header closeButton>
           <Modal.Title>Add New Course</Modal.Title>
         </Modal.Header>
@@ -380,7 +681,7 @@ const Courses = () => {
       </Modal>
 
       {/* View Course Details Modal */}
-      <Modal show={showViewModal} onHide={handleCloseViewModal} centered size="lg">
+      <Modal show={showViewModal} onHide={handleCloseViewModal} centered size="lg" backdrop="static">
         <Modal.Header closeButton>
           <Modal.Title>Course Details</Modal.Title>
         </Modal.Header>
@@ -406,7 +707,7 @@ const Courses = () => {
               <div className="detail-row mb-3">
                 <strong className="detail-label">Course Fee:</strong>
                 <span className="detail-value">
-                  {selectedCourse.courseFee ? `$${parseFloat(selectedCourse.courseFee).toFixed(2)}` : '-'}
+                  {selectedCourse.courseFee ? `Rs. ${parseFloat(selectedCourse.courseFee).toFixed(2)}` : '-'}
                 </span>
               </div>
               <div className="detail-row mb-3">
@@ -419,7 +720,7 @@ const Courses = () => {
                 <strong className="detail-label">Teacher Payment Amount:</strong>
                 <span className="detail-value">
                   {selectedCourse.courseFee && selectedCourse.teacherPaymentPercentage 
-                    ? `$${((parseFloat(selectedCourse.courseFee) * parseFloat(selectedCourse.teacherPaymentPercentage)) / 100).toFixed(2)}` 
+                    ? `Rs. ${((parseFloat(selectedCourse.courseFee) * parseFloat(selectedCourse.teacherPaymentPercentage)) / 100).toFixed(2)}` 
                     : '-'}
                 </span>
               </div>
@@ -436,6 +737,207 @@ const Courses = () => {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseViewModal}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Manage Students Modal */}
+      <Modal show={showManageStudentsModal} onHide={handleCloseManageStudentsModal} centered size="lg" backdrop="static">
+        <Modal.Header closeButton>
+          <Modal.Title>Manage Students - {selectedCourse?.courseName}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedCourse && (
+            <div>
+              {error && (
+                <Alert variant="danger" className="mb-3" onClose={() => setError('')} dismissible>
+                  {error}
+                </Alert>
+              )}
+
+              {success && (
+                <Alert variant="success" className="mb-3" onClose={() => setSuccess('')} dismissible>
+                  {success}
+                </Alert>
+              )}
+
+              <div className="mb-3">
+                <p className="text-muted">
+                  <strong>Course:</strong> {selectedCourse.courseName} | 
+                  <strong> Grade:</strong> {selectedCourse.grade} | 
+                  <strong> Subject:</strong> {selectedCourse.subject || '-'}
+                </p>
+              </div>
+
+              {/* Add Student Section */}
+              <div className="mb-4 p-3 border rounded">
+                <h6 className="mb-3">Add Student</h6>
+                <div className="d-flex gap-2 mb-2" style={{ flexWrap: 'nowrap' }}>
+                  <Form.Control
+                    type="text"
+                    placeholder="Enter Student ID"
+                    value={studentIdInput}
+                    onChange={(e) => {
+                      setStudentIdInput(e.target.value);
+                      setError('');
+                    }}
+                    className="form-control-custom"
+                    style={{ flex: '1', minWidth: '0' }}
+                  />
+                  <Button
+                    variant="primary"
+                    onClick={() => handleAddStudent(studentIdInput)}
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
+                    Add by ID
+                  </Button>
+                  <Button
+                    variant="info"
+                    onClick={() => {
+                      if (showQRScanner && scannerInstance) {
+                        // Stop scanner if it's running
+                        scannerInstance.stop().then(() => {
+                          if (scannerInstance) {
+                            scannerInstance.clear();
+                          }
+                          setScannerInstance(null);
+                        }).catch((err) => {
+                          // Ignore errors if scanner is not running
+                          if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
+                            console.error('Error stopping scanner:', err);
+                          }
+                          setScannerInstance(null);
+                        });
+                      }
+                      setShowQRScanner(!showQRScanner);
+                      setQrScanResult('');
+                      setError('');
+                    }}
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
+                    {showQRScanner ? 'Cancel Scan' : 'Scan QR Code'}
+                  </Button>
+                </div>
+                
+                {showQRScanner && (
+                  <div className="mt-3 p-3 bg-light rounded">
+                    <Form.Group className="mb-3">
+                      <Form.Label>Camera QR Scanner</Form.Label>
+                      <div 
+                        id={`qr-reader-${selectedCourse?.id || 'default'}`}
+                        ref={qrScannerRef}
+                        style={{ width: '100%', maxWidth: '500px', margin: '0 auto' }}
+                      ></div>
+                      <Form.Text className="text-muted d-block mt-2">
+                        Point your camera at the student's QR code. The scanner will automatically detect and add the student.
+                      </Form.Text>
+                    </Form.Group>
+                    {qrScanResult && (
+                      <Alert variant="info" className="mb-2">
+                        Scanned ID: <strong>{qrScanResult}</strong>
+                      </Alert>
+                    )}
+                    <div className="d-flex gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          if (scannerInstance) {
+                            scannerInstance.stop().then(() => {
+                              if (scannerInstance) {
+                                scannerInstance.clear();
+                              }
+                              setScannerInstance(null);
+                            }).catch((err) => {
+                              // Ignore errors if scanner is not running
+                              if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
+                                console.error('Error stopping scanner:', err);
+                              }
+                              setScannerInstance(null);
+                            });
+                          }
+                          setShowQRScanner(false);
+                          setQrScanResult('');
+                        }}
+                      >
+                        Stop Scanner
+                      </Button>
+                      {qrScanResult && (
+                        <Button
+                          variant="success"
+                          size="sm"
+                          onClick={() => handleAddStudent(qrScanResult)}
+                        >
+                          Add Student
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Enrolled Students Section */}
+              <div className="mb-3">
+                <h6>Enrolled Students ({selectedCourse.enrolledStudents && Array.isArray(selectedCourse.enrolledStudents) ? selectedCourse.enrolledStudents.length : 0})</h6>
+                {selectedCourse.enrolledStudents && Array.isArray(selectedCourse.enrolledStudents) && selectedCourse.enrolledStudents.length > 0 ? (
+                  <div className="table-responsive">
+                    <Table striped bordered hover size="sm">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Student ID</th>
+                          <th>Full Name</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedCourse.enrolledStudents.map((studentId, index) => {
+                          const student = students.find(s => s.id === studentId);
+                          return student ? (
+                            <tr key={studentId}>
+                              <td>{index + 1}</td>
+                              <td><code>{student.id}</code></td>
+                              <td>{student.fullName}</td>
+                              <td>
+                                <Button
+                                  variant="danger"
+                                  size="sm"
+                                  onClick={() => handleRemoveStudent(studentId)}
+                                >
+                                  Remove
+                                </Button>
+                              </td>
+                            </tr>
+                          ) : (
+                            <tr key={studentId}>
+                              <td>{index + 1}</td>
+                              <td><code>{studentId}</code></td>
+                              <td className="text-muted">Student not found</td>
+                              <td>
+                                <Button
+                                  variant="danger"
+                                  size="sm"
+                                  onClick={() => handleRemoveStudent(studentId)}
+                                >
+                                  Remove
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </Table>
+                  </div>
+                ) : (
+                  <p className="text-muted">No students enrolled in this course.</p>
+                )}
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseManageStudentsModal}>
             Close
           </Button>
         </Modal.Footer>
