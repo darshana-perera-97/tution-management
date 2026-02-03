@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { Container, Card, Form, Button, Alert } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import '../App.css';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5253';
+import API_URL from '../config';
 
 const OperatorLogin = () => {
   const navigate = useNavigate();

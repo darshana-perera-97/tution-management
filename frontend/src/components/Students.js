@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Container, Button, Table, Modal, Form, Alert } from 'react-bootstrap';
 import { QRCodeSVG } from 'qrcode.react';
 import '../App.css';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5253';
+import API_URL from '../config';
 
 const Students = () => {
   const [students, setStudents] = useState([]);

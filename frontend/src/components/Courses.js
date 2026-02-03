@@ -3,8 +3,7 @@ import { Container, Button, Table, Modal, Form, Alert } from 'react-bootstrap';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
 import '../App.css';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5253';
+import API_URL from '../config';
 
 const Courses = () => {
   const [courses, setCourses] = useState([]);

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Form, Table, Alert, Card } from 'react-bootstrap';
 import '../App.css';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5253';
+import API_URL from '../config';
 
 const Reports = () => {
   const [teachers, setTeachers] = useState([]);

@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, startTransition } from
 import { Container, Button, Table, Modal, Form, Alert, Card } from 'react-bootstrap';
 import { Html5Qrcode } from 'html5-qrcode';
 import '../App.css';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5253';
+import API_URL from '../config';
 
 const Attendance = () => {
   const [students, setStudents] = useState([]);

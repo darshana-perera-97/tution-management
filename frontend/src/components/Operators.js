@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Button, Table, Modal, Form, Alert } from 'react-bootstrap';
 import '../App.css';
-
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5253';
+import API_URL from '../config';
 
 const Operators = () => {
   const [operators, setOperators] = useState([]);
