@@ -22,6 +22,62 @@ const Courses = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Safe function to stop scanner
+  const safeStopScanner = async (scanner) => {
+    if (!scanner) return;
+    
+    try {
+      // Check if scanner has stop method before calling
+      if (typeof scanner.stop === 'function') {
+        try {
+          await scanner.stop().catch((stopErr) => {
+            // Handle promise rejection
+            const errorMsg = (stopErr?.message || stopErr?.toString() || '').toLowerCase();
+            if (errorMsg && 
+                !errorMsg.includes('not running') && 
+                !errorMsg.includes('not paused') &&
+                !errorMsg.includes('scanner is not running') &&
+                !errorMsg.includes('cannot stop') &&
+                !errorMsg.includes('scanner is not running or paused')) {
+              console.error('Error stopping scanner:', stopErr);
+            }
+          });
+        } catch (syncErr) {
+          // Handle synchronous errors
+          const errorMsg = (syncErr?.message || syncErr?.toString() || '').toLowerCase();
+          if (errorMsg && 
+              !errorMsg.includes('not running') && 
+              !errorMsg.includes('not paused') &&
+              !errorMsg.includes('scanner is not running') &&
+              !errorMsg.includes('cannot stop') &&
+              !errorMsg.includes('scanner is not running or paused')) {
+            console.error('Error stopping scanner:', syncErr);
+          }
+        }
+      }
+      
+      // Try to clear scanner
+      if (typeof scanner.clear === 'function') {
+        try {
+          scanner.clear();
+        } catch (clearErr) {
+          // Ignore clear errors
+        }
+      }
+    } catch (err) {
+      // Silently ignore errors about scanner not running or cannot stop
+      const errorMsg = (err?.message || err?.toString() || '').toLowerCase();
+      if (errorMsg && 
+          !errorMsg.includes('not running') && 
+          !errorMsg.includes('not paused') &&
+          !errorMsg.includes('scanner is not running') &&
+          !errorMsg.includes('cannot stop') &&
+          !errorMsg.includes('scanner is not running or paused')) {
+        console.error('Error stopping scanner:', err);
+      }
+    }
+  };
   const [formData, setFormData] = useState({
     courseName: '',
     teacherId: '',
@@ -42,10 +98,23 @@ const Courses = () => {
     let html5QrCode = null;
     let isMounted = true;
     
-    if (showQRScanner && qrScannerRef.current) {
+    if (showQRScanner && selectedCourse) {
       const startScanner = async () => {
+        // Wait a bit for the DOM to be ready
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        if (!isMounted || !qrScannerRef.current) {
+          return;
+        }
+        
         try {
-          const scannerId = qrScannerRef.current.id;
+          const scannerId = qrScannerRef.current.id || `qr-reader-${selectedCourse?.id || 'default'}`;
+          
+          // Ensure the element has an ID
+          if (!qrScannerRef.current.id) {
+            qrScannerRef.current.id = scannerId;
+          }
+          
           html5QrCode = new Html5Qrcode(scannerId);
           
           await html5QrCode.start(
@@ -59,10 +128,7 @@ const Courses = () => {
               if (!isMounted) return;
               setQrScanResult(decodedText);
               if (html5QrCode) {
-                html5QrCode.stop().then(() => {
-                  if (html5QrCode) {
-                    html5QrCode.clear();
-                  }
+                safeStopScanner(html5QrCode).then(() => {
                   if (isMounted) {
                     setScannerInstance(null);
                     setShowQRScanner(false);
@@ -119,11 +185,6 @@ const Courses = () => {
                       }
                     }, 100);
                   }
-                }).catch((err) => {
-                  // Ignore errors if scanner is already stopped
-                  if (err.message && !err.message.includes('not running')) {
-                    console.error('Error stopping scanner:', err);
-                  }
                 });
               }
             },
@@ -151,16 +212,7 @@ const Courses = () => {
     return () => {
       isMounted = false;
       if (html5QrCode) {
-        html5QrCode.stop().then(() => {
-          if (html5QrCode) {
-            html5QrCode.clear();
-          }
-        }).catch((err) => {
-          // Ignore errors if scanner is not running
-          if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
-            console.error('Error in cleanup:', err);
-          }
-        });
+        safeStopScanner(html5QrCode);
       }
     };
   }, [showQRScanner, students, selectedCourse, courses]);
@@ -295,16 +347,7 @@ const Courses = () => {
   const handleCloseManageStudentsModal = () => {
     // Stop scanner if running
     if (scannerInstance) {
-      scannerInstance.stop().then(() => {
-        if (scannerInstance) {
-          scannerInstance.clear();
-        }
-        setScannerInstance(null);
-      }).catch((err) => {
-        // Ignore errors if scanner is not running
-        if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
-          console.error('Error stopping scanner:', err);
-        }
+      safeStopScanner(scannerInstance).then(() => {
         setScannerInstance(null);
       });
     }
@@ -846,16 +889,7 @@ const Courses = () => {
                     onClick={() => {
                       if (showQRScanner && scannerInstance) {
                         // Stop scanner if it's running
-                        scannerInstance.stop().then(() => {
-                          if (scannerInstance) {
-                            scannerInstance.clear();
-                          }
-                          setScannerInstance(null);
-                        }).catch((err) => {
-                          // Ignore errors if scanner is not running
-                          if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
-                            console.error('Error stopping scanner:', err);
-                          }
+                        safeStopScanner(scannerInstance).then(() => {
                           setScannerInstance(null);
                         });
                       }
@@ -869,12 +903,12 @@ const Courses = () => {
                   </Button>
                 </div>
                 
-                {showQRScanner && (
+                {showQRScanner && selectedCourse && (
                   <div className="mt-3 p-3 bg-light rounded">
                     <Form.Group className="mb-3">
                       <Form.Label>Camera QR Scanner</Form.Label>
                       <div 
-                        id={`qr-reader-${selectedCourse?.id || 'default'}`}
+                        id={`qr-reader-${selectedCourse.id || 'default'}`}
                         ref={qrScannerRef}
                         style={{ width: '100%', maxWidth: '500px', margin: '0 auto' }}
                       ></div>
@@ -893,16 +927,7 @@ const Courses = () => {
                         size="sm"
                         onClick={() => {
                           if (scannerInstance) {
-                            scannerInstance.stop().then(() => {
-                              if (scannerInstance) {
-                                scannerInstance.clear();
-                              }
-                              setScannerInstance(null);
-                            }).catch((err) => {
-                              // Ignore errors if scanner is not running
-                              if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
-                                console.error('Error stopping scanner:', err);
-                              }
+                            safeStopScanner(scannerInstance).then(() => {
                               setScannerInstance(null);
                             });
                           }

@@ -22,6 +22,62 @@ const Payments = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Safe function to stop scanner
+  const safeStopScanner = async (scanner) => {
+    if (!scanner) return;
+    
+    try {
+      // Check if scanner has stop method before calling
+      if (typeof scanner.stop === 'function') {
+        try {
+          await scanner.stop().catch((stopErr) => {
+            // Handle promise rejection
+            const errorMsg = (stopErr?.message || stopErr?.toString() || '').toLowerCase();
+            if (errorMsg && 
+                !errorMsg.includes('not running') && 
+                !errorMsg.includes('not paused') &&
+                !errorMsg.includes('scanner is not running') &&
+                !errorMsg.includes('cannot stop') &&
+                !errorMsg.includes('scanner is not running or paused')) {
+              console.error('Error stopping scanner:', stopErr);
+            }
+          });
+        } catch (syncErr) {
+          // Handle synchronous errors
+          const errorMsg = (syncErr?.message || syncErr?.toString() || '').toLowerCase();
+          if (errorMsg && 
+              !errorMsg.includes('not running') && 
+              !errorMsg.includes('not paused') &&
+              !errorMsg.includes('scanner is not running') &&
+              !errorMsg.includes('cannot stop') &&
+              !errorMsg.includes('scanner is not running or paused')) {
+            console.error('Error stopping scanner:', syncErr);
+          }
+        }
+      }
+      
+      // Try to clear scanner
+      if (typeof scanner.clear === 'function') {
+        try {
+          scanner.clear();
+        } catch (clearErr) {
+          // Ignore clear errors
+        }
+      }
+    } catch (err) {
+      // Silently ignore errors about scanner not running or cannot stop
+      const errorMsg = (err?.message || err?.toString() || '').toLowerCase();
+      if (errorMsg && 
+          !errorMsg.includes('not running') && 
+          !errorMsg.includes('not paused') &&
+          !errorMsg.includes('scanner is not running') &&
+          !errorMsg.includes('cannot stop') &&
+          !errorMsg.includes('scanner is not running or paused')) {
+        console.error('Error stopping scanner:', err);
+      }
+    }
+  };
+
   useEffect(() => {
     fetchStudents();
     fetchCourses();
@@ -51,10 +107,7 @@ const Payments = () => {
               if (!isMounted) return;
               setQrScanResult(decodedText);
               if (html5QrCode) {
-                html5QrCode.stop().then(() => {
-                  if (html5QrCode) {
-                    html5QrCode.clear();
-                  }
+                safeStopScanner(html5QrCode).then(() => {
                   if (isMounted) {
                     setScannerInstance(null);
                     setShowQRScanner(false);
@@ -63,10 +116,6 @@ const Payments = () => {
                     setTimeout(() => {
                       handleStudentLookup(decodedText.trim());
                     }, 100);
-                  }
-                }).catch((err) => {
-                  if (err.message && !err.message.includes('not running')) {
-                    console.error('Error stopping scanner:', err);
                   }
                 });
               }
@@ -94,15 +143,7 @@ const Payments = () => {
     return () => {
       isMounted = false;
       if (html5QrCode) {
-        html5QrCode.stop().then(() => {
-          if (html5QrCode) {
-            html5QrCode.clear();
-          }
-        }).catch((err) => {
-          if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
-            console.error('Error in cleanup:', err);
-          }
-        });
+        safeStopScanner(html5QrCode);
       }
     };
   }, [showQRScanner]);
@@ -444,15 +485,7 @@ const Payments = () => {
             variant="info"
             onClick={() => {
               if (showQRScanner && scannerInstance) {
-                scannerInstance.stop().then(() => {
-                  if (scannerInstance) {
-                    scannerInstance.clear();
-                  }
-                  setScannerInstance(null);
-                }).catch((err) => {
-                  if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
-                    console.error('Error stopping scanner:', err);
-                  }
+                safeStopScanner(scannerInstance).then(() => {
                   setScannerInstance(null);
                 });
               }

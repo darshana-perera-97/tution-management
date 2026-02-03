@@ -24,6 +24,62 @@ const Attendance = () => {
   const qrScannerRef = useRef(null);
   const isProcessingRef = useRef(false);
 
+  // Safe function to stop scanner
+  const safeStopScanner = async (scanner) => {
+    if (!scanner) return;
+    
+    try {
+      // Check if scanner has stop method before calling
+      if (typeof scanner.stop === 'function') {
+        try {
+          await scanner.stop().catch((stopErr) => {
+            // Handle promise rejection
+            const errorMsg = (stopErr?.message || stopErr?.toString() || '').toLowerCase();
+            if (errorMsg && 
+                !errorMsg.includes('not running') && 
+                !errorMsg.includes('not paused') &&
+                !errorMsg.includes('scanner is not running') &&
+                !errorMsg.includes('cannot stop') &&
+                !errorMsg.includes('scanner is not running or paused')) {
+              console.error('Error stopping scanner:', stopErr);
+            }
+          });
+        } catch (syncErr) {
+          // Handle synchronous errors
+          const errorMsg = (syncErr?.message || syncErr?.toString() || '').toLowerCase();
+          if (errorMsg && 
+              !errorMsg.includes('not running') && 
+              !errorMsg.includes('not paused') &&
+              !errorMsg.includes('scanner is not running') &&
+              !errorMsg.includes('cannot stop') &&
+              !errorMsg.includes('scanner is not running or paused')) {
+            console.error('Error stopping scanner:', syncErr);
+          }
+        }
+      }
+      
+      // Try to clear scanner
+      if (typeof scanner.clear === 'function') {
+        try {
+          scanner.clear();
+        } catch (clearErr) {
+          // Ignore clear errors
+        }
+      }
+    } catch (err) {
+      // Silently ignore errors about scanner not running or cannot stop
+      const errorMsg = (err?.message || err?.toString() || '').toLowerCase();
+      if (errorMsg && 
+          !errorMsg.includes('not running') && 
+          !errorMsg.includes('not paused') &&
+          !errorMsg.includes('scanner is not running') &&
+          !errorMsg.includes('cannot stop') &&
+          !errorMsg.includes('scanner is not running or paused')) {
+        console.error('Error stopping scanner:', err);
+      }
+    }
+  };
+
   useEffect(() => {
     fetchStudents();
     fetchCourses();
@@ -202,10 +258,7 @@ const Attendance = () => {
               });
               
               if (html5QrCode) {
-                html5QrCode.stop().then(() => {
-                  if (html5QrCode) {
-                    html5QrCode.clear();
-                  }
+                safeStopScanner(html5QrCode).then(() => {
                   if (isMounted) {
                     startTransition(() => {
                       setScannerInstance(null);
@@ -217,11 +270,6 @@ const Attendance = () => {
                       handleMarkAttendance(decodedText.trim());
                     }, 100);
                   }
-                }).catch((err) => {
-                  if (err.message && !err.message.includes('not running')) {
-                    console.error('Error stopping scanner:', err);
-                  }
-                  scanProcessed = false;
                 });
               }
             },
@@ -251,15 +299,7 @@ const Attendance = () => {
       isMounted = false;
       scanProcessed = false;
       if (html5QrCode) {
-        html5QrCode.stop().then(() => {
-          if (html5QrCode) {
-            html5QrCode.clear();
-          }
-        }).catch((err) => {
-          if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
-            console.error('Error in cleanup:', err);
-          }
-        });
+        safeStopScanner(html5QrCode);
       }
     };
   }, [showQRScanner, selectedCourse, handleMarkAttendance]);
@@ -323,15 +363,7 @@ const Attendance = () => {
     setSelectedStudent(null);
     setShowStudentDetails(false);
     if (scannerInstance) {
-      scannerInstance.stop().then(() => {
-        if (scannerInstance) {
-          scannerInstance.clear();
-        }
-        setScannerInstance(null);
-      }).catch((err) => {
-        if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
-          console.error('Error stopping scanner:', err);
-        }
+      safeStopScanner(scannerInstance).then(() => {
         setScannerInstance(null);
       });
     }
@@ -488,15 +520,7 @@ const Attendance = () => {
                   setSelectedStudent(null);
                   setShowStudentDetails(false);
                   if (scannerInstance) {
-                    scannerInstance.stop().then(() => {
-                      if (scannerInstance) {
-                        scannerInstance.clear();
-                      }
-                      setScannerInstance(null);
-                    }).catch((err) => {
-                      if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
-                        console.error('Error stopping scanner:', err);
-                      }
+                    safeStopScanner(scannerInstance).then(() => {
                       setScannerInstance(null);
                     });
                   }
@@ -549,15 +573,7 @@ const Attendance = () => {
                       variant="info"
                       onClick={() => {
                         if (showQRScanner && scannerInstance) {
-                          scannerInstance.stop().then(() => {
-                            if (scannerInstance) {
-                              scannerInstance.clear();
-                            }
-                            setScannerInstance(null);
-                          }).catch((err) => {
-                            if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
-                              console.error('Error stopping scanner:', err);
-                            }
+                          safeStopScanner(scannerInstance).then(() => {
                             setScannerInstance(null);
                           });
                         }
@@ -596,15 +612,7 @@ const Attendance = () => {
                         size="sm"
                         onClick={() => {
                           if (scannerInstance) {
-                            scannerInstance.stop().then(() => {
-                              if (scannerInstance) {
-                                scannerInstance.clear();
-                              }
-                              setScannerInstance(null);
-                            }).catch((err) => {
-                              if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
-                                console.error('Error stopping scanner:', err);
-                              }
+                            safeStopScanner(scannerInstance).then(() => {
                               setScannerInstance(null);
                             });
                           }
