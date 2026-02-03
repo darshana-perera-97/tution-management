@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Container, Button, Table, Modal, Form, Alert, Card } from 'react-bootstrap';
 import '../App.css';
 import API_URL from '../config';
+import { usePagination } from '../hooks/usePagination';
+import Pagination from './Pagination';
 
 const Operators = () => {
   const [operators, setOperators] = useState([]);
@@ -18,6 +20,22 @@ const Operators = () => {
   useEffect(() => {
     fetchOperators();
   }, []);
+
+  // Pagination
+  const {
+    currentPage,
+    totalPages,
+    paginatedData: paginatedOperators,
+    goToPage,
+    nextPage,
+    prevPage,
+    startIndex,
+    endIndex,
+    totalItems
+  } = usePagination(operators, {
+    itemsPerPageDesktop: 10,
+    itemsPerPageMobile: 5
+  });
 
   const fetchOperators = async () => {
     try {
@@ -147,16 +165,16 @@ const Operators = () => {
             </tr>
           </thead>
           <tbody>
-            {operators.length === 0 ? (
+            {paginatedOperators.length === 0 ? (
               <tr>
                 <td colSpan="6" className="text-center text-muted py-4">
                   No operators found. Click "Add Operator" to create one.
                 </td>
               </tr>
             ) : (
-              operators.map((operator, index) => (
+              paginatedOperators.map((operator, index) => (
                 <tr key={operator.id}>
-                  <td>{index + 1}</td>
+                  <td>{startIndex + index + 1}</td>
                   <td>{operator.name}</td>
                   <td>{operator.email}</td>
                   <td>{operator.createdAt ? new Date(operator.createdAt).toLocaleDateString() : '-'}</td>
@@ -179,13 +197,13 @@ const Operators = () => {
 
         {/* Mobile Card View */}
         <div className="d-lg-none">
-          {operators.length === 0 ? (
+          {paginatedOperators.length === 0 ? (
             <div className="text-center text-muted py-5">
               <p>No operators found. Click "Add Operator" to create one.</p>
             </div>
           ) : (
             <div className="student-cards-container">
-              {operators.map((operator, index) => (
+              {paginatedOperators.map((operator, index) => (
                 <Card key={operator.id} className="student-card mb-3">
                   <Card.Body>
                     <div className="student-card-header mb-2">
@@ -210,6 +228,20 @@ const Operators = () => {
             </div>
           )}
         </div>
+        
+        {/* Pagination */}
+        {operators.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={goToPage}
+            onNext={nextPage}
+            onPrev={prevPage}
+            totalItems={totalItems}
+            startIndex={startIndex}
+            endIndex={endIndex}
+          />
+        )}
       </div>
 
       {/* Add Operator Modal */}

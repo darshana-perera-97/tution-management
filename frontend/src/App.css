@@ -1496,6 +1496,44 @@ code {
   border-bottom: 1px solid #e5e7eb;
 }
 
+/* Pagination Styles */
+.pagination-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: #64748b;
+  text-align: center;
+}
+
+.pagination-item {
+  cursor: pointer;
+  user-select: none;
+}
+
+.pagination-item.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .pagination-container {
+    margin-top: 16px;
+    padding-top: 16px;
+  }
+
+  .pagination-info {
+    font-size: 12px;
+    text-align: center;
+  }
+}
+
 .detail-row:last-child {
   border-bottom: none;
 }

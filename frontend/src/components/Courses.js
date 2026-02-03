@@ -4,6 +4,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
 import '../App.css';
 import API_URL from '../config';
+import { usePagination } from '../hooks/usePagination';
+import Pagination from './Pagination';
 
 const Courses = () => {
   const [courses, setCourses] = useState([]);
@@ -92,6 +94,22 @@ const Courses = () => {
     fetchTeachers();
     fetchStudents();
   }, []);
+
+  // Pagination
+  const {
+    currentPage,
+    totalPages,
+    paginatedData: paginatedCourses,
+    goToPage,
+    nextPage,
+    prevPage,
+    startIndex,
+    endIndex,
+    totalItems
+  } = usePagination(courses, {
+    itemsPerPageDesktop: 10,
+    itemsPerPageMobile: 5
+  });
 
   // Handle QR Scanner lifecycle
   useEffect(() => {
@@ -518,16 +536,16 @@ const Courses = () => {
             </tr>
           </thead>
           <tbody>
-            {courses.length === 0 ? (
+            {paginatedCourses.length === 0 ? (
               <tr>
                 <td colSpan="7" className="text-center text-muted py-4">
                   No courses found. Click "Add Course" to create one.
                 </td>
               </tr>
             ) : (
-              courses.map((course, index) => (
+              paginatedCourses.map((course, index) => (
                 <tr key={course.id}>
-                  <td>{index + 1}</td>
+                  <td>{startIndex + index + 1}</td>
                   <td>{course.courseName}</td>
                   <td>{course.subject || '-'}</td>
                   <td>{getTeacherName(course.teacherId)}</td>
@@ -569,13 +587,13 @@ const Courses = () => {
 
         {/* Mobile Card View */}
         <div className="d-lg-none">
-          {courses.length === 0 ? (
+          {paginatedCourses.length === 0 ? (
             <div className="text-center text-muted py-5">
               <p>No courses found. Click "Add Course" to create one.</p>
             </div>
           ) : (
             <div className="student-cards-container">
-              {courses.map((course, index) => (
+              {paginatedCourses.map((course, index) => (
                 <Card key={course.id} className="student-card mb-3">
                   <Card.Body>
                     <div className="student-card-header mb-0">
@@ -615,6 +633,20 @@ const Courses = () => {
             </div>
           )}
         </div>
+        
+        {/* Pagination */}
+        {courses.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={goToPage}
+            onNext={nextPage}
+            onPrev={prevPage}
+            totalItems={totalItems}
+            startIndex={startIndex}
+            endIndex={endIndex}
+          />
+        )}
       </div>
 
       {/* Add Course Modal */}

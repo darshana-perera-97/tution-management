@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Container, Form, Table, Alert, Card } from 'react-bootstrap';
 import '../App.css';
 import API_URL from '../config';
+import { usePagination } from '../hooks/usePagination';
+import Pagination from './Pagination';
 
 const Reports = () => {
   const [teachers, setTeachers] = useState([]);
@@ -213,6 +215,22 @@ const Reports = () => {
     });
   };
 
+  // Pagination
+  const {
+    currentPage,
+    totalPages,
+    paginatedData: paginatedReportData,
+    goToPage,
+    nextPage,
+    prevPage,
+    startIndex,
+    endIndex,
+    totalItems
+  } = usePagination(reportData, {
+    itemsPerPageDesktop: 10,
+    itemsPerPageMobile: 5
+  });
+
   return (
     <Container fluid>
       <div className="operators-header mb-4">
@@ -278,32 +296,40 @@ const Reports = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {reportData.map((item, index) => (
-                            <tr key={`${item.monthKey}-${item.courseId}-${index}`}>
-                              <td><strong>{item.monthName}</strong></td>
-                              <td>{item.courseName}</td>
-                              <td>{item.subject}</td>
-                              <td>{item.grade}</td>
-                              <td>Rs. {item.totalFee.toFixed(2)}</td>
-                              <td>Rs. {item.teacherIncome.toFixed(2)}</td>
-                              <td>
-                                <span className={item.paidFee > 0 ? 'text-success' : 'text-muted'}>
-                                  Rs. {item.paidFee.toFixed(2)}
-                                </span>
-                              </td>
-                              <td>
-                                <span className={item.paidTeacherIncome > 0 ? 'text-success' : 'text-muted'}>
-                                  Rs. {item.paidTeacherIncome.toFixed(2)}
-                                </span>
-                              </td>
-                              <td>{item.studentCount}</td>
-                              <td>
-                                <span className={item.paidStudentCount > 0 ? 'text-success' : 'text-muted'}>
-                                  {item.paidStudentCount}
-                                </span>
+                          {paginatedReportData.length === 0 ? (
+                            <tr>
+                              <td colSpan="10" className="text-center text-muted py-4">
+                                No report data available.
                               </td>
                             </tr>
-                          ))}
+                          ) : (
+                            paginatedReportData.map((item, index) => (
+                              <tr key={`${item.monthKey}-${item.courseId}-${index}`}>
+                                <td><strong>{item.monthName}</strong></td>
+                                <td>{item.courseName}</td>
+                                <td>{item.subject}</td>
+                                <td>{item.grade}</td>
+                                <td>Rs. {item.totalFee.toFixed(2)}</td>
+                                <td>Rs. {item.teacherIncome.toFixed(2)}</td>
+                                <td>
+                                  <span className={item.paidFee > 0 ? 'text-success' : 'text-muted'}>
+                                    Rs. {item.paidFee.toFixed(2)}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className={item.paidTeacherIncome > 0 ? 'text-success' : 'text-muted'}>
+                                    Rs. {item.paidTeacherIncome.toFixed(2)}
+                                  </span>
+                                </td>
+                                <td>{item.studentCount}</td>
+                                <td>
+                                  <span className={item.paidStudentCount > 0 ? 'text-success' : 'text-muted'}>
+                                    {item.paidStudentCount}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          )}
                         </tbody>
                         <tfoot>
                           <tr className="table-info">
@@ -320,8 +346,13 @@ const Reports = () => {
 
                     {/* Mobile Card View */}
                     <div className="d-lg-none">
-                      <div className="student-cards-container">
-                        {reportData.map((item, index) => (
+                      {paginatedReportData.length === 0 ? (
+                        <div className="text-center text-muted py-5">
+                          <p>No report data available.</p>
+                        </div>
+                      ) : (
+                        <div className="student-cards-container">
+                          {paginatedReportData.map((item, index) => (
                           <Card key={`${item.monthKey}-${item.courseId}-${index}`} className="student-card mb-3">
                             <Card.Body>
                               <div className="student-card-header mb-2">
@@ -368,7 +399,8 @@ const Reports = () => {
                             </Card.Body>
                           </Card>
                         ))}
-                      </div>
+                        </div>
+                      )}
                       
                       {/* Mobile Summary Card */}
                       <Card className="mt-3 border-info">
@@ -403,6 +435,20 @@ const Reports = () => {
                         </Card.Body>
                       </Card>
                     </div>
+                    
+                    {/* Pagination */}
+                    {reportData.length > 0 && (
+                      <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={goToPage}
+                        onNext={nextPage}
+                        onPrev={prevPage}
+                        totalItems={totalItems}
+                        startIndex={startIndex}
+                        endIndex={endIndex}
+                      />
+                    )}
                   </div>
 
                   <div className="mt-3 p-3 bg-light rounded">

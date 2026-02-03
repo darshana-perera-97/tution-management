@@ -4,6 +4,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
 import '../App.css';
 import API_URL from '../config';
+import { usePagination } from '../hooks/usePagination';
+import Pagination from './Pagination';
 
 const Payments = () => {
   const [students, setStudents] = useState([]);
@@ -433,6 +435,23 @@ const Payments = () => {
     );
   };
 
+  // Pagination
+  const allPayments = getAllPaymentsCombined();
+  const {
+    currentPage,
+    totalPages,
+    paginatedData: paginatedPayments,
+    goToPage,
+    nextPage,
+    prevPage,
+    startIndex,
+    endIndex,
+    totalItems
+  } = usePagination(allPayments, {
+    itemsPerPageDesktop: 10,
+    itemsPerPageMobile: 5
+  });
+
   return (
     <Container fluid>
       <div className="operators-header mb-4">
@@ -575,14 +594,14 @@ const Payments = () => {
               </tr>
             </thead>
             <tbody>
-              {getAllPaymentsCombined().length === 0 ? (
+              {paginatedPayments.length === 0 ? (
                 <tr>
                   <td colSpan="9" className="text-center text-muted py-4">
                     No payment records found.
                   </td>
                 </tr>
               ) : (
-                getAllPaymentsCombined().map((payment, index) => (
+                paginatedPayments.map((payment, index) => (
                   <tr 
                     key={`${payment.type}-${payment.id}`}
                     className={payment.type === 'Money Out' ? 'table-danger' : ''}
@@ -690,13 +709,13 @@ const Payments = () => {
 
           {/* Mobile Card View */}
           <div className="d-lg-none">
-            {getAllPaymentsCombined().length === 0 ? (
+              {paginatedPayments.length === 0 ? (
               <div className="text-center text-muted py-5">
                 <p>No payment records found.</p>
               </div>
             ) : (
               <div className="student-cards-container">
-                {getAllPaymentsCombined().map((payment, index) => (
+                {paginatedPayments.map((payment, index) => (
                   <Card 
                     key={`${payment.type}-${payment.id}`} 
                     className={`student-card mb-3 ${payment.type === 'Money Out' ? 'border-danger' : ''}`}
@@ -758,6 +777,20 @@ const Payments = () => {
               </div>
             )}
           </div>
+          
+          {/* Pagination */}
+          {allPayments.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={goToPage}
+              onNext={nextPage}
+              onPrev={prevPage}
+              totalItems={totalItems}
+              startIndex={startIndex}
+              endIndex={endIndex}
+            />
+          )}
         </div>
       </div>
 

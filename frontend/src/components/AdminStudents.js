@@ -4,6 +4,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
 import '../App.css';
 import API_URL from '../config';
+import { usePagination } from '../hooks/usePagination';
+import Pagination from './Pagination';
 
 const AdminStudents = () => {
   const [students, setStudents] = useState([]);
@@ -376,6 +378,22 @@ const AdminStudents = () => {
     return nameMatch && contactMatch && qrMatch;
   });
 
+  // Pagination
+  const {
+    currentPage,
+    totalPages,
+    paginatedData: paginatedStudents,
+    goToPage,
+    nextPage,
+    prevPage,
+    startIndex,
+    endIndex,
+    totalItems
+  } = usePagination(filteredStudents, {
+    itemsPerPageDesktop: 10,
+    itemsPerPageMobile: 5
+  });
+
   const handleClearSearch = () => {
     setSearchName('');
     setSearchContact('');
@@ -514,16 +532,16 @@ const AdminStudents = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredStudents.length === 0 ? (
+                {paginatedStudents.length === 0 ? (
                   <tr>
                     <td colSpan="5" className="text-center text-muted py-4">
                       {students.length === 0 ? 'No students found.' : 'No students match your search criteria.'}
                     </td>
                   </tr>
                 ) : (
-                  filteredStudents.map((student, index) => (
+                  paginatedStudents.map((student, index) => (
                     <tr key={student.id}>
-                      <td>{index + 1}</td>
+                      <td>{startIndex + index + 1}</td>
                       <td>{student.fullName}</td>
                       <td>{student.grade}</td>
                       <td>{student.contactNumber}</td>
@@ -571,13 +589,13 @@ const AdminStudents = () => {
 
             {/* Mobile Card View */}
             <div className="d-lg-none">
-              {filteredStudents.length === 0 ? (
+              {paginatedStudents.length === 0 ? (
                 <div className="text-center text-muted py-5">
                   <p>{students.length === 0 ? 'No students found.' : 'No students match your search criteria.'}</p>
                 </div>
               ) : (
                 <div className="student-cards-container">
-                  {filteredStudents.map((student, index) => (
+                  {paginatedStudents.map((student, index) => (
                     <Card key={student.id} className="student-card mb-3">
                       <Card.Body>
                         <div className="student-card-header mb-0">
@@ -626,6 +644,20 @@ const AdminStudents = () => {
               )}
             </div>
           </>
+        )}
+        
+        {/* Pagination */}
+        {filteredStudents.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={goToPage}
+            onNext={nextPage}
+            onPrev={prevPage}
+            totalItems={totalItems}
+            startIndex={startIndex}
+            endIndex={endIndex}
+          />
         )}
       </div>
 

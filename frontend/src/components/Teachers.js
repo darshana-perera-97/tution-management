@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Container, Button, Table, Modal, Form, Alert, Card } from 'react-bootstrap';
 import '../App.css';
 import API_URL from '../config';
+import { usePagination } from '../hooks/usePagination';
+import Pagination from './Pagination';
 
 const Teachers = () => {
   const [teachers, setTeachers] = useState([]);
@@ -47,6 +49,22 @@ const Teachers = () => {
     fetchStudents();
     fetchTeacherPayments();
   }, []);
+
+  // Pagination
+  const {
+    currentPage,
+    totalPages,
+    paginatedData: paginatedTeachers,
+    goToPage,
+    nextPage,
+    prevPage,
+    startIndex,
+    endIndex,
+    totalItems
+  } = usePagination(teachers, {
+    itemsPerPageDesktop: 10,
+    itemsPerPageMobile: 5
+  });
 
   // Refresh teacher payments when payments modal opens
   useEffect(() => {
@@ -392,16 +410,16 @@ const Teachers = () => {
             </tr>
           </thead>
           <tbody>
-            {teachers.length === 0 ? (
+            {paginatedTeachers.length === 0 ? (
               <tr>
                 <td colSpan="4" className="text-center text-muted py-4">
                   No teachers found. Click "Add Teacher" to create one.
                 </td>
               </tr>
             ) : (
-              teachers.map((teacher, index) => (
+              paginatedTeachers.map((teacher, index) => (
                 <tr key={teacher.id}>
-                  <td>{index + 1}</td>
+                  <td>{startIndex + index + 1}</td>
                   <td>{teacher.name}</td>
                   <td>{teacher.subject || '-'}</td>
                   <td>
@@ -444,13 +462,13 @@ const Teachers = () => {
 
         {/* Mobile Card View */}
         <div className="d-lg-none">
-          {teachers.length === 0 ? (
+          {paginatedTeachers.length === 0 ? (
             <div className="text-center text-muted py-5">
               <p>No teachers found. Click "Add Teacher" to create one.</p>
             </div>
           ) : (
             <div className="student-cards-container">
-              {teachers.map((teacher, index) => (
+              {paginatedTeachers.map((teacher, index) => (
                 <Card key={teacher.id} className="student-card mb-3">
                   <Card.Body>
                     <div className="student-card-header mb-0">
@@ -494,6 +512,20 @@ const Teachers = () => {
             </div>
           )}
         </div>
+        
+        {/* Pagination */}
+        {teachers.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={goToPage}
+            onNext={nextPage}
+            onPrev={prevPage}
+            totalItems={totalItems}
+            startIndex={startIndex}
+            endIndex={endIndex}
+          />
+        )}
       </div>
 
       {/* Add Teacher Modal */}

@@ -3,6 +3,8 @@ import { Container, Button, Table, Modal, Form, Alert, Card } from 'react-bootst
 import { Html5Qrcode } from 'html5-qrcode';
 import '../App.css';
 import API_URL from '../config';
+import { usePagination } from '../hooks/usePagination';
+import Pagination from './Pagination';
 
 const Attendance = () => {
   const [students, setStudents] = useState([]);
@@ -385,6 +387,23 @@ const Attendance = () => {
       .sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
   };
 
+  // Pagination
+  const allAttendance = getAllAttendanceWithInfo();
+  const {
+    currentPage,
+    totalPages,
+    paginatedData: paginatedAttendance,
+    goToPage,
+    nextPage,
+    prevPage,
+    startIndex,
+    endIndex,
+    totalItems
+  } = usePagination(allAttendance, {
+    itemsPerPageDesktop: 10,
+    itemsPerPageMobile: 5
+  });
+
   const getCourseName = (courseId) => {
     const course = courses.find(c => c.id === courseId);
     return course ? course.courseName : 'Unknown';
@@ -436,16 +455,16 @@ const Attendance = () => {
               </tr>
             </thead>
             <tbody>
-              {getAllAttendanceWithInfo().length === 0 ? (
+              {paginatedAttendance.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="text-center text-muted py-4">
                     No attendance records found.
                   </td>
                 </tr>
               ) : (
-                getAllAttendanceWithInfo().map((record, index) => (
+                paginatedAttendance.map((record, index) => (
                   <tr key={record.id}>
-                    <td>{index + 1}</td>
+                    <td>{startIndex + index + 1}</td>
                     <td><code>{record.studentId}</code></td>
                     <td>{record.studentName}</td>
                     <td>{record.courseName}</td>
@@ -463,13 +482,13 @@ const Attendance = () => {
 
           {/* Mobile Card View */}
           <div className="d-lg-none">
-            {getAllAttendanceWithInfo().length === 0 ? (
+            {paginatedAttendance.length === 0 ? (
               <div className="text-center text-muted py-5">
                 <p>No attendance records found.</p>
               </div>
             ) : (
               <div className="student-cards-container">
-                {getAllAttendanceWithInfo().map((record, index) => (
+                {paginatedAttendance.map((record, index) => (
                   <Card key={record.id} className="student-card mb-3">
                     <Card.Body>
                       <div className="student-card-header mb-2">
@@ -497,6 +516,20 @@ const Attendance = () => {
               </div>
             )}
           </div>
+          
+          {/* Pagination */}
+          {allAttendance.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={goToPage}
+              onNext={nextPage}
+              onPrev={prevPage}
+              totalItems={totalItems}
+              startIndex={startIndex}
+              endIndex={endIndex}
+            />
+          )}
         </div>
       </div>
 
