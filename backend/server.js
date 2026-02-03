@@ -1272,16 +1272,26 @@ app.post('/api/attendance', (req, res) => {
 
 // Serve React app for all non-API routes (must be last)
 // This handles client-side routing
+// Note: express.static middleware above will handle static files first
 if (fs.existsSync(buildPath)) {
-  app.get('*', (req, res) => {
-    // Don't serve React app for API routes
+  // Use a middleware function instead of wildcard route for Express 5 compatibility
+  app.use((req, res, next) => {
+    // Skip if it's an API route - let it fall through to 404 handler
     if (req.path.startsWith('/api/')) {
       return res.status(404).json({
         success: false,
         message: 'API endpoint not found'
       });
     }
-    res.sendFile(path.join(buildPath, 'index.html'));
+    
+    // For all other routes (non-API, non-static files), serve the React app's index.html
+    // This enables client-side routing in React Router
+    res.sendFile(path.join(buildPath, 'index.html'), (err) => {
+      if (err) {
+        console.error('Error sending index.html:', err);
+        res.status(500).send('Error loading application');
+      }
+    });
   });
 }
 
