@@ -211,13 +211,13 @@ const Teachers = () => {
   };
 
   const calculateTeacherPayments = (teacher) => {
-    if (!teacher) return { totalPaid: 0, remaining: 0, totalPotential: 0 };
+    if (!teacher) return { totalPaid: 0, totalAdvancePayments: 0, remaining: 0, totalPotential: 0, advancePayments: [] };
 
     // Get all courses taught by this teacher
     const teacherCourses = courses.filter(course => course.teacherId === teacher.id);
     
     if (teacherCourses.length === 0) {
-      return { totalPaid: 0, remaining: 0, totalPotential: 0 };
+      return { totalPaid: 0, totalAdvancePayments: 0, remaining: 0, totalPotential: 0, advancePayments: [] };
     }
 
     // Calculate total paid amount (from paid course payments)
@@ -714,7 +714,7 @@ const Teachers = () => {
                     <div className="p-3 bg-light rounded">
                       <div className="text-muted small mb-1">Total Amount Paid</div>
                       <div className="h4 mb-0 text-success">
-                        Rs. {paymentData.totalPaid.toFixed(2)}
+                        Rs. {(paymentData.totalPaid || 0).toFixed(2)}
                       </div>
                       <div className="small text-muted mt-1">
                         From paid course fees
@@ -725,7 +725,7 @@ const Teachers = () => {
                     <div className="p-3 bg-light rounded">
                       <div className="text-muted small mb-1">Advance Payments</div>
                       <div className="h4 mb-0 text-primary">
-                        Rs. {paymentData.totalAdvancePayments.toFixed(2)}
+                        Rs. {(paymentData.totalAdvancePayments || 0).toFixed(2)}
                       </div>
                       <div className="small text-muted mt-1">
                         Amount given to teacher
@@ -735,11 +735,11 @@ const Teachers = () => {
                   <div className="col-md-3">
                     <div className="p-3 bg-light rounded">
                       <div className="text-muted small mb-1">Remaining Amount</div>
-                      <div className={`h4 mb-0 ${paymentData.remaining >= 0 ? 'text-warning' : 'text-danger'}`}>
-                        Rs. {paymentData.remaining.toFixed(2)}
+                      <div className={`h4 mb-0 ${(paymentData.remaining || 0) >= 0 ? 'text-warning' : 'text-danger'}`}>
+                        Rs. {(paymentData.remaining || 0).toFixed(2)}
                       </div>
                       <div className="small text-muted mt-1">
-                        {paymentData.remaining >= 0 ? 'Amount to be paid out' : 'Overpaid amount'}
+                        {(paymentData.remaining || 0) >= 0 ? 'Amount to be paid out' : 'Overpaid amount'}
                       </div>
                     </div>
                   </div>
@@ -747,7 +747,7 @@ const Teachers = () => {
                     <div className="p-3 bg-light rounded">
                       <div className="text-muted small mb-1">Total Potential Amount</div>
                       <div className="h4 mb-0 text-info">
-                        Rs. {paymentData.totalPotential.toFixed(2)}
+                        Rs. {(paymentData.totalPotential || 0).toFixed(2)}
                       </div>
                       <div className="small text-muted mt-1">
                         If all fees (including pending) are paid
@@ -790,7 +790,7 @@ const Teachers = () => {
                       <strong>Pending Amount:</strong>
                     </div>
                     <div className="h5 mb-0 text-danger">
-                      Rs. {(paymentData.totalPotential - paymentData.totalPaid).toFixed(2)}
+                      Rs. {((paymentData.totalPotential || 0) - (paymentData.totalPaid || 0)).toFixed(2)}
                     </div>
                   </div>
                   <div className="small text-muted mt-2">
