@@ -216,6 +216,9 @@ code {
   margin-left: 260px;
   transition: margin-left 0.3s ease;
   background-color: #ffffff;
+  pointer-events: auto;
+  position: relative;
+  z-index: 1;
 }
 
 .dashboard-main {
@@ -223,6 +226,9 @@ code {
   padding: 32px;
   overflow-y: auto;
   background: transparent;
+  pointer-events: auto;
+  position: relative;
+  z-index: 1;
 }
 
 /* Sidebar Styles */
@@ -475,6 +481,7 @@ code {
   background-clip: text;
   margin-bottom: 8px;
   letter-spacing: -1px;
+  text-align: left;
 }
 
 .dashboard-subtitle {
@@ -639,10 +646,12 @@ code {
   z-index: 999;
   opacity: 0;
   transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 .sidebar-overlay.active {
   opacity: 1;
+  pointer-events: auto;
 }
 
 /* Responsive adjustments */
@@ -671,10 +680,20 @@ code {
 
   .sidebar-overlay {
     display: block;
+    pointer-events: none;
   }
 
   .sidebar-overlay.active {
     opacity: 1;
+    pointer-events: auto;
+  }
+
+  .dashboard-content {
+    pointer-events: auto;
+  }
+
+  .dashboard-main {
+    pointer-events: auto;
   }
 
   .top-navbar {
@@ -701,14 +720,42 @@ code {
 
   .operators-header {
     flex-direction: column;
-    align-items: flex-start !important;
+    align-items: center !important;
     gap: 16px;
+    text-align: center;
   }
 
   .operators-header .d-flex {
     width: 100%;
     flex-direction: column;
     gap: 12px;
+    align-items: center;
+    text-align: center;
+  }
+
+  .operators-header .d-flex > div {
+    text-align: center;
+    width: 100%;
+  }
+
+  .operators-header .dashboard-title {
+    text-align: center !important;
+  }
+
+  .operators-header .dashboard-subtitle {
+    text-align: center !important;
+  }
+
+  .dashboard-header {
+    text-align: center;
+  }
+
+  .dashboard-header .dashboard-title {
+    text-align: center !important;
+  }
+
+  .dashboard-header .dashboard-subtitle {
+    text-align: center !important;
   }
 
   .add-operator-btn {
@@ -788,6 +835,14 @@ code {
     gap: 10px;
   }
 
+  .student-actions-grid:has(.action-btn:only-child),
+  .student-actions-grid.single-action {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    max-width: 200px;
+    margin: 0 auto;
+  }
+
   .student-actions-grid .action-btn {
     width: 100%;
     white-space: nowrap;
@@ -798,6 +853,101 @@ code {
     cursor: pointer;
     z-index: 1;
     position: relative;
+  }
+
+  /* Payments Modal Mobile Responsive */
+  .payments-modal .modal-dialog {
+    margin: 10px;
+    max-width: calc(100% - 20px);
+  }
+
+  .payments-modal .modal-content {
+    border-radius: 12px;
+  }
+
+  .payments-modal .modal-header {
+    padding: 16px;
+  }
+
+  .payments-modal .modal-title {
+    font-size: 18px;
+  }
+
+  .payments-modal .modal-body {
+    padding: 16px;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+  }
+
+  .student-payment-header p {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .payments-table {
+    font-size: 12px;
+  }
+
+  .payments-table thead th {
+    padding: 10px 8px;
+    font-size: 11px;
+  }
+
+  .payments-table tbody td {
+    padding: 10px 8px;
+    font-size: 12px;
+    vertical-align: top;
+  }
+
+  .payment-summary {
+    font-size: 13px;
+  }
+
+  .payment-summary > div > div {
+    margin-bottom: 8px;
+  }
+
+  /* Courses Modal Mobile Responsive */
+  .courses-modal .modal-dialog {
+    margin: 10px;
+    max-width: calc(100% - 20px);
+  }
+
+  .courses-modal .modal-content {
+    border-radius: 12px;
+  }
+
+  .courses-modal .modal-header {
+    padding: 16px;
+  }
+
+  .courses-modal .modal-title {
+    font-size: 18px;
+  }
+
+  .courses-modal .modal-body {
+    padding: 16px;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+  }
+
+  .student-courses-header p {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .courses-table {
+    font-size: 12px;
+  }
+
+  .courses-table thead th {
+    padding: 10px 8px;
+    font-size: 11px;
+  }
+
+  .courses-table tbody td {
+    padding: 10px 8px;
+    font-size: 12px;
   }
 
   .operators-table thead {
@@ -926,20 +1076,41 @@ code {
 @media (max-width: 768px) {
   .dashboard-title {
     font-size: 24px;
+    text-align: center !important;
   }
 
   .dashboard-subtitle {
     font-size: 13px;
+    text-align: center !important;
   }
 
   .dashboard-header {
     margin-bottom: 24px;
     padding-bottom: 16px;
+    text-align: center;
+  }
+
+  .dashboard-header .dashboard-title {
+    text-align: center !important;
+  }
+
+  .dashboard-header .dashboard-subtitle {
+    text-align: center !important;
   }
 
   .operators-header {
     margin-bottom: 24px;
     padding-bottom: 16px;
+    text-align: center;
+    align-items: center !important;
+  }
+
+  .operators-header .dashboard-title {
+    text-align: center !important;
+  }
+
+  .operators-header .dashboard-subtitle {
+    text-align: center !important;
   }
 
   .sidebar {
@@ -1007,10 +1178,28 @@ code {
 
   .dashboard-title {
     font-size: 20px;
+    text-align: center !important;
   }
 
   .dashboard-subtitle {
     font-size: 12px;
+    text-align: center !important;
+  }
+
+  .operators-header .dashboard-title {
+    text-align: center !important;
+  }
+
+  .operators-header .dashboard-subtitle {
+    text-align: center !important;
+  }
+
+  .dashboard-header .dashboard-title {
+    text-align: center !important;
+  }
+
+  .dashboard-header .dashboard-subtitle {
+    text-align: center !important;
   }
 
   .top-navbar {
@@ -1185,6 +1374,12 @@ code {
   margin-bottom: 32px;
   padding-bottom: 24px;
   border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+@media (min-width: 769px) {
+  .operators-header .dashboard-title {
+    text-align: left;
+  }
 }
 
 .add-operator-btn {

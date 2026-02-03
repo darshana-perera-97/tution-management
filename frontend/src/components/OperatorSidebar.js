@@ -6,11 +6,12 @@ import {
   HiOutlineAcademicCap,
   HiOutlineBookOpen,
   HiOutlineCreditCard,
-  HiOutlineClipboardDocumentCheck
+  HiOutlineClipboardDocumentCheck,
+  HiOutlineArrowRightOnRectangle
 } from 'react-icons/hi2';
 import '../App.css';
 
-const OperatorSidebar = ({ activeItem, onItemClick, className }) => {
+const OperatorSidebar = ({ activeItem, onItemClick, className, onLogout }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: HiOutlineChartBar },
     { id: 'students', label: 'Students', icon: HiOutlineUserGroup },
@@ -41,6 +42,17 @@ const OperatorSidebar = ({ activeItem, onItemClick, className }) => {
             </Nav.Link>
           );
         })}
+        {onLogout && (
+          <Nav.Link
+            className="sidebar-item sidebar-logout d-lg-none"
+            onClick={onLogout}
+          >
+            <span className="sidebar-icon">
+              <HiOutlineArrowRightOnRectangle />
+            </span>
+            <span className="sidebar-label">Logout</span>
+          </Nav.Link>
+        )}
       </Nav>
     </div>
   );

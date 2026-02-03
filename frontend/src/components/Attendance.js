@@ -31,144 +31,6 @@ const Attendance = () => {
     fetchAttendance();
   }, []);
 
-  // Handle QR Scanner lifecycle
-  useEffect(() => {
-    let html5QrCode = null;
-    let isMounted = true;
-    let scanProcessed = false;
-    
-    if (showQRScanner && qrScannerRef.current && selectedCourse) {
-      const startScanner = async () => {
-        try {
-          const scannerId = 'qr-reader-attendance';
-          html5QrCode = new Html5Qrcode(scannerId);
-          
-          await html5QrCode.start(
-            { facingMode: "environment" },
-            {
-              fps: 10,
-              qrbox: { width: 250, height: 250 }
-            },
-            (decodedText) => {
-              if (!isMounted || scanProcessed) return;
-              scanProcessed = true;
-              
-              // Batch state updates
-              startTransition(() => {
-                setQrScanResult(decodedText);
-              });
-              
-              if (html5QrCode) {
-                html5QrCode.stop().then(() => {
-                  if (html5QrCode) {
-                    html5QrCode.clear();
-                  }
-                  if (isMounted) {
-                    startTransition(() => {
-                      setScannerInstance(null);
-                      setShowQRScanner(false);
-                    });
-                  }
-                  if (decodedText && isMounted) {
-                    setTimeout(() => {
-                      handleMarkAttendance(decodedText.trim());
-                    }, 100);
-                  }
-                }).catch((err) => {
-                  if (err.message && !err.message.includes('not running')) {
-                    console.error('Error stopping scanner:', err);
-                  }
-                  scanProcessed = false;
-                });
-              }
-            },
-            (errorMessage) => {
-              // Error handling is done internally by the library
-            }
-          );
-          
-          if (isMounted) {
-            setScannerInstance(html5QrCode);
-          }
-        } catch (err) {
-          console.error('Error starting QR scanner:', err);
-          if (isMounted) {
-            startTransition(() => {
-              setError('Failed to start camera. Please check permissions and try again.');
-              setShowQRScanner(false);
-            });
-          }
-        }
-      };
-
-      startScanner();
-    }
-
-    return () => {
-      isMounted = false;
-      scanProcessed = false;
-      if (html5QrCode) {
-        html5QrCode.stop().then(() => {
-          if (html5QrCode) {
-            html5QrCode.clear();
-          }
-        }).catch((err) => {
-          if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
-            console.error('Error in cleanup:', err);
-          }
-        });
-      }
-    };
-  }, [showQRScanner, selectedCourse, handleMarkAttendance]);
-
-  const fetchStudents = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/students`);
-      const data = await response.json();
-      if (data.success) {
-        setStudents(data.students);
-      }
-    } catch (err) {
-      console.error('Error fetching students:', err);
-    }
-  };
-
-  const fetchCourses = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/courses`);
-      const data = await response.json();
-      if (data.success) {
-        setCourses(data.courses);
-      }
-    } catch (err) {
-      console.error('Error fetching courses:', err);
-    }
-  };
-
-  const fetchPayments = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/payments`);
-      const data = await response.json();
-      if (data.success) {
-        setPayments(data.payments);
-      }
-    } catch (err) {
-      console.error('Error fetching payments:', err);
-    }
-  };
-
-  const fetchAttendance = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/attendance`);
-      const data = await response.json();
-      if (data.success) {
-        setAttendance(data.attendance);
-      }
-    } catch (err) {
-      console.error('Error fetching attendance:', err);
-    }
-  };
-
   const checkStudentCourseStatus = useCallback((studentId, courseId) => {
     const student = students.find(s => s.id === studentId);
     const course = courses.find(c => c.id === courseId);
@@ -312,6 +174,144 @@ const Attendance = () => {
     }
   }, [selectedCourse, checkStudentCourseStatus]);
 
+  // Handle QR Scanner lifecycle
+  useEffect(() => {
+    let html5QrCode = null;
+    let isMounted = true;
+    let scanProcessed = false;
+    
+    if (showQRScanner && qrScannerRef.current && selectedCourse) {
+      const startScanner = async () => {
+        try {
+          const scannerId = 'qr-reader-attendance';
+          html5QrCode = new Html5Qrcode(scannerId);
+          
+          await html5QrCode.start(
+            { facingMode: "environment" },
+            {
+              fps: 10,
+              qrbox: { width: 250, height: 250 }
+            },
+            (decodedText) => {
+              if (!isMounted || scanProcessed) return;
+              scanProcessed = true;
+              
+              // Batch state updates
+              startTransition(() => {
+                setQrScanResult(decodedText);
+              });
+              
+              if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                  if (html5QrCode) {
+                    html5QrCode.clear();
+                  }
+                  if (isMounted) {
+                    startTransition(() => {
+                      setScannerInstance(null);
+                      setShowQRScanner(false);
+                    });
+                  }
+                  if (decodedText && isMounted) {
+                    setTimeout(() => {
+                      handleMarkAttendance(decodedText.trim());
+                    }, 100);
+                  }
+                }).catch((err) => {
+                  if (err.message && !err.message.includes('not running')) {
+                    console.error('Error stopping scanner:', err);
+                  }
+                  scanProcessed = false;
+                });
+              }
+            },
+            (errorMessage) => {
+              // Error handling is done internally by the library
+            }
+          );
+          
+          if (isMounted) {
+            setScannerInstance(html5QrCode);
+          }
+        } catch (err) {
+          console.error('Error starting QR scanner:', err);
+          if (isMounted) {
+            startTransition(() => {
+              setError('Failed to start camera. Please check permissions and try again.');
+              setShowQRScanner(false);
+            });
+          }
+        }
+      };
+
+      startScanner();
+    }
+
+    return () => {
+      isMounted = false;
+      scanProcessed = false;
+      if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+          if (html5QrCode) {
+            html5QrCode.clear();
+          }
+        }).catch((err) => {
+          if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
+            console.error('Error in cleanup:', err);
+          }
+        });
+      }
+    };
+  }, [showQRScanner, selectedCourse, handleMarkAttendance]);
+
+  const fetchStudents = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/students`);
+      const data = await response.json();
+      if (data.success) {
+        setStudents(data.students);
+      }
+    } catch (err) {
+      console.error('Error fetching students:', err);
+    }
+  };
+
+  const fetchCourses = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/courses`);
+      const data = await response.json();
+      if (data.success) {
+        setCourses(data.courses);
+      }
+    } catch (err) {
+      console.error('Error fetching courses:', err);
+    }
+  };
+
+  const fetchPayments = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/payments`);
+      const data = await response.json();
+      if (data.success) {
+        setPayments(data.payments);
+      }
+    } catch (err) {
+      console.error('Error fetching payments:', err);
+    }
+  };
+
+  const fetchAttendance = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/attendance`);
+      const data = await response.json();
+      if (data.success) {
+        setAttendance(data.attendance);
+      }
+    } catch (err) {
+      console.error('Error fetching attendance:', err);
+    }
+  };
+
   const handleCloseMarkAttendanceModal = () => {
     setShowMarkAttendanceModal(false);
     setSelectedCourse('');
@@ -391,7 +391,8 @@ const Attendance = () => {
       <div className="mb-4">
         <h5 className="mb-3">Attendance Records</h5>
         <div className="operators-table-container">
-          <Table striped bordered hover className="operators-table">
+          {/* Desktop Table View */}
+          <Table striped bordered hover className="operators-table d-none d-lg-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -427,6 +428,43 @@ const Attendance = () => {
               )}
             </tbody>
           </Table>
+
+          {/* Mobile Card View */}
+          <div className="d-lg-none">
+            {getAllAttendanceWithInfo().length === 0 ? (
+              <div className="text-center text-muted py-5">
+                <p>No attendance records found.</p>
+              </div>
+            ) : (
+              <div className="student-cards-container">
+                {getAllAttendanceWithInfo().map((record, index) => (
+                  <Card key={record.id} className="student-card mb-3">
+                    <Card.Body>
+                      <div className="student-card-header mb-2">
+                        <h5 className="student-card-name mb-1">{record.studentName}</h5>
+                        <p className="student-card-contact mb-1">
+                          <code>{record.studentId}</code>
+                        </p>
+                        <p className="text-muted small mb-1">
+                          <strong>Course:</strong> {record.courseName}
+                        </p>
+                        <p className="text-muted small mb-1">
+                          <strong>Subject:</strong> {record.courseSubject}
+                        </p>
+                        <p className="text-muted small mb-0">
+                          <strong>Date & Time:</strong> {
+                            record.date 
+                              ? new Date(record.date).toLocaleString() 
+                              : new Date(record.createdAt).toLocaleString()
+                          }
+                        </p>
+                      </div>
+                    </Card.Body>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

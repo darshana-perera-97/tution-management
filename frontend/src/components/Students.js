@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Container, Button, Table, Modal, Form, Alert } from 'react-bootstrap';
+import { Container, Button, Table, Modal, Form, Alert, Card } from 'react-bootstrap';
 import { QRCodeSVG } from 'qrcode.react';
 import '../App.css';
 import API_URL from '../config';
@@ -385,7 +385,8 @@ const Students = () => {
       )}
 
       <div className="operators-table-container">
-        <Table striped bordered hover className="operators-table">
+        {/* Desktop Table View */}
+        <Table striped bordered hover className="operators-table d-none d-lg-table">
           <thead>
             <tr>
               <th>#</th>
@@ -458,6 +459,71 @@ const Students = () => {
             )}
           </tbody>
         </Table>
+
+        {/* Mobile Card View */}
+        <div className="d-lg-none">
+          {students.length === 0 ? (
+            <div className="text-center text-muted py-5">
+              <p>No students found. Click "Add Student" to create one.</p>
+            </div>
+          ) : (
+            <div className="student-cards-container">
+              {students.map((student, index) => (
+                <Card key={student.id} className="student-card mb-3">
+                  <Card.Body>
+                    <div className="student-card-header mb-0">
+                      <h5 className="student-card-name mb-0">{student.fullName}</h5>
+                    </div>
+                    <div className="student-card-actions">
+                      <div className="student-actions-grid">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleViewDetails(student)}
+                          className="action-btn"
+                        >
+                          View Details
+                        </Button>
+                        <Button
+                          variant="info"
+                          size="sm"
+                          onClick={() => handleViewQRCode(student)}
+                          className="action-btn"
+                        >
+                          View QR Code
+                        </Button>
+                        <Button
+                          variant="success"
+                          size="sm"
+                          onClick={() => handleViewCourses(student)}
+                          className="action-btn"
+                        >
+                          View Courses
+                        </Button>
+                        <Button
+                          variant="warning"
+                          size="sm"
+                          onClick={() => handleViewPayments(student)}
+                          className="action-btn"
+                        >
+                          View Payments
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleDelete(student.id)}
+                          className="action-btn"
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Add Student Modal */}

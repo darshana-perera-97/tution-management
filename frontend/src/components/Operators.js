@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Button, Table, Modal, Form, Alert } from 'react-bootstrap';
+import { Container, Button, Table, Modal, Form, Alert, Card } from 'react-bootstrap';
 import '../App.css';
 import API_URL from '../config';
 
@@ -134,7 +134,8 @@ const Operators = () => {
       )}
 
       <div className="operators-table-container">
-        <Table striped bordered hover className="operators-table">
+        {/* Desktop Table View */}
+        <Table striped bordered hover className="operators-table d-none d-lg-table">
           <thead>
             <tr>
               <th>#</th>
@@ -175,6 +176,40 @@ const Operators = () => {
             )}
           </tbody>
         </Table>
+
+        {/* Mobile Card View */}
+        <div className="d-lg-none">
+          {operators.length === 0 ? (
+            <div className="text-center text-muted py-5">
+              <p>No operators found. Click "Add Operator" to create one.</p>
+            </div>
+          ) : (
+            <div className="student-cards-container">
+              {operators.map((operator, index) => (
+                <Card key={operator.id} className="student-card mb-3">
+                  <Card.Body>
+                    <div className="student-card-header mb-2">
+                      <h5 className="student-card-name mb-1">{operator.name}</h5>
+                      <p className="student-card-contact mb-0">{operator.email}</p>
+                    </div>
+                    <div className="student-card-actions">
+                      <div className="student-actions-grid single-action">
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleDelete(operator.id)}
+                          className="action-btn"
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Add Operator Modal */}

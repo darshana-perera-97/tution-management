@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Container, Button, Table, Modal, Form, Alert } from 'react-bootstrap';
+import { Container, Button, Table, Modal, Form, Alert, Card } from 'react-bootstrap';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
 import '../App.css';
@@ -526,7 +526,8 @@ const Payments = () => {
       <div className="mb-4">
         <h5 className="mb-3">All Payment Records (Money In & Out)</h5>
         <div className="operators-table-container">
-          <Table striped bordered hover className="operators-table">
+          {/* Desktop Table View */}
+          <Table striped bordered hover className="operators-table d-none d-lg-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -653,6 +654,77 @@ const Payments = () => {
               </tr>
             </tfoot>
           </Table>
+
+          {/* Mobile Card View */}
+          <div className="d-lg-none">
+            {getAllPaymentsCombined().length === 0 ? (
+              <div className="text-center text-muted py-5">
+                <p>No payment records found.</p>
+              </div>
+            ) : (
+              <div className="student-cards-container">
+                {getAllPaymentsCombined().map((payment, index) => (
+                  <Card 
+                    key={`${payment.type}-${payment.id}`} 
+                    className={`student-card mb-3 ${payment.type === 'Money Out' ? 'border-danger' : ''}`}
+                  >
+                    <Card.Body>
+                      <div className="student-card-header mb-2">
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                          <h5 className="student-card-name mb-0">
+                            {payment.type === 'Money In' ? 'From: ' : 'To: '}
+                            {payment.fromTo}
+                          </h5>
+                          <span className={`badge ${
+                            payment.type === 'Money In' ? 'bg-success' : 'bg-danger'
+                          }`}>
+                            {payment.type}
+                          </span>
+                        </div>
+                        <p className="student-card-contact mb-1">
+                          <code>{payment.fromToId}</code>
+                        </p>
+                        {payment.type === 'Money In' && payment.courseName && (
+                          <p className="text-muted small mb-1">{payment.courseName}</p>
+                        )}
+                        {payment.type === 'Money Out' && payment.teacherSubject && (
+                          <p className="text-muted small mb-1">{payment.teacherSubject}</p>
+                        )}
+                        {payment.type === 'Money In' && payment.monthKey && (
+                          <p className="text-muted small mb-1">
+                            {formatMonthKey(payment.monthKey)}
+                          </p>
+                        )}
+                      </div>
+                      <div className="d-flex justify-content-between align-items-center">
+                        <div>
+                          <span className={payment.type === 'Money In' ? 'text-success' : 'text-danger'}>
+                            <strong>
+                              {payment.type === 'Money In' ? '+' : '-'}Rs. {payment.amount.toFixed(2)}
+                            </strong>
+                          </span>
+                        </div>
+                        <div>
+                          {payment.type === 'Money In' ? (
+                            <span className={`badge ${payment.status === 'Paid' ? 'bg-success' : 'bg-warning'}`}>
+                              {payment.status}
+                            </span>
+                          ) : (
+                            <span className="badge bg-info">Paid</span>
+                          )}
+                        </div>
+                      </div>
+                      {payment.date && (
+                        <div className="text-muted small mt-2">
+                          Date: {new Date(payment.date).toLocaleDateString()}
+                        </div>
+                      )}
+                    </Card.Body>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

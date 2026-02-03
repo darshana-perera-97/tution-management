@@ -163,6 +163,12 @@ const OperatorDashboard = () => {
     setSidebarOpen(false);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('operator');
+    localStorage.removeItem('isOperatorAuthenticated');
+    navigate('/operator/login');
+  };
+
   if (!operator) {
     return null;
   }
@@ -173,7 +179,7 @@ const OperatorDashboard = () => {
         className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`}
         onClick={closeSidebar}
       ></div>
-      <OperatorSidebar activeItem={activeItem} onItemClick={handleItemClick} className={sidebarOpen ? 'open' : ''} />
+      <OperatorSidebar activeItem={activeItem} onItemClick={handleItemClick} className={sidebarOpen ? 'open' : ''} onLogout={handleLogout} />
       <div className="dashboard-content">
         <OperatorTopNavbar operator={operator} onMenuToggle={toggleSidebar} />
         <div className="dashboard-main">
@@ -196,7 +202,7 @@ const OperatorDashboard = () => {
                 </div>
 
                 <Row className="g-3">
-                  <Col md={3}>
+                  <Col xs={6} md={3}>
                     <Card className="dashboard-stat-card h-100">
                       <Card.Body>
                         <div className="stat-icon">
@@ -207,7 +213,7 @@ const OperatorDashboard = () => {
                       </Card.Body>
                     </Card>
                   </Col>
-                  <Col md={3}>
+                  <Col xs={6} md={3}>
                     <Card className="dashboard-stat-card h-100">
                       <Card.Body>
                         <div className="stat-icon">
@@ -218,7 +224,7 @@ const OperatorDashboard = () => {
                       </Card.Body>
                     </Card>
                   </Col>
-                  <Col md={3}>
+                  <Col xs={6} md={3}>
                     <Card className="dashboard-stat-card h-100">
                       <Card.Body>
                         <div className="stat-icon">
@@ -229,7 +235,7 @@ const OperatorDashboard = () => {
                       </Card.Body>
                     </Card>
                   </Col>
-                  <Col md={3}>
+                  <Col xs={6} md={3}>
                     <Card className="dashboard-stat-card h-100">
                       <Card.Body>
                         <div className="stat-icon">
@@ -237,17 +243,6 @@ const OperatorDashboard = () => {
                         </div>
                         <h3 className="stat-number">{loading ? '...' : stats.unpaidFees}</h3>
                         <p className="stat-label">No. of Class Fees to be Paid</p>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                </Row>
-
-                <Row className="mt-4">
-                  <Col md={12}>
-                    <Card className="dashboard-content-card">
-                      <Card.Body>
-                        <h5 className="card-title">Quick Actions</h5>
-                        <p className="text-muted">Select an option from the sidebar to get started.</p>
                       </Card.Body>
                     </Card>
                   </Col>

@@ -63,8 +63,18 @@ const AdminStudents = () => {
                     setShowQRScanner(false);
                   }
                 }).catch((err) => {
-                  if (err.message && !err.message.includes('not running')) {
+                  // Silently ignore errors about scanner not running or cannot stop
+                  const errorMsg = err?.message || err?.toString() || '';
+                  if (errorMsg && 
+                      !errorMsg.includes('not running') && 
+                      !errorMsg.includes('not paused') &&
+                      !errorMsg.includes('Scanner is not running') &&
+                      !errorMsg.includes('Cannot stop')) {
                     console.error('Error stopping scanner:', err);
+                  }
+                  if (isMounted) {
+                    setScannerInstance(null);
+                    setShowQRScanner(false);
                   }
                 });
               }
@@ -97,8 +107,22 @@ const AdminStudents = () => {
             html5QrCode.clear();
           }
         }).catch((err) => {
-          if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
+          // Silently ignore errors about scanner not running or cannot stop
+          const errorMsg = err?.message || err?.toString() || '';
+          if (errorMsg && 
+              !errorMsg.includes('not running') && 
+              !errorMsg.includes('not paused') &&
+              !errorMsg.includes('Scanner is not running') &&
+              !errorMsg.includes('Cannot stop')) {
             console.error('Error in cleanup:', err);
+          }
+          // Try to clear anyway
+          if (html5QrCode) {
+            try {
+              html5QrCode.clear();
+            } catch (clearErr) {
+              // Ignore clear errors
+            }
           }
         });
       }
@@ -367,8 +391,22 @@ const AdminStudents = () => {
         setScannerInstance(null);
         setShowQRScanner(false);
       }).catch((err) => {
-        if (err.message && !err.message.includes('not running')) {
+        // Silently ignore errors about scanner not running
+        const errorMsg = err?.message || err?.toString() || '';
+        if (errorMsg && 
+            !errorMsg.includes('not running') && 
+            !errorMsg.includes('not paused') &&
+            !errorMsg.includes('Scanner is not running') &&
+            !errorMsg.includes('Cannot stop')) {
           console.error('Error stopping scanner:', err);
+        }
+        // Try to clear anyway
+        if (scannerInstance) {
+          try {
+            scannerInstance.clear();
+          } catch (clearErr) {
+            // Ignore clear errors
+          }
         }
         setScannerInstance(null);
         setShowQRScanner(false);
@@ -681,39 +719,41 @@ const AdminStudents = () => {
       </Modal>
 
       {/* View Courses Modal */}
-      <Modal show={showCoursesModal} onHide={handleCloseCoursesModal} centered size="lg" backdrop="static">
+      <Modal show={showCoursesModal} onHide={handleCloseCoursesModal} centered size="lg" backdrop="static" className="courses-modal">
         <Modal.Header closeButton>
           <Modal.Title>Student Courses - {selectedStudent?.fullName}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {selectedStudent && (
             <div>
-              <div className="mb-3">
-                <p className="text-muted">
-                  <strong>Student:</strong> {selectedStudent.fullName} | 
-                  <strong> Grade:</strong> {selectedStudent.grade}
+              <div className="mb-3 student-courses-header">
+                <p className="text-muted mb-2">
+                  <strong>Student:</strong> {selectedStudent.fullName}
+                </p>
+                <p className="text-muted mb-0">
+                  <strong>Grade:</strong> {selectedStudent.grade}
                 </p>
               </div>
               
               {getStudentCourses(selectedStudent.id).length > 0 ? (
                 <div className="table-responsive">
-                  <Table striped bordered hover size="sm">
+                  <Table striped bordered hover size="sm" className="courses-table">
                     <thead>
                       <tr>
-                        <th>#</th>
+                        <th className="d-none d-md-table-cell">#</th>
                         <th>Course Name</th>
                         <th>Subject</th>
-                        <th>Grade</th>
+                        <th className="d-none d-md-table-cell">Grade</th>
                         <th>Course Fee</th>
                       </tr>
                     </thead>
                     <tbody>
                       {getStudentCourses(selectedStudent.id).map((course, index) => (
                         <tr key={course.id}>
-                          <td>{index + 1}</td>
+                          <td className="d-none d-md-table-cell">{index + 1}</td>
                           <td>{course.courseName}</td>
                           <td>{course.subject || '-'}</td>
-                          <td>{course.grade}</td>
+                          <td className="d-none d-md-table-cell">{course.grade}</td>
                           <td>{course.courseFee ? `Rs. ${parseFloat(course.courseFee).toFixed(2)}` : '-'}</td>
                         </tr>
                       ))}
@@ -740,31 +780,35 @@ const AdminStudents = () => {
       </Modal>
 
       {/* View Payments Modal */}
-      <Modal show={showPaymentsModal} onHide={handleClosePaymentsModal} centered size="lg" backdrop="static">
+      <Modal show={showPaymentsModal} onHide={handleClosePaymentsModal} centered size="lg" backdrop="static" className="payments-modal">
         <Modal.Header closeButton>
           <Modal.Title>Student Payments - {selectedStudent?.fullName}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {selectedStudent && (
             <div>
-              <div className="mb-3">
-                <p className="text-muted">
-                  <strong>Student:</strong> {selectedStudent.fullName} | 
-                  <strong> Grade:</strong> {selectedStudent.grade} |
-                  <strong> Enrollment Date:</strong> {new Date(selectedStudent.createdAt).toLocaleDateString()}
+              <div className="mb-3 student-payment-header">
+                <p className="text-muted mb-2">
+                  <strong>Student:</strong> {selectedStudent.fullName}
+                </p>
+                <p className="text-muted mb-2">
+                  <strong>Grade:</strong> {selectedStudent.grade}
+                </p>
+                <p className="text-muted mb-0">
+                  <strong>Enrollment Date:</strong> {new Date(selectedStudent.createdAt).toLocaleDateString()}
                 </p>
               </div>
               
               {calculateMonthlyPayments(selectedStudent).length > 0 ? (
                 <div className="table-responsive">
-                  <Table striped bordered hover size="sm">
+                  <Table striped bordered hover size="sm" className="payments-table">
                     <thead>
                       <tr>
                         <th>Month</th>
                         <th>Courses</th>
-                        <th>Total Fee</th>
-                        <th>Paid</th>
-                        <th>Pending</th>
+                        <th className="d-none d-md-table-cell">Total Fee</th>
+                        <th className="d-none d-md-table-cell">Paid</th>
+                        <th className="d-none d-md-table-cell">Pending</th>
                         <th>Status</th>
                       </tr>
                     </thead>
@@ -789,13 +833,13 @@ const AdminStudents = () => {
                               ))}
                             </div>
                           </td>
-                          <td><strong>Rs. {payment.totalFee.toFixed(2)}</strong></td>
-                          <td>
+                          <td className="d-none d-md-table-cell"><strong>Rs. {payment.totalFee.toFixed(2)}</strong></td>
+                          <td className="d-none d-md-table-cell">
                             <span className="text-success">
                               <strong>Rs. {payment.paidAmount.toFixed(2)}</strong>
                             </span>
                           </td>
-                          <td>
+                          <td className="d-none d-md-table-cell">
                             <span className="text-danger">
                               <strong>Rs. {payment.pendingAmount.toFixed(2)}</strong>
                             </span>
@@ -813,181 +857,8 @@ const AdminStudents = () => {
                       ))}
                     </tbody>
                   </Table>
-                  <div className="mt-3 p-3 bg-light rounded">
-                    <div className="d-flex justify-content-between">
-                      <div>
-                        <strong>Total Amount: </strong>
-                        Rs. {calculateMonthlyPayments(selectedStudent).reduce((sum, payment) => 
-                          sum + payment.totalFee, 0
-                        ).toFixed(2)}
-                      </div>
-                      <div>
-                        <strong>Total Paid: </strong>
-                        <span className="text-success">
-                          Rs. {calculateMonthlyPayments(selectedStudent)
-                            .reduce((sum, payment) => sum + payment.paidAmount, 0)
-                            .toFixed(2)}
-                        </span>
-                      </div>
-                      <div>
-                        <strong>To Be Paid: </strong>
-                        <span className="text-danger">
-                          Rs. {calculateMonthlyPayments(selectedStudent)
-                            .reduce((sum, payment) => sum + payment.pendingAmount, 0)
-                            .toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-muted text-center py-4">No payment records found. Student is not enrolled in any courses.</p>
-              )}
-            </div>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleClosePaymentsModal}>
-            Close
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* View Courses Modal */}
-      <Modal show={showCoursesModal} onHide={handleCloseCoursesModal} centered size="lg" backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Student Courses - {selectedStudent?.fullName}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {selectedStudent && (
-            <div>
-              <div className="mb-3">
-                <p className="text-muted">
-                  <strong>Student:</strong> {selectedStudent.fullName} | 
-                  <strong> Grade:</strong> {selectedStudent.grade}
-                </p>
-              </div>
-              
-              {getStudentCourses(selectedStudent.id).length > 0 ? (
-                <div className="table-responsive">
-                  <Table striped bordered hover size="sm">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Course Name</th>
-                        <th>Subject</th>
-                        <th>Grade</th>
-                        <th>Course Fee</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {getStudentCourses(selectedStudent.id).map((course, index) => (
-                        <tr key={course.id}>
-                          <td>{index + 1}</td>
-                          <td>{course.courseName}</td>
-                          <td>{course.subject || '-'}</td>
-                          <td>{course.grade}</td>
-                          <td>{course.courseFee ? `Rs. ${parseFloat(course.courseFee).toFixed(2)}` : '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                  <div className="mt-3 p-3 bg-light rounded">
-                    <strong>Total Monthly Fee: </strong>
-                    Rs. {getStudentCourses(selectedStudent.id).reduce((sum, course) => 
-                      sum + (parseFloat(course.courseFee) || 0), 0
-                    ).toFixed(2)}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-muted text-center py-4">No courses enrolled.</p>
-              )}
-            </div>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseCoursesModal}>
-            Close
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      {/* View Payments Modal */}
-      <Modal show={showPaymentsModal} onHide={handleClosePaymentsModal} centered size="lg" backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Student Payments - {selectedStudent?.fullName}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {selectedStudent && (
-            <div>
-              <div className="mb-3">
-                <p className="text-muted">
-                  <strong>Student:</strong> {selectedStudent.fullName} | 
-                  <strong> Grade:</strong> {selectedStudent.grade} |
-                  <strong> Enrollment Date:</strong> {new Date(selectedStudent.createdAt).toLocaleDateString()}
-                </p>
-              </div>
-              
-              {calculateMonthlyPayments(selectedStudent).length > 0 ? (
-                <div className="table-responsive">
-                  <Table striped bordered hover size="sm">
-                    <thead>
-                      <tr>
-                        <th>Month</th>
-                        <th>Courses</th>
-                        <th>Total Fee</th>
-                        <th>Paid</th>
-                        <th>Pending</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {calculateMonthlyPayments(selectedStudent).map((payment, index) => (
-                        <tr key={payment.monthKey}>
-                          <td><strong>{payment.month}</strong></td>
-                          <td>
-                            <div className="small">
-                              {payment.courses.map((course, idx) => (
-                                <div key={idx} className={`mb-2 p-2 rounded ${course.isPaid ? 'bg-light' : 'bg-warning bg-opacity-10'}`}>
-                                  <strong>{course.courseName}</strong> ({course.subject}) - Rs. {course.fee.toFixed(2)}
-                                  {course.isPaid && (
-                                    <span className="badge bg-success ms-2">Paid</span>
-                                  )}
-                                  {course.isPaid && course.paymentDate && (
-                                    <div className="text-muted small mt-1">
-                                      Paid on {new Date(course.paymentDate).toLocaleDateString()}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </td>
-                          <td><strong>Rs. {payment.totalFee.toFixed(2)}</strong></td>
-                          <td>
-                            <span className="text-success">
-                              <strong>Rs. {payment.paidAmount.toFixed(2)}</strong>
-                            </span>
-                          </td>
-                          <td>
-                            <span className="text-danger">
-                              <strong>Rs. {payment.pendingAmount.toFixed(2)}</strong>
-                            </span>
-                          </td>
-                          <td>
-                            <span className={`badge ${
-                              payment.status === 'Paid' ? 'bg-success' : 
-                              payment.status === 'Partial' ? 'bg-info' : 
-                              'bg-warning'
-                            }`}>
-                              {payment.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </Table>
-                  <div className="mt-3 p-3 bg-light rounded">
-                    <div className="d-flex justify-content-between">
+                  <div className="mt-3 p-3 bg-light rounded payment-summary">
+                    <div className="d-flex flex-column flex-md-row justify-content-between gap-3">
                       <div>
                         <strong>Total Amount: </strong>
                         Rs. {calculateMonthlyPayments(selectedStudent).reduce((sum, payment) => 

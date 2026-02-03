@@ -259,61 +259,150 @@ const Reports = () => {
                 <p className="text-muted">No data available for this teacher.</p>
               ) : (
                 <>
-                  <div className="table-responsive">
-                    <Table striped bordered hover className="operators-table">
-                      <thead>
-                        <tr>
-                          <th>Month</th>
-                          <th>Course</th>
-                          <th>Subject</th>
-                          <th>Grade</th>
-                          <th>Total Course Fee</th>
-                          <th>Teacher Income (%)</th>
-                          <th>Paid Course Fee</th>
-                          <th>Paid Teacher Income</th>
-                          <th>Students</th>
-                          <th>Paid Students</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {reportData.map((item, index) => (
-                          <tr key={`${item.monthKey}-${item.courseId}-${index}`}>
-                            <td><strong>{item.monthName}</strong></td>
-                            <td>{item.courseName}</td>
-                            <td>{item.subject}</td>
-                            <td>{item.grade}</td>
-                            <td>Rs. {item.totalFee.toFixed(2)}</td>
-                            <td>Rs. {item.teacherIncome.toFixed(2)}</td>
-                            <td>
-                              <span className={item.paidFee > 0 ? 'text-success' : 'text-muted'}>
-                                Rs. {item.paidFee.toFixed(2)}
-                              </span>
-                            </td>
-                            <td>
-                              <span className={item.paidTeacherIncome > 0 ? 'text-success' : 'text-muted'}>
-                                Rs. {item.paidTeacherIncome.toFixed(2)}
-                              </span>
-                            </td>
-                            <td>{item.studentCount}</td>
-                            <td>
-                              <span className={item.paidStudentCount > 0 ? 'text-success' : 'text-muted'}>
-                                {item.paidStudentCount}
-                              </span>
-                            </td>
+                  <div className="operators-table-container">
+                    {/* Desktop Table View */}
+                    <div className="table-responsive d-none d-lg-block">
+                      <Table striped bordered hover className="operators-table">
+                        <thead>
+                          <tr>
+                            <th>Month</th>
+                            <th>Course</th>
+                            <th>Subject</th>
+                            <th>Grade</th>
+                            <th>Total Course Fee</th>
+                            <th>Teacher Income (%)</th>
+                            <th>Paid Course Fee</th>
+                            <th>Paid Teacher Income</th>
+                            <th>Students</th>
+                            <th>Paid Students</th>
                           </tr>
+                        </thead>
+                        <tbody>
+                          {reportData.map((item, index) => (
+                            <tr key={`${item.monthKey}-${item.courseId}-${index}`}>
+                              <td><strong>{item.monthName}</strong></td>
+                              <td>{item.courseName}</td>
+                              <td>{item.subject}</td>
+                              <td>{item.grade}</td>
+                              <td>Rs. {item.totalFee.toFixed(2)}</td>
+                              <td>Rs. {item.teacherIncome.toFixed(2)}</td>
+                              <td>
+                                <span className={item.paidFee > 0 ? 'text-success' : 'text-muted'}>
+                                  Rs. {item.paidFee.toFixed(2)}
+                                </span>
+                              </td>
+                              <td>
+                                <span className={item.paidTeacherIncome > 0 ? 'text-success' : 'text-muted'}>
+                                  Rs. {item.paidTeacherIncome.toFixed(2)}
+                                </span>
+                              </td>
+                              <td>{item.studentCount}</td>
+                              <td>
+                                <span className={item.paidStudentCount > 0 ? 'text-success' : 'text-muted'}>
+                                  {item.paidStudentCount}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="table-info">
+                            <td colSpan="4"><strong>Total</strong></td>
+                            <td><strong>Rs. {calculateTotals().totalFee.toFixed(2)}</strong></td>
+                            <td><strong>Rs. {calculateTotals().teacherIncome.toFixed(2)}</strong></td>
+                            <td><strong>Rs. {calculateTotals().paidFee.toFixed(2)}</strong></td>
+                            <td><strong>Rs. {calculateTotals().paidTeacherIncome.toFixed(2)}</strong></td>
+                            <td colSpan="2"></td>
+                          </tr>
+                        </tfoot>
+                      </Table>
+                    </div>
+
+                    {/* Mobile Card View */}
+                    <div className="d-lg-none">
+                      <div className="student-cards-container">
+                        {reportData.map((item, index) => (
+                          <Card key={`${item.monthKey}-${item.courseId}-${index}`} className="student-card mb-3">
+                            <Card.Body>
+                              <div className="student-card-header mb-2">
+                                <h5 className="student-card-name mb-1">{item.courseName}</h5>
+                                <p className="text-muted small mb-1">
+                                  <strong>Month:</strong> {item.monthName}
+                                </p>
+                                <p className="text-muted small mb-1">
+                                  <strong>Subject:</strong> {item.subject} | <strong>Grade:</strong> {item.grade}
+                                </p>
+                              </div>
+                              <div className="mb-2">
+                                <div className="d-flex justify-content-between mb-1">
+                                  <span className="text-muted small">Total Course Fee:</span>
+                                  <strong>Rs. {item.totalFee.toFixed(2)}</strong>
+                                </div>
+                                <div className="d-flex justify-content-between mb-1">
+                                  <span className="text-muted small">Teacher Income:</span>
+                                  <strong>Rs. {item.teacherIncome.toFixed(2)}</strong>
+                                </div>
+                                <div className="d-flex justify-content-between mb-1">
+                                  <span className="text-muted small">Paid Course Fee:</span>
+                                  <span className={item.paidFee > 0 ? 'text-success' : 'text-muted'}>
+                                    <strong>Rs. {item.paidFee.toFixed(2)}</strong>
+                                  </span>
+                                </div>
+                                <div className="d-flex justify-content-between mb-1">
+                                  <span className="text-muted small">Paid Teacher Income:</span>
+                                  <span className={item.paidTeacherIncome > 0 ? 'text-success' : 'text-muted'}>
+                                    <strong>Rs. {item.paidTeacherIncome.toFixed(2)}</strong>
+                                  </span>
+                                </div>
+                                <div className="d-flex justify-content-between mb-1">
+                                  <span className="text-muted small">Students:</span>
+                                  <span>{item.studentCount}</span>
+                                </div>
+                                <div className="d-flex justify-content-between">
+                                  <span className="text-muted small">Paid Students:</span>
+                                  <span className={item.paidStudentCount > 0 ? 'text-success' : 'text-muted'}>
+                                    <strong>{item.paidStudentCount}</strong>
+                                  </span>
+                                </div>
+                              </div>
+                            </Card.Body>
+                          </Card>
                         ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="table-info">
-                          <td colSpan="4"><strong>Total</strong></td>
-                          <td><strong>Rs. {calculateTotals().totalFee.toFixed(2)}</strong></td>
-                          <td><strong>Rs. {calculateTotals().teacherIncome.toFixed(2)}</strong></td>
-                          <td><strong>Rs. {calculateTotals().paidFee.toFixed(2)}</strong></td>
-                          <td><strong>Rs. {calculateTotals().paidTeacherIncome.toFixed(2)}</strong></td>
-                          <td colSpan="2"></td>
-                        </tr>
-                      </tfoot>
-                    </Table>
+                      </div>
+                      
+                      {/* Mobile Summary Card */}
+                      <Card className="mt-3 border-info">
+                        <Card.Body>
+                          <h6 className="mb-3">Summary</h6>
+                          <div className="mb-2">
+                            <div className="d-flex justify-content-between mb-1">
+                              <span><strong>Total Expected Income:</strong></span>
+                              <strong>Rs. {calculateTotals().teacherIncome.toFixed(2)}</strong>
+                            </div>
+                            <div className="d-flex justify-content-between mb-1">
+                              <span><strong>Total Paid Income:</strong></span>
+                              <span className="text-success">
+                                <strong>Rs. {calculateTotals().paidTeacherIncome.toFixed(2)}</strong>
+                              </span>
+                            </div>
+                            <div className="d-flex justify-content-between mb-1">
+                              <span><strong>Pending Income:</strong></span>
+                              <span className="text-danger">
+                                <strong>Rs. {(calculateTotals().teacherIncome - calculateTotals().paidTeacherIncome).toFixed(2)}</strong>
+                              </span>
+                            </div>
+                            <div className="d-flex justify-content-between">
+                              <span><strong>Payment Status:</strong></span>
+                              <span>
+                                {calculateTotals().teacherIncome > 0 
+                                  ? `${((calculateTotals().paidTeacherIncome / calculateTotals().teacherIncome) * 100).toFixed(1)}% Paid`
+                                  : 'N/A'}
+                              </span>
+                            </div>
+                          </div>
+                        </Card.Body>
+                      </Card>
+                    </div>
                   </div>
 
                   <div className="mt-3 p-3 bg-light rounded">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Container, Button, Table, Modal, Form, Alert } from 'react-bootstrap';
+import { Container, Button, Table, Modal, Form, Alert, Card } from 'react-bootstrap';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
 import '../App.css';
@@ -461,7 +461,8 @@ const Courses = () => {
       )}
 
       <div className="operators-table-container">
-        <Table striped bordered hover className="operators-table">
+        {/* Desktop Table View */}
+        <Table striped bordered hover className="operators-table d-none d-lg-table">
           <thead>
             <tr>
               <th>#</th>
@@ -522,6 +523,55 @@ const Courses = () => {
             )}
           </tbody>
         </Table>
+
+        {/* Mobile Card View */}
+        <div className="d-lg-none">
+          {courses.length === 0 ? (
+            <div className="text-center text-muted py-5">
+              <p>No courses found. Click "Add Course" to create one.</p>
+            </div>
+          ) : (
+            <div className="student-cards-container">
+              {courses.map((course, index) => (
+                <Card key={course.id} className="student-card mb-3">
+                  <Card.Body>
+                    <div className="student-card-header mb-0">
+                      <h5 className="student-card-name mb-0">{course.courseName}</h5>
+                    </div>
+                    <div className="student-card-actions">
+                      <div className="student-actions-grid">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleViewMore(course)}
+                          className="action-btn"
+                        >
+                          View More
+                        </Button>
+                        <Button
+                          variant="success"
+                          size="sm"
+                          onClick={() => handleManageStudents(course)}
+                          className="action-btn"
+                        >
+                          Manage Students
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleDelete(course.id)}
+                          className="action-btn"
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Add Course Modal */}
