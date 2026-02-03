@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Container, Table, Alert, Modal, Button } from 'react-bootstrap';
+import { Container, Table, Alert, Modal, Button, Form, Card, Row, Col } from 'react-bootstrap';
 import { QRCodeSVG } from 'qrcode.react';
+import { Html5Qrcode } from 'html5-qrcode';
 import '../App.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5253';
@@ -18,12 +19,92 @@ const AdminStudents = () => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const qrCodeRef = useRef(null);
+  
+  // Search states
+  const [searchName, setSearchName] = useState('');
+  const [searchContact, setSearchContact] = useState('');
+  const [searchQRCode, setSearchQRCode] = useState('');
+  const [showQRScanner, setShowQRScanner] = useState(false);
+  const [scannerInstance, setScannerInstance] = useState(null);
+  const qrScannerRef = useRef(null);
 
   useEffect(() => {
     fetchStudents();
     fetchCourses();
     fetchPayments();
   }, []);
+
+  // Handle QR Scanner lifecycle
+  useEffect(() => {
+    let html5QrCode = null;
+    let isMounted = true;
+    
+    if (showQRScanner && qrScannerRef.current) {
+      const startScanner = async () => {
+        try {
+          const scannerId = qrScannerRef.current.id;
+          html5QrCode = new Html5Qrcode(scannerId);
+          
+          await html5QrCode.start(
+            { facingMode: "environment" },
+            {
+              fps: 10,
+              qrbox: { width: 250, height: 250 }
+            },
+            (decodedText) => {
+              if (!isMounted) return;
+              setSearchQRCode(decodedText.trim());
+              if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                  if (html5QrCode) {
+                    html5QrCode.clear();
+                  }
+                  if (isMounted) {
+                    setScannerInstance(null);
+                    setShowQRScanner(false);
+                  }
+                }).catch((err) => {
+                  if (err.message && !err.message.includes('not running')) {
+                    console.error('Error stopping scanner:', err);
+                  }
+                });
+              }
+            },
+            (errorMessage) => {
+              // Error handling is done internally by the library
+            }
+          );
+          
+          if (isMounted) {
+            setScannerInstance(html5QrCode);
+          }
+        } catch (err) {
+          console.error('Error starting QR scanner:', err);
+          if (isMounted) {
+            setError('Failed to start camera. Please check permissions and try again.');
+            setShowQRScanner(false);
+          }
+        }
+      };
+
+      startScanner();
+    }
+
+    return () => {
+      isMounted = false;
+      if (html5QrCode) {
+        html5QrCode.stop().then(() => {
+          if (html5QrCode) {
+            html5QrCode.clear();
+          }
+        }).catch((err) => {
+          if (err.message && !err.message.includes('not running') && !err.message.includes('not paused')) {
+            console.error('Error in cleanup:', err);
+          }
+        });
+      }
+    };
+  }, [showQRScanner]);
 
   const fetchStudents = async () => {
     try {
@@ -259,6 +340,45 @@ const AdminStudents = () => {
     }
   };
 
+  // Filter students based on search criteria
+  const filteredStudents = students.filter(student => {
+    const nameMatch = !searchName || 
+      student.fullName.toLowerCase().includes(searchName.toLowerCase());
+    const contactMatch = !searchContact || 
+      student.contactNumber.includes(searchContact) ||
+      (student.whatsappNumber && student.whatsappNumber.includes(searchContact));
+    const qrMatch = !searchQRCode || 
+      student.id.toString().includes(searchQRCode);
+    
+    return nameMatch && contactMatch && qrMatch;
+  });
+
+  const handleClearSearch = () => {
+    setSearchName('');
+    setSearchContact('');
+    setSearchQRCode('');
+  };
+
+  const handleCloseQRScanner = () => {
+    if (scannerInstance) {
+      scannerInstance.stop().then(() => {
+        if (scannerInstance) {
+          scannerInstance.clear();
+        }
+        setScannerInstance(null);
+        setShowQRScanner(false);
+      }).catch((err) => {
+        if (err.message && !err.message.includes('not running')) {
+          console.error('Error stopping scanner:', err);
+        }
+        setScannerInstance(null);
+        setShowQRScanner(false);
+      });
+    } else {
+      setShowQRScanner(false);
+    }
+  };
+
   return (
     <Container fluid>
       <div className="operators-header mb-4">
@@ -274,77 +394,201 @@ const AdminStudents = () => {
         </Alert>
       )}
 
+      {/* Search Section */}
+      <Card className="mb-4">
+        <Card.Body>
+          <h5 className="mb-3">Search Students</h5>
+          <Row className="g-3">
+            <Col md={4}>
+              <Form.Group>
+                <Form.Label>Search by Name</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="Enter student name"
+                  value={searchName}
+                  onChange={(e) => setSearchName(e.target.value)}
+                  className="form-control-custom"
+                />
+              </Form.Group>
+            </Col>
+            <Col md={4}>
+              <Form.Group>
+                <Form.Label>Search by Contact Number</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="Enter contact number"
+                  value={searchContact}
+                  onChange={(e) => setSearchContact(e.target.value)}
+                  className="form-control-custom"
+                />
+              </Form.Group>
+            </Col>
+            <Col md={4}>
+              <Form.Group>
+                <Form.Label>Search by QR Code / Student ID</Form.Label>
+                <div className="d-flex gap-2">
+                  <Form.Control
+                    type="text"
+                    placeholder="Enter or scan QR code"
+                    value={searchQRCode}
+                    onChange={(e) => setSearchQRCode(e.target.value)}
+                    className="form-control-custom"
+                  />
+                  <Button
+                    variant="outline-primary"
+                    onClick={() => setShowQRScanner(true)}
+                    title="Scan QR Code"
+                  >
+                    📷
+                  </Button>
+                </div>
+              </Form.Group>
+            </Col>
+          </Row>
+          {(searchName || searchContact || searchQRCode) && (
+            <div className="mt-3">
+              <Button variant="outline-secondary" size="sm" onClick={handleClearSearch}>
+                Clear Search
+              </Button>
+              <span className="ms-2 text-muted">
+                Showing {filteredStudents.length} of {students.length} students
+              </span>
+            </div>
+          )}
+        </Card.Body>
+      </Card>
+
       <div className="operators-table-container">
         {loading ? (
           <div className="text-center py-5">
             <p className="text-muted">Loading students...</p>
           </div>
         ) : (
-          <Table striped bordered hover className="operators-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Full Name</th>
-                <th>Grade</th>
-                <th>Contact Number</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.length === 0 ? (
+          <>
+            {/* Desktop Table View */}
+            <Table striped bordered hover className="operators-table d-none d-lg-table">
+              <thead>
                 <tr>
-                  <td colSpan="5" className="text-center text-muted py-4">
-                    No students found.
-                  </td>
+                  <th>#</th>
+                  <th>Full Name</th>
+                  <th>Grade</th>
+                  <th>Contact Number</th>
+                  <th>Actions</th>
                 </tr>
-              ) : (
-                students.map((student, index) => (
-                  <tr key={student.id}>
-                    <td>{index + 1}</td>
-                    <td>{student.fullName}</td>
-                    <td>{student.grade}</td>
-                    <td>{student.contactNumber}</td>
-                    <td>
-                      <div className="d-flex gap-2 flex-wrap">
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => handleViewDetails(student)}
-                          className="action-btn"
-                        >
-                          View Details
-                        </Button>
-                        <Button
-                          variant="info"
-                          size="sm"
-                          onClick={() => handleViewQRCode(student)}
-                          className="action-btn"
-                        >
-                          View QR Code
-                        </Button>
-                        <Button
-                          variant="success"
-                          size="sm"
-                          onClick={() => handleViewCourses(student)}
-                          className="action-btn"
-                        >
-                          View Courses
-                        </Button>
-                        <Button
-                          variant="warning"
-                          size="sm"
-                          onClick={() => handleViewPayments(student)}
-                          className="action-btn"
-                        >
-                          View Payments
-                        </Button>
-                      </div>
+              </thead>
+              <tbody>
+                {filteredStudents.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="text-center text-muted py-4">
+                      {students.length === 0 ? 'No students found.' : 'No students match your search criteria.'}
                     </td>
                   </tr>
-                ))
+                ) : (
+                  filteredStudents.map((student, index) => (
+                    <tr key={student.id}>
+                      <td>{index + 1}</td>
+                      <td>{student.fullName}</td>
+                      <td>{student.grade}</td>
+                      <td>{student.contactNumber}</td>
+                      <td>
+                        <div className="d-flex gap-2 flex-wrap">
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => handleViewDetails(student)}
+                            className="action-btn"
+                          >
+                            View Details
+                          </Button>
+                          <Button
+                            variant="info"
+                            size="sm"
+                            onClick={() => handleViewQRCode(student)}
+                            className="action-btn"
+                          >
+                            View QR Code
+                          </Button>
+                          <Button
+                            variant="success"
+                            size="sm"
+                            onClick={() => handleViewCourses(student)}
+                            className="action-btn"
+                          >
+                            View Courses
+                          </Button>
+                          <Button
+                            variant="warning"
+                            size="sm"
+                            onClick={() => handleViewPayments(student)}
+                            className="action-btn"
+                          >
+                            View Payments
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </Table>
+
+            {/* Mobile Card View */}
+            <div className="d-lg-none">
+              {filteredStudents.length === 0 ? (
+                <div className="text-center text-muted py-5">
+                  <p>{students.length === 0 ? 'No students found.' : 'No students match your search criteria.'}</p>
+                </div>
+              ) : (
+                <div className="student-cards-container">
+                  {filteredStudents.map((student, index) => (
+                    <Card key={student.id} className="student-card mb-3">
+                      <Card.Body>
+                        <div className="student-card-header mb-0">
+                          <h5 className="student-card-name mb-0">{student.fullName}</h5>
+                        </div>
+                        <div className="student-card-actions">
+                          <div className="student-actions-grid">
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => handleViewDetails(student)}
+                              className="action-btn"
+                            >
+                              View Details
+                            </Button>
+                            <Button
+                              variant="info"
+                              size="sm"
+                              onClick={() => handleViewQRCode(student)}
+                              className="action-btn"
+                            >
+                              View QR Code
+                            </Button>
+                            <Button
+                              variant="success"
+                              size="sm"
+                              onClick={() => handleViewCourses(student)}
+                              className="action-btn"
+                            >
+                              View Courses
+                            </Button>
+                            <Button
+                              variant="warning"
+                              size="sm"
+                              onClick={() => handleViewPayments(student)}
+                              className="action-btn"
+                            >
+                              View Payments
+                            </Button>
+                          </div>
+                        </div>
+                      </Card.Body>
+                    </Card>
+                  ))}
+                </div>
               )}
-            </tbody>
-          </Table>
+            </div>
+          </>
         )}
       </div>
 
@@ -778,6 +1022,24 @@ const AdminStudents = () => {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleClosePaymentsModal}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* QR Scanner Modal */}
+      <Modal show={showQRScanner} onHide={handleCloseQRScanner} centered size="lg" backdrop="static">
+        <Modal.Header closeButton>
+          <Modal.Title>Scan QR Code</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="text-center">
+            <div id="qr-reader-search" ref={qrScannerRef} style={{ width: '100%' }}></div>
+            <p className="text-muted mt-3">Position the QR code within the frame to scan</p>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseQRScanner}>
             Close
           </Button>
         </Modal.Footer>

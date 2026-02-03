@@ -238,6 +238,8 @@ code {
   z-index: 1000;
   overflow-y: auto;
   backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar-header {
@@ -259,6 +261,9 @@ code {
 
 .sidebar-nav {
   padding: 16px 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .sidebar-item {
@@ -331,6 +336,26 @@ code {
 
 .sidebar-label {
   font-size: 14px;
+}
+
+.sidebar-logout {
+  margin-top: auto;
+  border-top: 1px solid rgba(226, 232, 240, 0.6);
+  padding-top: 12px;
+  color: #ef4444 !important;
+}
+
+.sidebar-logout:hover {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.08) 100%) !important;
+  color: #dc2626 !important;
+}
+
+.sidebar-logout .sidebar-icon {
+  color: #ef4444;
+}
+
+.sidebar-logout:hover .sidebar-icon {
+  color: #dc2626;
 }
 
 /* Top Navbar Styles */
@@ -567,6 +592,24 @@ code {
 }
 
 /* Mobile Menu Toggle Button */
+.mobile-logout-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  color: #475569;
+  cursor: pointer;
+  padding: 8px;
+  margin-left: 8px;
+  transition: all 0.2s ease;
+}
+
+.mobile-logout-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 8px;
+}
+
 .mobile-menu-toggle {
   display: none;
   background: transparent;
@@ -604,6 +647,10 @@ code {
 
 /* Responsive adjustments */
 @media (max-width: 992px) {
+  .mobile-logout-btn {
+    display: block;
+  }
+
   .mobile-menu-toggle {
     display: block;
   }
@@ -631,7 +678,17 @@ code {
   }
 
   .top-navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
     padding: 12px 16px;
+    z-index: 1000;
+  }
+
+  .dashboard-main {
+    padding-top: 80px;
   }
 
   .top-navbar-brand {
@@ -668,10 +725,167 @@ code {
     min-width: 600px;
   }
 
+  /* Student Cards for Mobile */
+  .student-cards-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .student-card {
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
+    transition: all 0.3s ease;
+    pointer-events: auto;
+  }
+
+  .student-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+  }
+
+  .student-card .card-body {
+    padding: 16px;
+    pointer-events: auto;
+  }
+
+  .student-card-header {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .student-card-name {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+  }
+
+  .student-card-details {
+    padding: 12px 0;
+  }
+
+  .student-detail-item {
+    font-size: 14px;
+    color: #475569;
+  }
+
+  .student-detail-item strong {
+    color: #1e293b;
+    margin-right: 8px;
+  }
+
+  .student-card-actions {
+    border-top: 1px solid rgba(226, 232, 240, 0.6);
+    padding-top: 12px;
+  }
+
+  .student-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .student-actions-grid .action-btn {
+    width: 100%;
+    white-space: nowrap;
+    font-size: 11px;
+    padding: 8px 12px;
+    pointer-events: auto;
+    touch-action: manipulation;
+    cursor: pointer;
+    z-index: 1;
+    position: relative;
+  }
+
+  .operators-table thead {
+    display: none;
+  }
+
   .operators-table thead th,
   .operators-table tbody td {
     padding: 12px 10px;
     font-size: 12px;
+  }
+
+  /* Mobile table layout - show name, contact, actions on next line */
+  .operators-table tbody tr {
+    display: flex;
+    flex-wrap: wrap;
+    border-bottom: 2px solid rgba(226, 232, 240, 0.8);
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+  }
+
+  .operators-table tbody tr:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+  }
+
+  .operators-table tbody td {
+    display: block;
+    width: auto;
+    border: none;
+    padding: 8px 10px;
+  }
+
+  .operators-table tbody td.mobile-row-number,
+  .operators-table tbody td.mobile-row-grade {
+    display: none;
+  }
+
+  .operators-table tbody td.mobile-row-name,
+  .operators-table tbody td.mobile-row-contact {
+    display: inline-block;
+    width: auto;
+    border-top: 1px solid rgba(226, 232, 240, 0.5);
+    padding-top: 10px;
+    margin-top: 5px;
+    padding-right: 20px;
+  }
+
+  .operators-table tbody td.mobile-row-contact {
+    border-top: none;
+    margin-top: 0;
+    padding-top: 10px;
+  }
+
+  .operators-table tbody td.mobile-row-actions {
+    display: block;
+    width: 100%;
+    border-top: 1px solid rgba(226, 232, 240, 0.5);
+    padding-top: 10px;
+    margin-top: 5px;
+  }
+
+  .operators-table tbody td.mobile-row-name::before {
+    content: "Name: ";
+    font-weight: 600;
+    color: #475569;
+  }
+
+  .operators-table tbody td.mobile-row-contact::before {
+    content: "Contact: ";
+    font-weight: 600;
+    color: #475569;
+  }
+
+  .operators-table tbody td.mobile-row-actions::before {
+    content: "Actions: ";
+    font-weight: 600;
+    color: #475569;
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .operators-table tbody td[colspan] {
+    display: block;
+    width: 100%;
+    text-align: center;
+    border: none;
+    padding: 20px;
   }
 
   .action-btn {
@@ -702,6 +916,10 @@ code {
 
   .top-navbar-user {
     padding: 8px 12px;
+  }
+
+  .top-navbar .navbar-toggler {
+    display: none !important;
   }
 }
 
@@ -784,7 +1002,7 @@ code {
   }
 
   .dashboard-main {
-    padding: 12px;
+    padding: 80px 12px 12px 12px;
   }
 
   .dashboard-title {
@@ -851,6 +1069,10 @@ code {
     font-size: 11px;
   }
 
+  .operators-table thead {
+    display: none;
+  }
+
   .operators-table thead th {
     padding: 10px 8px;
     font-size: 10px;
@@ -859,6 +1081,13 @@ code {
   .operators-table tbody td {
     padding: 10px 8px;
     font-size: 11px;
+  }
+
+  .operators-table tbody td.mobile-row-name,
+  .operators-table tbody td.mobile-row-contact,
+  .operators-table tbody td.mobile-row-actions {
+    padding-top: 8px;
+    margin-top: 5px;
   }
 
   .action-btn {

@@ -770,8 +770,8 @@ const Payments = () => {
                         </span>
                       </div>
                     </div>
-                  </div>
-                </div>
+        </div>
+      </div>
               ) : (
                 <p className="text-muted text-center py-4">No payment records found. Student is not enrolled in any courses.</p>
               )}

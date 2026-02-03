@@ -12,6 +12,12 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files from React build folder
+const buildPath = path.join(__dirname, '..', 'frontend', 'build');
+if (fs.existsSync(buildPath)) {
+  app.use(express.static(buildPath));
+}
+
 // Path to admin login data file
 const adminLoginPath = path.join(__dirname, 'data', 'adminLogin.json');
 // Path to operators data file
@@ -1264,8 +1270,29 @@ app.post('/api/attendance', (req, res) => {
   }
 });
 
+// Serve React app for all non-API routes (must be last)
+// This handles client-side routing
+if (fs.existsSync(buildPath)) {
+  app.get('*', (req, res) => {
+    // Don't serve React app for API routes
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({
+        success: false,
+        message: 'API endpoint not found'
+      });
+    }
+    res.sendFile(path.join(buildPath, 'index.html'));
+  });
+}
+
 // Start server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
+  if (fs.existsSync(buildPath)) {
+    console.log(`React app is being served from: ${buildPath}`);
+  } else {
+    console.log(`Warning: React build folder not found at: ${buildPath}`);
+    console.log('Please run "npm run build" in the frontend directory');
+  }
 });
 

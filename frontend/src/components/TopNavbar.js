@@ -20,13 +20,15 @@ const TopNavbar = ({ admin, onMenuToggle }) => {
 
   return (
     <Navbar className="top-navbar" expand="lg">
-      <button className="mobile-menu-toggle" onClick={onMenuToggle} aria-label="Toggle menu">
-        <HiOutlineBars3 />
-      </button>
+      <div className="d-flex align-items-center">
+        <button className="mobile-menu-toggle" onClick={onMenuToggle} aria-label="Toggle menu">
+          <HiOutlineBars3 />
+        </button>
+      </div>
       <Navbar.Brand className="top-navbar-brand">
         Admin Panel
       </Navbar.Brand>
-      <Navbar.Toggle aria-controls="basic-navbar-nav" />
+      <Navbar.Toggle aria-controls="basic-navbar-nav" className="d-none" />
       <Navbar.Collapse id="basic-navbar-nav" className="justify-content-end">
         <Nav>
           <Dropdown align="end">
