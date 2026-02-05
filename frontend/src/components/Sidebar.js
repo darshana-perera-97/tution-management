@@ -9,7 +9,8 @@ import {
   HiOutlineCreditCard,
   HiOutlineDocumentChartBar,
   HiOutlineClipboardDocumentCheck,
-  HiOutlineArrowRightOnRectangle
+  HiOutlineArrowRightOnRectangle,
+  HiOutlineChatBubbleLeftRight
 } from 'react-icons/hi2';
 import '../App.css';
 
@@ -23,6 +24,7 @@ const Sidebar = ({ activeItem, onItemClick, className, onLogout }) => {
     { id: 'payments', label: 'Payments', icon: HiOutlineCreditCard },
     { id: 'attendance', label: 'Attendance', icon: HiOutlineClipboardDocumentCheck },
     { id: 'reports', label: 'Reports', icon: HiOutlineDocumentChartBar },
+    { id: 'whatsapp-link', label: 'WhatsApp Link', icon: HiOutlineChatBubbleLeftRight },
   ];
 
   return (

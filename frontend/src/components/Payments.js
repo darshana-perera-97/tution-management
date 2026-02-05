@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Container, Button, Table, Modal, Form, Alert, Card } from 'react-bootstrap';
+import { Container, Button, Table, Modal, Form, Alert, Card, Row, Col } from 'react-bootstrap';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
 import '../App.css';
@@ -668,43 +668,6 @@ const Payments = () => {
                 ))
               )}
             </tbody>
-            <tfoot>
-              <tr className="table-info">
-                <td colSpan="6"><strong>Total</strong></td>
-                <td>
-                  <div>
-                    <div className="text-success">
-                      <strong>Money In: Rs. {
-                        getAllPaymentsCombined()
-                          .filter(p => p.type === 'Money In')
-                          .reduce((sum, p) => sum + p.amount, 0)
-                          .toFixed(2)
-                      }</strong>
-                    </div>
-                    <div className="text-danger">
-                      <strong>Money Out: Rs. {
-                        getAllPaymentsCombined()
-                          .filter(p => p.type === 'Money Out')
-                          .reduce((sum, p) => sum + p.amount, 0)
-                          .toFixed(2)
-                      }</strong>
-                    </div>
-                    <div className="mt-1">
-                      <strong>Net: Rs. {
-                        (getAllPaymentsCombined()
-                          .filter(p => p.type === 'Money In')
-                          .reduce((sum, p) => sum + p.amount, 0) -
-                        getAllPaymentsCombined()
-                          .filter(p => p.type === 'Money Out')
-                          .reduce((sum, p) => sum + p.amount, 0))
-                          .toFixed(2)
-                      }</strong>
-                    </div>
-                  </div>
-                </td>
-                <td colSpan="2"></td>
-              </tr>
-            </tfoot>
           </Table>
 
           {/* Mobile Card View */}
@@ -793,6 +756,77 @@ const Payments = () => {
           )}
         </div>
       </div>
+
+      {/* Total Values Card */}
+      <Card className="mb-4">
+        <Card.Header>
+          <h5 className="mb-0">Payment Summary</h5>
+        </Card.Header>
+        <Card.Body>
+          <Row>
+            <Col md={4}>
+              <Card className="border-success">
+                <Card.Body className="text-center">
+                  <h6 className="text-muted mb-2">Total Money In</h6>
+                  <h3 className="text-success mb-0">
+                    Rs. {getAllPaymentsCombined()
+                      .filter(p => p.type === 'Money In')
+                      .reduce((sum, p) => sum + p.amount, 0)
+                      .toFixed(2)}
+                  </h3>
+                  <small className="text-muted">
+                    {getAllPaymentsCombined().filter(p => p.type === 'Money In').length} payment{getAllPaymentsCombined().filter(p => p.type === 'Money In').length !== 1 ? 's' : ''}
+                  </small>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={4}>
+              <Card className="border-danger">
+                <Card.Body className="text-center">
+                  <h6 className="text-muted mb-2">Total Money Out</h6>
+                  <h3 className="text-danger mb-0">
+                    Rs. {getAllPaymentsCombined()
+                      .filter(p => p.type === 'Money Out')
+                      .reduce((sum, p) => sum + p.amount, 0)
+                      .toFixed(2)}
+                  </h3>
+                  <small className="text-muted">
+                    {getAllPaymentsCombined().filter(p => p.type === 'Money Out').length} payment{getAllPaymentsCombined().filter(p => p.type === 'Money Out').length !== 1 ? 's' : ''}
+                  </small>
+                </Card.Body>
+              </Card>
+            </Col>
+            <Col md={4}>
+              <Card className="border-primary">
+                <Card.Body className="text-center">
+                  <h6 className="text-muted mb-2">Net Total</h6>
+                  <h3 className={`mb-0 ${
+                    (getAllPaymentsCombined()
+                      .filter(p => p.type === 'Money In')
+                      .reduce((sum, p) => sum + p.amount, 0) -
+                    getAllPaymentsCombined()
+                      .filter(p => p.type === 'Money Out')
+                      .reduce((sum, p) => sum + p.amount, 0)) >= 0 
+                      ? 'text-success' 
+                      : 'text-danger'
+                  }`}>
+                    Rs. {(getAllPaymentsCombined()
+                      .filter(p => p.type === 'Money In')
+                      .reduce((sum, p) => sum + p.amount, 0) -
+                    getAllPaymentsCombined()
+                      .filter(p => p.type === 'Money Out')
+                      .reduce((sum, p) => sum + p.amount, 0))
+                      .toFixed(2)}
+                  </h3>
+                  <small className="text-muted">
+                    {getAllPaymentsCombined().length} total transaction{getAllPaymentsCombined().length !== 1 ? 's' : ''}
+                  </small>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        </Card.Body>
+      </Card>
 
       {/* Student Payment Details Modal */}
       <Modal show={showPaymentDetailsModal} onHide={() => setShowPaymentDetailsModal(false)} centered size="lg" backdrop="static">

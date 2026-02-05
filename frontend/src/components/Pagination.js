@@ -92,3 +92,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange, onNext, onPrev, tot
 export default Pagination;
 
 
+
+
+
+

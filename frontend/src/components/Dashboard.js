@@ -16,6 +16,7 @@ import AdminStudents from './AdminStudents';
 import Payments from './Payments';
 import Attendance from './Attendance';
 import Reports from './Reports';
+import WhatsAppLink from './WhatsAppLink';
 import '../App.css';
 import API_URL from '../config';
 
@@ -275,6 +276,8 @@ const Dashboard = () => {
               <Attendance />
             ) : activeItem === 'reports' ? (
               <Reports />
+            ) : activeItem === 'whatsapp-link' ? (
+              <WhatsAppLink />
             ) : (
               <>
                 <div className="dashboard-header mb-4">

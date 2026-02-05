@@ -1,18 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback, startTransition } from 'react';
-import { Container, Button, Table, Modal, Form, Alert, Card } from 'react-bootstrap';
+import { Container, Button, Table, Modal, Form, Alert, Card, Row, Col } from 'react-bootstrap';
 import { Html5Qrcode } from 'html5-qrcode';
 import '../App.css';
 import API_URL from '../config';
 import { usePagination } from '../hooks/usePagination';
 import Pagination from './Pagination';
 
-const Attendance = () => {
+const Attendance = ({ hideMarkButton = false }) => {
   const [students, setStudents] = useState([]);
   const [courses, setCourses] = useState([]);
   const [payments, setPayments] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [showMarkAttendanceModal, setShowMarkAttendanceModal] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState('');
+  const [selectedCourseFilter, setSelectedCourseFilter] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState('');
   const [studentIdInput, setStudentIdInput] = useState('');
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [qrScanResult, setQrScanResult] = useState('');
@@ -87,6 +89,11 @@ const Attendance = () => {
     fetchCourses();
     fetchPayments();
     fetchAttendance();
+    
+    // Set default month to current month
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    setSelectedMonth(currentMonth);
   }, []);
 
   const checkStudentCourseStatus = useCallback((studentId, courseId) => {
@@ -373,7 +380,23 @@ const Attendance = () => {
   };
 
   const getAllAttendanceWithInfo = () => {
-    return attendance
+    let filtered = attendance;
+    
+    // Filter by course if selected
+    if (selectedCourseFilter) {
+      filtered = filtered.filter(record => record.courseId === selectedCourseFilter);
+    }
+    
+    // Filter by month if selected
+    if (selectedMonth) {
+      filtered = filtered.filter(record => {
+        const recordDate = new Date(record.date || record.createdAt);
+        const recordMonth = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}`;
+        return recordMonth === selectedMonth;
+      });
+    }
+    
+    return filtered
       .map(record => {
         const student = students.find(s => s.id === record.studentId);
         const course = courses.find(c => c.id === record.courseId);
@@ -385,6 +408,31 @@ const Attendance = () => {
         };
       })
       .sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
+  };
+
+  // Get available months from attendance data
+  const getAvailableMonths = () => {
+    const monthsSet = new Set();
+    let filteredByCourse = attendance;
+    
+    if (selectedCourseFilter) {
+      filteredByCourse = attendance.filter(record => record.courseId === selectedCourseFilter);
+    }
+    
+    filteredByCourse.forEach(record => {
+      const recordDate = new Date(record.date || record.createdAt);
+      const month = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}`;
+      monthsSet.add(month);
+    });
+    
+    return Array.from(monthsSet).sort().reverse();
+  };
+
+  // Format month for display
+  const formatMonth = (monthKey) => {
+    const [year, month] = monthKey.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleString('default', { month: 'long', year: 'numeric' });
   };
 
   // Pagination
@@ -417,12 +465,14 @@ const Attendance = () => {
             <h2 className="dashboard-title">Attendance</h2>
             <p className="dashboard-subtitle">Mark and view student attendance</p>
           </div>
-          <Button
-            className="add-operator-btn"
-            onClick={() => setShowMarkAttendanceModal(true)}
-          >
-            + Mark Attendance
-          </Button>
+          {!hideMarkButton && (
+            <Button
+              className="add-operator-btn"
+              onClick={() => setShowMarkAttendanceModal(true)}
+            >
+              + Mark Attendance
+            </Button>
+          )}
         </div>
       </div>
 
@@ -438,9 +488,68 @@ const Attendance = () => {
         </Alert>
       )}
 
+      {/* Filters */}
+      <Card className="mb-4">
+        <Card.Body>
+          <Row>
+            <Col md={6} className="mb-3 mb-md-0">
+              <Form.Label><strong>Filter by Course</strong></Form.Label>
+              <Form.Select
+                value={selectedCourseFilter}
+                onChange={(e) => {
+                  setSelectedCourseFilter(e.target.value);
+                  // Reset to current month when course changes
+                  const now = new Date();
+                  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                  setSelectedMonth(currentMonth);
+                }}
+                className="form-control-custom"
+              >
+                <option value="">All Courses</option>
+                {courses.map(course => (
+                  <option key={course.id} value={course.id}>
+                    {course.courseName} ({course.subject}) - {course.grade}
+                  </option>
+                ))}
+              </Form.Select>
+            </Col>
+            <Col md={6}>
+              <Form.Label><strong>Filter by Month</strong></Form.Label>
+              <Form.Select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="form-control-custom"
+                disabled={!selectedCourseFilter}
+              >
+                {selectedCourseFilter ? (
+                  getAvailableMonths().length > 0 ? (
+                    getAvailableMonths().map(month => (
+                      <option key={month} value={month}>
+                        {formatMonth(month)}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">No data available</option>
+                  )
+                ) : (
+                  <option value="">Select a course first</option>
+                )}
+              </Form.Select>
+            </Col>
+          </Row>
+        </Card.Body>
+      </Card>
+
       {/* Attendance Records Table */}
       <div className="mb-4">
-        <h5 className="mb-3">Attendance Records</h5>
+        <h5 className="mb-3">
+          Attendance Records
+          {selectedCourseFilter && (
+            <span className="text-muted ms-2">
+              ({getAllAttendanceWithInfo().length} record{getAllAttendanceWithInfo().length !== 1 ? 's' : ''})
+            </span>
+          )}
+        </h5>
         <div className="operators-table-container">
           {/* Desktop Table View */}
           <Table striped bordered hover className="operators-table d-none d-lg-table">
