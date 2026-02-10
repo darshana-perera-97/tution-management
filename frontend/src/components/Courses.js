@@ -24,6 +24,10 @@ const Courses = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isOperator, setIsOperator] = useState(false);
+  const [showBulkMessageModal, setShowBulkMessageModal] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState('');
+  const [bulkMessageLoading, setBulkMessageLoading] = useState(false);
 
   // Safe function to stop scanner
   const safeStopScanner = async (scanner) => {
@@ -90,6 +94,11 @@ const Courses = () => {
   });
 
   useEffect(() => {
+    // Check if user is operator (not admin)
+    const isOperatorAuth = localStorage.getItem('isOperatorAuthenticated');
+    const isAdminAuth = localStorage.getItem('isAuthenticated');
+    setIsOperator(!!isOperatorAuth && !isAdminAuth);
+    
     fetchCourses();
     fetchTeachers();
     fetchStudents();
@@ -376,6 +385,65 @@ const Courses = () => {
     setQrScanResult('');
   };
 
+  const handleBulkMessage = (course) => {
+    setSelectedCourse(course);
+    setBulkMessage('');
+    setShowBulkMessageModal(true);
+    setError('');
+    setSuccess('');
+  };
+
+  const handleCloseBulkMessageModal = () => {
+    setShowBulkMessageModal(false);
+    setSelectedCourse(null);
+    setBulkMessage('');
+    setError('');
+    setSuccess('');
+  };
+
+  const handleSendBulkMessage = async (e) => {
+    e.preventDefault();
+    if (!bulkMessage.trim() || !selectedCourse) {
+      setError('Please enter a message');
+      return;
+    }
+
+    setError('');
+    setSuccess('');
+    setBulkMessageLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/courses/${selectedCourse.id}/bulk-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: bulkMessage
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess(`Bulk message sent successfully to ${data.sentCount || 0} student(s)!`);
+        setBulkMessage('');
+        setTimeout(() => {
+          setShowBulkMessageModal(false);
+          setSelectedCourse(null);
+          setSuccess('');
+        }, 2000);
+      } else {
+        setError(data.message || 'Failed to send bulk message');
+      }
+    } catch (err) {
+      console.error('Error sending bulk message:', err);
+      setError('Unable to connect to server. Please try again later.');
+    } finally {
+      setBulkMessageLoading(false);
+    }
+  };
+
   const handleAddStudent = async (studentId) => {
     if (!studentId || !studentId.trim()) {
       setError('Please enter a valid Student ID');
@@ -569,6 +637,16 @@ const Courses = () => {
                       >
                         Manage Students
                       </Button>
+                      {isOperator && (
+                        <Button
+                          variant="info"
+                          size="sm"
+                          onClick={() => handleBulkMessage(course)}
+                          className="action-btn"
+                        >
+                          Send Bulk Message
+                        </Button>
+                      )}
                       <Button
                         variant="danger"
                         size="sm"
@@ -617,6 +695,16 @@ const Courses = () => {
                         >
                           Manage Students
                         </Button>
+                        {isOperator && (
+                          <Button
+                            variant="info"
+                            size="sm"
+                            onClick={() => handleBulkMessage(course)}
+                            className="action-btn"
+                          >
+                            Send Bulk Message
+                          </Button>
+                        )}
                         <Button
                           variant="danger"
                           size="sm"
@@ -1047,6 +1135,71 @@ const Courses = () => {
             Close
           </Button>
         </Modal.Footer>
+      </Modal>
+
+      {/* Bulk Message Modal */}
+      <Modal show={showBulkMessageModal} onHide={handleCloseBulkMessageModal} centered size="lg" backdrop="static">
+        <Modal.Header closeButton>
+          <Modal.Title>Send Bulk Message - {selectedCourse?.courseName}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedCourse && (
+            <div>
+              <div className="mb-3">
+                <p className="text-muted">
+                  <strong>Course:</strong> {selectedCourse.courseName} ({selectedCourse.subject})<br />
+                  <strong>Enrolled Students:</strong> {selectedCourse.enrolledStudents?.length || 0} student(s)
+                </p>
+                <p className="text-muted small">
+                  This message will be sent to all students enrolled in this course via WhatsApp.
+                </p>
+              </div>
+              
+              <Form onSubmit={handleSendBulkMessage}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="form-label">Message</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={6}
+                    placeholder="Enter your message here..."
+                    value={bulkMessage}
+                    onChange={(e) => setBulkMessage(e.target.value)}
+                    required
+                    className="form-control-custom"
+                  />
+                  <Form.Text className="text-muted">
+                    The message will be sent to all enrolled students' WhatsApp numbers.
+                  </Form.Text>
+                </Form.Group>
+
+                {error && (
+                  <Alert variant="danger" className="mt-3">
+                    {error}
+                  </Alert>
+                )}
+
+                {success && (
+                  <Alert variant="success" className="mt-3">
+                    {success}
+                  </Alert>
+                )}
+
+                <div className="d-flex justify-content-end gap-2 mt-4">
+                  <Button variant="secondary" onClick={handleCloseBulkMessageModal} disabled={bulkMessageLoading}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={bulkMessageLoading || !bulkMessage.trim()}
+                  >
+                    {bulkMessageLoading ? 'Sending...' : 'Send Message'}
+                  </Button>
+                </div>
+              </Form>
+            </div>
+          )}
+        </Modal.Body>
       </Modal>
     </Container>
   );

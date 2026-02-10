@@ -482,9 +482,11 @@ app.get('/api/teachers', (req, res) => {
       id: teacher.id,
       email: teacher.email,
       name: teacher.name,
+      whatsappNumber: teacher.whatsappNumber || null,
       subject: teacher.subject,
       educationQualification: teacher.educationQualification,
       description: teacher.description,
+      imageUrl: teacher.imageUrl || null,
       createdAt: teacher.createdAt,
       lastLogin: teacher.lastLogin
     }));
@@ -504,7 +506,7 @@ app.get('/api/teachers', (req, res) => {
 // Create new teacher
 app.post('/api/teachers', (req, res) => {
   try {
-    const { email, password, name, subject, educationQualification, description } = req.body;
+    const { email, password, name, whatsappNumber, subject, educationQualification, description } = req.body;
 
     if (!email || !password || !name || !subject || !educationQualification) {
       return res.status(400).json({
@@ -527,15 +529,32 @@ app.post('/api/teachers', (req, res) => {
       });
     }
 
+    // Handle image upload
+    let imageUrl = null;
+    if (req.files && req.files.image) {
+      const image = req.files.image;
+      const fileName = `teacher-${Date.now()}-${image.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const filePath = path.join(uploadsPath, fileName);
+      
+      try {
+        image.mv(filePath);
+        imageUrl = `/uploads/${fileName}`;
+      } catch (err) {
+        console.error('Error saving teacher image:', err);
+      }
+    }
+
     // Create new teacher
     const newTeacher = {
       id: Date.now().toString(),
       email,
       password, // In production, this should be hashed
       name,
+      whatsappNumber: whatsappNumber || null,
       subject,
       educationQualification,
       description: description || '',
+      imageUrl: imageUrl,
       createdAt: new Date().toISOString(),
       lastLogin: null
     };
@@ -564,6 +583,80 @@ app.post('/api/teachers', (req, res) => {
     }
   } catch (error) {
     console.error('Create teacher error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Update teacher image
+app.put('/api/teachers/:id/image', (req, res) => {
+  try {
+    const { id } = req.params;
+    const teachersData = readTeachersData();
+    
+    const teacherIndex = teachersData.teachers.findIndex(
+      teacher => teacher.id === id
+    );
+
+    if (teacherIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Teacher not found'
+      });
+    }
+
+    // Handle image upload
+    let imageUrl = null;
+    if (req.files && req.files.image) {
+      const image = req.files.image;
+      const fileName = `teacher-${Date.now()}-${image.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const filePath = path.join(uploadsPath, fileName);
+      
+      try {
+        image.mv(filePath);
+        imageUrl = `/uploads/${fileName}`;
+        
+        // Delete old image if exists
+        const oldImageUrl = teachersData.teachers[teacherIndex].imageUrl;
+        if (oldImageUrl) {
+          const oldImagePath = path.join(__dirname, 'data', oldImageUrl);
+          if (fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
+        }
+        
+        // Update teacher image
+        teachersData.teachers[teacherIndex].imageUrl = imageUrl;
+        
+        if (writeTeachersData(teachersData)) {
+          res.json({
+            success: true,
+            message: 'Teacher image updated successfully',
+            imageUrl: imageUrl
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            message: 'Failed to update teacher image'
+          });
+        }
+      } catch (err) {
+        console.error('Error saving teacher image:', err);
+        res.status(500).json({
+          success: false,
+          message: 'Error uploading image: ' + err.message
+        });
+      }
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'No image file provided'
+      });
+    }
+  } catch (error) {
+    console.error('Update teacher image error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -704,10 +797,42 @@ app.get('/api/students', (req, res) => {
   }
 });
 
+// Helper function to get notification numbers for a student
+const getStudentNotificationNumbers = (student) => {
+  const numbers = [];
+  if (student.studentWhatsAppNumber) numbers.push(student.studentWhatsAppNumber);
+  if (student.parentWhatsAppNumber) numbers.push(student.parentWhatsAppNumber);
+  // Fallback to contact number if parent WhatsApp not provided
+  if (!student.parentWhatsAppNumber && student.contactNumber) numbers.push(student.contactNumber);
+  // Fallback to old whatsappNumber field for backward compatibility
+  if (numbers.length === 0 && student.whatsappNumber) numbers.push(student.whatsappNumber);
+  if (numbers.length === 0 && student.contactNumber) numbers.push(student.contactNumber);
+  return [...new Set(numbers.filter(num => num && num.trim()))];
+};
+
+// Helper function to send WhatsApp messages to multiple numbers
+const sendWhatsAppToMultiple = async (phoneNumbers, message) => {
+  const results = [];
+  const uniqueNumbers = [...new Set(phoneNumbers.filter(num => num && num.trim()))];
+  
+  for (const phoneNumber of uniqueNumbers) {
+    try {
+      const result = await sendWhatsAppMessage(phoneNumber, message);
+      results.push({ phoneNumber, success: result.success, error: result.error });
+    } catch (err) {
+      console.error(`Error sending WhatsApp to ${phoneNumber}:`, err);
+      results.push({ phoneNumber, success: false, error: err.message });
+    }
+  }
+  
+  return results;
+};
+
 // Create new student
 app.post('/api/students', (req, res) => {
   try {
-    const { fullName, dob, parentName, contactNumber, whatsappNumber, address, grade } = req.body;
+    const { fullName, dob, parentName, contactNumber, studentWhatsAppNumber, parentWhatsAppNumber, address, grade, selectedCourses } = req.body;
+    const selectedCoursesArray = typeof selectedCourses === 'string' ? JSON.parse(selectedCourses) : selectedCourses;
 
     if (!fullName || !dob || !parentName || !contactNumber || !address || !grade) {
       return res.status(400).json({
@@ -717,6 +842,21 @@ app.post('/api/students', (req, res) => {
     }
 
     const studentsData = readStudentsData();
+    
+    // Handle image upload
+    let imageUrl = null;
+    if (req.files && req.files.image) {
+      const image = req.files.image;
+      const fileName = `student-${Date.now()}-${image.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const filePath = path.join(uploadsPath, fileName);
+      
+      try {
+        image.mv(filePath);
+        imageUrl = `/uploads/${fileName}`;
+      } catch (err) {
+        console.error('Error saving student image:', err);
+      }
+    }
     
     // Calculate age for 2026
     const birthDate = new Date(dob);
@@ -728,7 +868,8 @@ app.post('/api/students', (req, res) => {
       : age;
 
     // Create new student
-    const studentWhatsApp = whatsappNumber || contactNumber;
+    // Default password is student WhatsApp number, or parent WhatsApp, or contact number
+    const defaultPassword = studentWhatsAppNumber || parentWhatsAppNumber || contactNumber;
     const newStudent = {
       id: Date.now().toString(),
       fullName,
@@ -736,21 +877,69 @@ app.post('/api/students', (req, res) => {
       dob,
       parentName,
       contactNumber,
-      whatsappNumber: studentWhatsApp,
+      studentWhatsAppNumber: studentWhatsAppNumber || null,
+      parentWhatsAppNumber: parentWhatsAppNumber || null,
+      whatsappNumber: studentWhatsAppNumber || parentWhatsAppNumber || contactNumber, // Keep for backward compatibility
       address,
       grade,
-      password: studentWhatsApp, // Default password is WhatsApp number
+      password: defaultPassword, // Default password
+      imageUrl: imageUrl,
       createdAt: new Date().toISOString()
     };
 
     studentsData.students.push(newStudent);
     
     if (writeStudentsData(studentsData)) {
-      // Send WhatsApp notification to parent
-      const parentNumber = newStudent.contactNumber || newStudent.whatsappNumber;
-      if (parentNumber) {
-        const welcomeMessage = `🎓 Welcome to our Tuition Center!\n\nDear ${newStudent.parentName},\n\nYour child ${newStudent.fullName} has been successfully registered as a student.\n\nStudent Details:\n- Name: ${newStudent.fullName}\n- Grade: ${newStudent.grade}\n- Parent: ${newStudent.parentName}\n\nWe look forward to supporting ${newStudent.fullName}'s educational journey!\n\nBest regards,\nTuition Management System`;
-        sendWhatsAppMessage(parentNumber, welcomeMessage).catch(err => {
+      // Enroll student in selected courses
+      if (selectedCoursesArray && Array.isArray(selectedCoursesArray) && selectedCoursesArray.length > 0) {
+        const coursesData = readCoursesData();
+        const enrollmentsData = readEnrollmentsData();
+        
+        selectedCoursesArray.forEach(courseId => {
+          const courseIndex = coursesData.courses.findIndex(c => c.id === courseId);
+          if (courseIndex !== -1) {
+            const course = coursesData.courses[courseIndex];
+            const enrolledStudents = course.enrolledStudents || [];
+            
+            // Add student if not already enrolled
+            if (!enrolledStudents.includes(newStudent.id)) {
+              enrolledStudents.push(newStudent.id);
+              coursesData.courses[courseIndex].enrolledStudents = enrolledStudents;
+              
+              // Record enrollment
+              const enrollment = {
+                id: Date.now().toString() + '-' + newStudent.id + '-' + courseId,
+                studentId: newStudent.id,
+                courseId: courseId,
+                action: 'enrolled',
+                enrolledAt: new Date().toISOString(),
+                createdAt: new Date().toISOString()
+              };
+              enrollmentsData.enrollments.push(enrollment);
+              
+              // Send WhatsApp notification to parent for course enrollment
+              const parentNumber = newStudent.contactNumber || newStudent.whatsappNumber;
+              if (parentNumber) {
+                const enrollmentMessage = `🎓 Course Enrollment Confirmation\n\nDear ${newStudent.parentName},\n\nYour child ${newStudent.fullName} has been successfully enrolled in:\n- Course: ${course.courseName} (${course.subject})\n- Grade: ${course.grade}\n- Course Fee: Rs. ${parseFloat(course.courseFee || 0).toFixed(2)}\n\nWe look forward to having ${newStudent.fullName} in this course!\n\nBest regards,\nTuition Management System`;
+                sendWhatsAppMessage(parentNumber, enrollmentMessage).catch(err => {
+                  console.error('Failed to send enrollment notification:', err);
+                });
+              }
+            }
+          }
+        });
+        
+        // Save updated courses and enrollments
+        writeCoursesData(coursesData);
+        writeEnrollmentsData(enrollmentsData);
+      }
+      
+      // Send WhatsApp notification to both student and parent
+      const welcomeMessage = `🎓 Welcome to our Tuition Center!\n\nDear ${newStudent.parentName},\n\nYour child ${newStudent.fullName} has been successfully registered as a student.\n\nStudent Details:\n- Name: ${newStudent.fullName}\n- Grade: ${newStudent.grade}\n- Parent: ${newStudent.parentName}\n\nWe look forward to supporting ${newStudent.fullName}'s educational journey!\n\nBest regards,\nTuition Management System`;
+      
+      const notificationNumbers = getStudentNotificationNumbers(newStudent);
+      if (notificationNumbers.length > 0) {
+        sendWhatsAppToMultiple(notificationNumbers, welcomeMessage).catch(err => {
           console.error('Failed to send welcome message:', err);
         });
       }
@@ -768,6 +957,80 @@ app.post('/api/students', (req, res) => {
     }
   } catch (error) {
     console.error('Create student error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Update student image
+app.put('/api/students/:id/image', (req, res) => {
+  try {
+    const { id } = req.params;
+    const studentsData = readStudentsData();
+    
+    const studentIndex = studentsData.students.findIndex(
+      student => student.id === id
+    );
+
+    if (studentIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    // Handle image upload
+    let imageUrl = null;
+    if (req.files && req.files.image) {
+      const image = req.files.image;
+      const fileName = `student-${Date.now()}-${image.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const filePath = path.join(uploadsPath, fileName);
+      
+      try {
+        image.mv(filePath);
+        imageUrl = `/uploads/${fileName}`;
+        
+        // Delete old image if exists
+        const oldImageUrl = studentsData.students[studentIndex].imageUrl;
+        if (oldImageUrl) {
+          const oldImagePath = path.join(__dirname, 'data', oldImageUrl);
+          if (fs.existsSync(oldImagePath)) {
+            fs.unlinkSync(oldImagePath);
+          }
+        }
+        
+        // Update student image
+        studentsData.students[studentIndex].imageUrl = imageUrl;
+        
+        if (writeStudentsData(studentsData)) {
+          res.json({
+            success: true,
+            message: 'Student image updated successfully',
+            imageUrl: imageUrl
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            message: 'Failed to update student image'
+          });
+        }
+      } catch (err) {
+        console.error('Error saving student image:', err);
+        res.status(500).json({
+          success: false,
+          message: 'Error uploading image: ' + err.message
+        });
+      }
+    } else {
+      res.status(400).json({
+        success: false,
+        message: 'No image file provided'
+      });
+    }
+  } catch (error) {
+    console.error('Update student image error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -836,8 +1099,8 @@ app.post('/api/students/login', (req, res) => {
       });
     }
 
-    // Check password (default is WhatsApp number if password not set)
-    const expectedPassword = student.password || student.whatsappNumber;
+    // Check password (default is student WhatsApp number, then parent WhatsApp, then contact number)
+    const expectedPassword = student.password || student.studentWhatsAppNumber || student.parentWhatsAppNumber || student.whatsappNumber || student.contactNumber;
     if (password !== expectedPassword) {
       return res.status(401).json({
         success: false,
@@ -887,8 +1150,8 @@ app.post('/api/students/generate-otp', async (req, res) => {
       });
     }
 
-    const parentNumber = student.contactNumber || student.whatsappNumber;
-    if (!parentNumber) {
+    const notificationNumbers = getStudentNotificationNumbers(student);
+    if (notificationNumbers.length === 0) {
       return res.status(400).json({
         success: false,
         message: 'Contact number not found for this student'
@@ -904,10 +1167,10 @@ app.post('/api/students/generate-otp', async (req, res) => {
       expiresAt: Date.now() + 5 * 60 * 1000 // 5 minutes
     };
 
-    // Send OTP via WhatsApp to parent
+    // Send OTP via WhatsApp to both student and parent
     const otpMessage = `🔐 Password Change OTP\n\nDear ${student.parentName},\n\nOTP for password change for your child ${student.fullName}'s account is: ${otp}\n\nThis OTP will expire in 5 minutes.\n\nIf you didn't request this, please ignore this message.\n\nBest regards,\nTuition Management System`;
     
-    const sendResult = await sendWhatsAppMessage(parentNumber, otpMessage);
+    const sendResult = await sendWhatsAppToMultiple(notificationNumbers, otpMessage);
     
     if (sendResult.success) {
       res.json({
@@ -1361,13 +1624,13 @@ app.put('/api/courses/:id', (req, res) => {
       };
       enrollmentsData.enrollments.push(enrollment);
       
-      // Send WhatsApp notification to parent
+      // Send WhatsApp notification to both student and parent
       const student = studentsData.students.find(s => s.id === studentId);
       if (student) {
-        const parentNumber = student.contactNumber || student.whatsappNumber;
-        if (parentNumber) {
+        const notificationNumbers = getStudentNotificationNumbers(student);
+        if (notificationNumbers.length > 0) {
           const enrollmentMessage = `🎓 Course Enrollment Confirmation\n\nDear ${student.parentName},\n\nYour child ${student.fullName} has been successfully enrolled in:\n- Course: ${course.courseName} (${course.subject})\n- Grade: ${course.grade}\n- Course Fee: Rs. ${parseFloat(course.courseFee).toFixed(2)}\n\nWe look forward to having ${student.fullName} in this course!\n\nBest regards,\nTuition Management System`;
-          sendWhatsAppMessage(parentNumber, enrollmentMessage).catch(err => {
+          sendWhatsAppToMultiple(notificationNumbers, enrollmentMessage).catch(err => {
             console.error('Failed to send enrollment notification:', err);
           });
         }
@@ -1409,6 +1672,96 @@ app.put('/api/courses/:id', (req, res) => {
     }
   } catch (error) {
     console.error('Update course error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Send bulk message to all students enrolled in a course
+app.post('/api/courses/:courseId/bulk-message', async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { message } = req.body;
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message is required'
+      });
+    }
+
+    const coursesData = readCoursesData();
+    const studentsData = readStudentsData();
+    
+    const course = coursesData.courses.find(c => c.id === courseId);
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found'
+      });
+    }
+
+    const enrolledStudentIds = course.enrolledStudents || [];
+    if (enrolledStudentIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No students enrolled in this course'
+      });
+    }
+
+    // Get all enrolled students
+    const enrolledStudents = studentsData.students.filter(s => enrolledStudentIds.includes(s.id));
+    
+    // Send message to all enrolled students
+    let sentCount = 0;
+    const results = [];
+
+    for (const student of enrolledStudents) {
+      const notificationNumbers = getStudentNotificationNumbers(student);
+      if (notificationNumbers.length > 0) {
+        try {
+          const bulkMessage = `📢 Message from ${course.courseName}\n\n${message}\n\nBest regards,\nTuition Management System`;
+          const sendResults = await sendWhatsAppToMultiple(notificationNumbers, bulkMessage);
+          const successCount = sendResults.filter(r => r.success).length;
+          if (successCount > 0) {
+            sentCount += successCount;
+          }
+          results.push({
+            studentId: student.id,
+            studentName: student.fullName,
+            success: successCount > 0,
+            sentTo: successCount
+          });
+        } catch (err) {
+          console.error(`Error sending bulk message to ${student.fullName}:`, err);
+          results.push({
+            studentId: student.id,
+            studentName: student.fullName,
+            success: false,
+            error: err.message
+          });
+        }
+      } else {
+        results.push({
+          studentId: student.id,
+          studentName: student.fullName,
+          success: false,
+          error: 'No WhatsApp number available'
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Bulk message sent to ${sentCount} recipient(s)`,
+      sentCount: sentCount,
+      totalStudents: enrolledStudents.length,
+      results: results
+    });
+  } catch (error) {
+    console.error('Send bulk message error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -1493,11 +1846,13 @@ app.post('/api/payments', (req, res) => {
       }
     );
 
-    // Get student and course information for notification
+    // Get student, course, and teacher information for notification
     const studentsData = readStudentsData();
     const coursesData = readCoursesData();
+    const teachersData = readTeachersData();
     const student = studentsData.students.find(s => s.id === studentId);
     const course = courseId ? coursesData.courses.find(c => c.id === courseId) : null;
+    const teacher = course && course.teacherId ? teachersData.teachers.find(t => t.id === course.teacherId) : null;
     
     if (existingPayment) {
       // Update existing payment
@@ -1522,10 +1877,10 @@ app.post('/api/payments', (req, res) => {
     if (writePaymentsData(paymentsData)) {
       const payment = existingPayment || paymentsData.payments[paymentsData.payments.length - 1];
       
-      // Send WhatsApp notification to parent
+      // Send WhatsApp notification to both student and parent
       if (student) {
-        const parentNumber = student.contactNumber || student.whatsappNumber;
-        if (parentNumber) {
+        const notificationNumbers = getStudentNotificationNumbers(student);
+        if (notificationNumbers.length > 0) {
           const paymentDateObj = new Date(payment.paymentDate);
           const formattedDate = paymentDateObj.toLocaleDateString('en-US', { 
             year: 'numeric', 
@@ -1538,10 +1893,34 @@ app.post('/api/payments', (req, res) => {
           const monthName = monthNames[parseInt(month) - 1];
           
           const paymentMessage = `💰 Payment Received\n\nDear ${student.parentName},\n\nPayment for your child ${student.fullName} has been successfully recorded:\n- Amount: Rs. ${parseFloat(amount).toFixed(2)}\n- Month: ${monthName} ${year}${course ? `\n- Course: ${course.courseName} (${course.subject})` : ''}\n- Payment Date: ${formattedDate}\n\nThank you for your payment!\n\nBest regards,\nTuition Management System`;
-          sendWhatsAppMessage(parentNumber, paymentMessage).catch(err => {
+          sendWhatsAppToMultiple(notificationNumbers, paymentMessage).catch(err => {
             console.error('Failed to send payment notification:', err);
           });
         }
+      }
+      
+      // Send WhatsApp notification to teacher if payment is for a course
+      if (course && teacher && teacher.whatsappNumber) {
+        const paymentDateObj = new Date(payment.paymentDate);
+        const formattedDate = paymentDateObj.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+        const [year, month] = monthKey.split('-');
+        const monthName = monthNames[parseInt(month) - 1];
+        
+        // Calculate teacher's share if teacherPaymentPercentage is set
+        const teacherPercentage = course.teacherPaymentPercentage ? parseFloat(course.teacherPaymentPercentage) : 0;
+        const teacherShare = teacherPercentage > 0 ? (parseFloat(amount) * teacherPercentage) / 100 : 0;
+        
+        const teacherPaymentMessage = `💰 Payment Notification\n\nDear ${teacher.name},\n\nPayment has been received for your course:\n- Student: ${student ? student.fullName : 'N/A'}\n- Course: ${course.courseName} (${course.subject})\n- Amount: Rs. ${parseFloat(amount).toFixed(2)}\n- Month: ${monthName} ${year}\n- Payment Date: ${formattedDate}${teacherShare > 0 ? `\n- Your Share (${teacherPercentage}%): Rs. ${teacherShare.toFixed(2)}` : ''}\n\nThank you!\n\nBest regards,\nTuition Management System`;
+        
+        sendWhatsAppMessage(teacher.whatsappNumber, teacherPaymentMessage).catch(err => {
+          console.error('Failed to send payment notification to teacher:', err);
+        });
       }
       
       res.status(201).json({
@@ -1627,11 +2006,12 @@ app.post('/api/payments/send-reminders', async (req, res) => {
     const monthName = monthNames[currentMonth - 1];
     
     for (const { student, course } of studentsWithPendingPayments) {
-      const parentNumber = student.contactNumber || student.whatsappNumber;
-      if (parentNumber) {
+      const notificationNumbers = getStudentNotificationNumbers(student);
+      if (notificationNumbers.length > 0) {
         const reminderMessage = `⏰ Payment Reminder\n\nDear ${student.parentName},\n\nThis is a friendly reminder that payment for your child ${student.fullName} for ${monthName} ${currentYear} is pending.\n\nCourse Details:\n- Course: ${course.courseName} (${course.subject})\n- Amount: Rs. ${parseFloat(course.courseFee).toFixed(2)}\n- Due: ${monthName} ${currentYear}\n\nPlease make your payment at your earliest convenience.\n\nThank you!\n\nBest regards,\nTuition Management System`;
         
-        const result = await sendWhatsAppMessage(parentNumber, reminderMessage);
+        const results = await sendWhatsAppToMultiple(notificationNumbers, reminderMessage);
+        const result = results.length > 0 ? results[0] : { success: false };
         if (result.success) {
           remindersSent++;
         }
@@ -2028,8 +2408,8 @@ app.post('/api/courses/:courseId/lms', async (req, res) => {
         course.enrolledStudents.forEach(studentId => {
           const student = studentsData.students.find(s => s.id === studentId);
           if (student) {
-            const parentNumber = student.contactNumber || student.whatsappNumber;
-            if (parentNumber) {
+            const notificationNumbers = getStudentNotificationNumbers(student);
+            if (notificationNumbers.length > 0) {
               let lmsMessage = `📚 New Learning Material Available\n\nDear ${student.parentName},\n\nNew ${contentType.toLowerCase()} has been uploaded for your child ${student.fullName}:\n- Course: ${course.courseName} (${course.subject})\n- Title: ${title}`;
               
               if (type === 'link' && link) {
@@ -2038,7 +2418,7 @@ app.post('/api/courses/:courseId/lms', async (req, res) => {
               
               lmsMessage += `\n\nPlease check the LMS to access the new content.\n\nBest regards,\nTuition Management System`;
               
-              sendWhatsAppMessage(parentNumber, lmsMessage).catch(err => {
+              sendWhatsAppToMultiple(notificationNumbers, lmsMessage).catch(err => {
                 console.error(`Failed to send LMS update to ${student.parentName}:`, err);
               });
             }
@@ -2150,10 +2530,10 @@ app.post('/api/attendance', (req, res) => {
     attendanceData.attendance.push(newAttendance);
     
     if (writeAttendanceData(attendanceData)) {
-      // Send WhatsApp notification to parent
+      // Send WhatsApp notification to both student and parent
       if (student && course) {
-        const parentNumber = student.contactNumber || student.whatsappNumber;
-        if (parentNumber) {
+        const notificationNumbers = getStudentNotificationNumbers(student);
+        if (notificationNumbers.length > 0) {
           const attendanceDate = new Date(date || new Date().toISOString());
           const formattedDate = attendanceDate.toLocaleDateString('en-US', { 
             weekday: 'long', 
@@ -2162,7 +2542,7 @@ app.post('/api/attendance', (req, res) => {
             day: 'numeric' 
           });
           const attendanceMessage = `✅ Attendance Marked\n\nDear ${student.parentName},\n\nYour child ${student.fullName}'s attendance has been marked for:\n- Course: ${course.courseName} (${course.subject})\n- Date: ${formattedDate}\n\nThank you!\n\nBest regards,\nTuition Management System`;
-          sendWhatsAppMessage(parentNumber, attendanceMessage).catch(err => {
+          sendWhatsAppToMultiple(notificationNumbers, attendanceMessage).catch(err => {
             console.error('Failed to send attendance notification:', err);
           });
         }

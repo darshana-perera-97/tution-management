@@ -26,12 +26,25 @@ const Students = () => {
     dob: '',
     parentName: '',
     contactNumber: '',
-    whatsappNumber: '',
+    studentWhatsAppNumber: '',
+    parentWhatsAppNumber: '',
     address: '',
     grade: ''
   });
+  const [selectedCourses, setSelectedCourses] = useState([]);
+  const [studentImage, setStudentImage] = useState(null);
+  const [studentImagePreview, setStudentImagePreview] = useState(null);
+  const [showEditImageModal, setShowEditImageModal] = useState(false);
+  const [editImage, setEditImage] = useState(null);
+  const [editImagePreview, setEditImagePreview] = useState(null);
+  const [isOperator, setIsOperator] = useState(false);
 
   useEffect(() => {
+    // Check if user is operator
+    const isOperatorAuth = localStorage.getItem('isOperatorAuthenticated');
+    const isAdminAuth = localStorage.getItem('isAuthenticated');
+    setIsOperator(!!isOperatorAuth && !isAdminAuth);
+    
     fetchStudents();
     fetchCourses();
     fetchPayments();
@@ -89,13 +102,60 @@ const Students = () => {
     }
   };
 
+  const normalizeGrade = (grade) => {
+    if (!grade) return '';
+    return grade.toString().replace(/^Grade\s+/i, '').trim();
+  };
+
+  const gradesMatch = (grade1, grade2) => {
+    return normalizeGrade(grade1) === normalizeGrade(grade2);
+  };
+
+  const getAvailableCourses = () => {
+    if (!formData.grade) return [];
+    return courses.filter(course => gradesMatch(course.grade, formData.grade));
+  };
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
     });
+    // Clear selected courses when grade changes
+    if (e.target.name === 'grade') {
+      setSelectedCourses([]);
+    }
     setError('');
     setSuccess('');
+  };
+
+  const handleCourseToggle = (courseId) => {
+    setSelectedCourses(prev => 
+      prev.includes(courseId)
+        ? prev.filter(id => id !== courseId)
+        : [...prev, courseId]
+    );
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setError('Image size should be less than 5MB');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file');
+        return;
+      }
+      setStudentImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setStudentImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+      setError('');
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -105,12 +165,24 @@ const Students = () => {
     setLoading(true);
 
     try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('fullName', formData.fullName);
+      formDataToSend.append('dob', formData.dob);
+      formDataToSend.append('parentName', formData.parentName);
+      formDataToSend.append('contactNumber', formData.contactNumber);
+      formDataToSend.append('studentWhatsAppNumber', formData.studentWhatsAppNumber || '');
+      formDataToSend.append('parentWhatsAppNumber', formData.parentWhatsAppNumber || '');
+      formDataToSend.append('address', formData.address);
+      formDataToSend.append('grade', formData.grade);
+      formDataToSend.append('selectedCourses', JSON.stringify(selectedCourses));
+      
+      if (studentImage) {
+        formDataToSend.append('image', studentImage);
+      }
+
       const response = await fetch(`${API_URL}/api/students`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+        body: formDataToSend,
       });
 
       const data = await response.json();
@@ -122,14 +194,19 @@ const Students = () => {
           dob: '',
           parentName: '',
           contactNumber: '',
-          whatsappNumber: '',
+          studentWhatsAppNumber: '',
+          parentWhatsAppNumber: '',
           address: '',
           grade: ''
         });
+        setSelectedCourses([]);
+        setStudentImage(null);
+        setStudentImagePreview(null);
         setShowModal(false);
         setNewStudentId(data.student.id);
         setShowQRModal(true);
         fetchStudents();
+        fetchCourses(); // Refresh courses to get updated enrollment data
         setTimeout(() => setSuccess(''), 3000);
       } else {
         setError(data.message || 'Failed to add student');
@@ -172,12 +249,84 @@ const Students = () => {
       dob: '',
       parentName: '',
       contactNumber: '',
-      whatsappNumber: '',
+      studentWhatsAppNumber: '',
+      parentWhatsAppNumber: '',
       address: '',
       grade: ''
     });
+    setSelectedCourses([]);
+    setStudentImage(null);
+    setStudentImagePreview(null);
     setError('');
     setSuccess('');
+  };
+
+  const handleEditImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setError('Image size should be less than 5MB');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file');
+        return;
+      }
+      setEditImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+      setError('');
+    }
+  };
+
+  const handleUpdateImage = async (e) => {
+    e.preventDefault();
+    if (!editImage || !selectedStudent) return;
+    
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('image', editImage);
+
+      const response = await fetch(`${API_URL}/api/students/${selectedStudent.id}/image`, {
+        method: 'PUT',
+        body: formDataToSend,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess('Student photo updated successfully!');
+        setEditImage(null);
+        setEditImagePreview(null);
+        setShowEditImageModal(false);
+        fetchStudents();
+        // Update selected student in modal
+        const updatedStudent = { ...selectedStudent, imageUrl: data.imageUrl };
+        setSelectedStudent(updatedStudent);
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(data.message || 'Failed to update photo');
+      }
+    } catch (err) {
+      console.error('Error updating student image:', err);
+      setError('Unable to connect to server. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloseEditImageModal = () => {
+    setShowEditImageModal(false);
+    setEditImage(null);
+    setEditImagePreview(null);
+    setError('');
   };
 
   const handleViewDetails = (student) => {
@@ -620,17 +769,32 @@ const Students = () => {
             </Form.Group>
 
             <Form.Group className="mb-3">
-              <Form.Label className="form-label">WhatsApp Number</Form.Label>
+              <Form.Label className="form-label">Student WhatsApp Number (Optional)</Form.Label>
               <Form.Control
                 type="tel"
-                name="whatsappNumber"
-                placeholder="Enter WhatsApp number (optional)"
-                value={formData.whatsappNumber}
+                name="studentWhatsAppNumber"
+                placeholder="Enter student WhatsApp number"
+                value={formData.studentWhatsAppNumber}
                 onChange={handleChange}
                 className="form-control-custom"
               />
               <Form.Text className="text-muted">
-                If not provided, contact number will be used
+                WhatsApp number for the student
+              </Form.Text>
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label className="form-label">Parent WhatsApp Number (Optional)</Form.Label>
+              <Form.Control
+                type="tel"
+                name="parentWhatsAppNumber"
+                placeholder="Enter parent WhatsApp number"
+                value={formData.parentWhatsAppNumber}
+                onChange={handleChange}
+                className="form-control-custom"
+              />
+              <Form.Text className="text-muted">
+                WhatsApp number for the parent. If not provided, contact number will be used.
               </Form.Text>
             </Form.Group>
 
@@ -660,6 +824,74 @@ const Students = () => {
                 className="form-control-custom"
               />
             </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label className="form-label">Student Photo (Optional)</Form.Label>
+              <Form.Control
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="form-control-custom"
+              />
+              {studentImagePreview && (
+                <div className="mt-2">
+                  <img 
+                    src={studentImagePreview} 
+                    alt="Preview" 
+                    style={{ maxWidth: '200px', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px' }}
+                  />
+                </div>
+              )}
+              <Form.Text className="text-muted">
+                Upload a photo of the student (max 5MB, JPG/PNG)
+              </Form.Text>
+            </Form.Group>
+
+            {formData.grade && (
+              <Form.Group className="mb-3">
+                <Form.Label className="form-label">Select Courses (Optional)</Form.Label>
+                <div className="border rounded p-3" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  {getAvailableCourses().length > 0 ? (
+                    <>
+                      {getAvailableCourses().map((course) => (
+                        <Form.Check
+                          key={course.id}
+                          type="checkbox"
+                          id={`course-${course.id}`}
+                          label={
+                            <div>
+                              <strong>{course.courseName}</strong>
+                              <span className="text-muted ms-2">
+                                ({course.subject}) - Rs. {parseFloat(course.courseFee || 0).toFixed(2)}
+                              </span>
+                            </div>
+                          }
+                          checked={selectedCourses.includes(course.id)}
+                          onChange={() => handleCourseToggle(course.id)}
+                          className="mb-2"
+                        />
+                      ))}
+                      {selectedCourses.length > 0 && (
+                        <div className="mt-3 p-2 bg-light rounded">
+                          <small>
+                            <strong>Selected: </strong>
+                            {selectedCourses.length} course{selectedCourses.length !== 1 ? 's' : ''}
+                          </small>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-muted mb-0">
+                      No courses available for grade "{formData.grade}". 
+                      Please create courses for this grade first.
+                    </p>
+                  )}
+                </div>
+                <Form.Text className="text-muted">
+                  Select the courses this student will be enrolled in. You can enroll them in courses later as well.
+                </Form.Text>
+              </Form.Group>
+            )}
 
             {error && (
               <Alert variant="danger" className="mt-3">
@@ -691,6 +923,29 @@ const Students = () => {
         <Modal.Body>
           {selectedStudent && (
             <div>
+              <div className="mb-3 text-center">
+                {selectedStudent.imageUrl ? (
+                  <img 
+                    src={`${API_URL}${selectedStudent.imageUrl}`} 
+                    alt={selectedStudent.fullName}
+                    style={{ maxWidth: '200px', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #dee2e6' }}
+                  />
+                ) : (
+                  <div style={{ width: '200px', height: '200px', backgroundColor: '#f0f0f0', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
+                    <span className="text-muted">No Photo</span>
+                  </div>
+                )}
+                {isOperator && (
+                  <div className="mt-2">
+                    <Button variant="outline-primary" size="sm" onClick={() => {
+                      setEditImagePreview(selectedStudent.imageUrl ? `${API_URL}${selectedStudent.imageUrl}` : null);
+                      setShowEditImageModal(true);
+                    }}>
+                      {selectedStudent.imageUrl ? 'Change Photo' : 'Add Photo'}
+                    </Button>
+                  </div>
+                )}
+              </div>
               <div className="mb-3">
                 <strong>Full Name:</strong>
                 <p className="mb-0">{selectedStudent.fullName}</p>
@@ -714,8 +969,12 @@ const Students = () => {
                 <p className="mb-0">{selectedStudent.contactNumber}</p>
               </div>
               <div className="mb-3">
-                <strong>WhatsApp Number:</strong>
-                <p className="mb-0">{selectedStudent.whatsappNumber || selectedStudent.contactNumber}</p>
+                <strong>Student WhatsApp Number:</strong>
+                <p className="mb-0">{selectedStudent.studentWhatsAppNumber || 'Not provided'}</p>
+              </div>
+              <div className="mb-3">
+                <strong>Parent WhatsApp Number:</strong>
+                <p className="mb-0">{selectedStudent.parentWhatsAppNumber || selectedStudent.contactNumber || 'Not provided'}</p>
               </div>
               <div className="mb-3">
                 <strong>Address:</strong>
@@ -943,6 +1202,64 @@ const Students = () => {
             Close
           </Button>
         </Modal.Footer>
+      </Modal>
+
+      {/* Edit Student Image Modal */}
+      <Modal show={showEditImageModal} onHide={handleCloseEditImageModal} centered backdrop="static">
+        <Modal.Header closeButton>
+          <Modal.Title>Update Student Photo - {selectedStudent?.fullName}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form onSubmit={handleUpdateImage}>
+            <Form.Group className="mb-3">
+              <Form.Label className="form-label">Student Photo</Form.Label>
+              <Form.Control
+                type="file"
+                accept="image/*"
+                onChange={handleEditImageChange}
+                className="form-control-custom"
+                required
+              />
+              {editImagePreview && (
+                <div className="mt-2">
+                  <img 
+                    src={editImagePreview} 
+                    alt="Preview" 
+                    style={{ maxWidth: '200px', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px' }}
+                  />
+                </div>
+              )}
+              <Form.Text className="text-muted">
+                Upload a photo of the student (max 5MB, JPG/PNG)
+              </Form.Text>
+            </Form.Group>
+
+            {error && (
+              <Alert variant="danger" className="mt-3">
+                {error}
+              </Alert>
+            )}
+
+            {success && (
+              <Alert variant="success" className="mt-3">
+                {success}
+              </Alert>
+            )}
+
+            <div className="d-flex justify-content-end gap-2 mt-4">
+              <Button variant="secondary" onClick={handleCloseEditImageModal}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={loading || !editImage}
+              >
+                {loading ? 'Updating...' : 'Update Photo'}
+              </Button>
+            </div>
+          </Form>
+        </Modal.Body>
       </Modal>
     </Container>
   );

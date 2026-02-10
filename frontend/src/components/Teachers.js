@@ -28,10 +28,16 @@ const Teachers = () => {
     name: '',
     email: '',
     password: '',
+    whatsappNumber: '',
     subject: '',
     educationQualification: '',
     description: ''
   });
+  const [teacherImage, setTeacherImage] = useState(null);
+  const [teacherImagePreview, setTeacherImagePreview] = useState(null);
+  const [showEditImageModal, setShowEditImageModal] = useState(false);
+  const [editImage, setEditImage] = useState(null);
+  const [editImagePreview, setEditImagePreview] = useState(null);
 
   useEffect(() => {
     // Check if user is operator (not admin)
@@ -142,6 +148,27 @@ const Teachers = () => {
     setSuccess('');
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setError('Image size should be less than 5MB');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file');
+        return;
+      }
+      setTeacherImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setTeacherImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+      setError('');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -149,19 +176,31 @@ const Teachers = () => {
     setLoading(true);
 
     try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('name', formData.name);
+      formDataToSend.append('email', formData.email);
+      formDataToSend.append('password', formData.password);
+      formDataToSend.append('whatsappNumber', formData.whatsappNumber || '');
+      formDataToSend.append('subject', formData.subject);
+      formDataToSend.append('educationQualification', formData.educationQualification);
+      formDataToSend.append('description', formData.description || '');
+      
+      if (teacherImage) {
+        formDataToSend.append('image', teacherImage);
+      }
+
       const response = await fetch(`${API_URL}/api/teachers`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+        body: formDataToSend,
       });
 
       const data = await response.json();
 
       if (data.success) {
         setSuccess('Teacher added successfully!');
-        setFormData({ name: '', email: '', password: '', subject: '', educationQualification: '', description: '' });
+        setFormData({ name: '', email: '', password: '', whatsappNumber: '', subject: '', educationQualification: '', description: '' });
+        setTeacherImage(null);
+        setTeacherImagePreview(null);
         setShowModal(false);
         fetchTeachers();
         setTimeout(() => setSuccess(''), 3000);
@@ -201,9 +240,79 @@ const Teachers = () => {
 
   const handleClose = () => {
     setShowModal(false);
-    setFormData({ name: '', email: '', password: '', subject: '', educationQualification: '', description: '' });
+    setFormData({ name: '', email: '', password: '', whatsappNumber: '', subject: '', educationQualification: '', description: '' });
+    setTeacherImage(null);
+    setTeacherImagePreview(null);
     setError('');
     setSuccess('');
+  };
+
+  const handleEditImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setError('Image size should be less than 5MB');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file');
+        return;
+      }
+      setEditImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+      setError('');
+    }
+  };
+
+  const handleUpdateImage = async (e) => {
+    e.preventDefault();
+    if (!editImage || !selectedTeacher) return;
+    
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('image', editImage);
+
+      const response = await fetch(`${API_URL}/api/teachers/${selectedTeacher.id}/image`, {
+        method: 'PUT',
+        body: formDataToSend,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess('Teacher photo updated successfully!');
+        setEditImage(null);
+        setEditImagePreview(null);
+        setShowEditImageModal(false);
+        fetchTeachers();
+        // Update selected teacher in modal
+        const updatedTeacher = { ...selectedTeacher, imageUrl: data.imageUrl };
+        setSelectedTeacher(updatedTeacher);
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(data.message || 'Failed to update photo');
+      }
+    } catch (err) {
+      console.error('Error updating teacher image:', err);
+      setError('Unable to connect to server. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloseEditImageModal = () => {
+    setShowEditImageModal(false);
+    setEditImage(null);
+    setEditImagePreview(null);
+    setError('');
   };
 
   const handleViewMore = (teacher) => {
@@ -226,6 +335,12 @@ const Teachers = () => {
   const handleClosePaymentsModal = () => {
     setShowPaymentsModal(false);
     setSelectedTeacher(null);
+  };
+
+  const getTeacherCourses = (teacherId) => {
+    const teacherCourses = courses.filter(course => course.teacherId === teacherId);
+    if (teacherCourses.length === 0) return '-';
+    return teacherCourses.map(course => course.courseName).join(', ');
   };
 
   const calculateTeacherPayments = (teacher) => {
@@ -406,13 +521,14 @@ const Teachers = () => {
               <th>#</th>
               <th>Name</th>
               <th>Subject</th>
+              <th>Conducting Courses</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {paginatedTeachers.length === 0 ? (
               <tr>
-                <td colSpan="4" className="text-center text-muted py-4">
+                <td colSpan="5" className="text-center text-muted py-4">
                   No teachers found. Click "Add Teacher" to create one.
                 </td>
               </tr>
@@ -422,6 +538,7 @@ const Teachers = () => {
                   <td>{startIndex + index + 1}</td>
                   <td>{teacher.name}</td>
                   <td>{teacher.subject || '-'}</td>
+                  <td>{getTeacherCourses(teacher.id)}</td>
                   <td>
                     <div className="d-flex gap-2">
                       <Button
@@ -473,6 +590,14 @@ const Teachers = () => {
                   <Card.Body>
                     <div className="student-card-header mb-0">
                       <h5 className="student-card-name mb-0">{teacher.name}</h5>
+                    </div>
+                    <div className="mb-2">
+                      <small className="text-muted">Subject: </small>
+                      <span>{teacher.subject || '-'}</span>
+                    </div>
+                    <div className="mb-2">
+                      <small className="text-muted">Conducting Courses: </small>
+                      <span>{getTeacherCourses(teacher.id)}</span>
                     </div>
                     <div className="student-card-actions">
                       <div className="student-actions-grid">
@@ -575,6 +700,21 @@ const Teachers = () => {
             </Form.Group>
 
             <Form.Group className="mb-3">
+              <Form.Label className="form-label">WhatsApp Number (Optional)</Form.Label>
+              <Form.Control
+                type="tel"
+                name="whatsappNumber"
+                placeholder="Enter WhatsApp number"
+                value={formData.whatsappNumber}
+                onChange={handleChange}
+                className="form-control-custom"
+              />
+              <Form.Text className="text-muted">
+                WhatsApp number for the teacher
+              </Form.Text>
+            </Form.Group>
+
+            <Form.Group className="mb-3">
               <Form.Label className="form-label">Subject</Form.Label>
               <Form.Select
                 name="subject"
@@ -633,6 +773,28 @@ const Teachers = () => {
               />
             </Form.Group>
 
+            <Form.Group className="mb-3">
+              <Form.Label className="form-label">Teacher Photo (Optional)</Form.Label>
+              <Form.Control
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="form-control-custom"
+              />
+              {teacherImagePreview && (
+                <div className="mt-2">
+                  <img 
+                    src={teacherImagePreview} 
+                    alt="Preview" 
+                    style={{ maxWidth: '200px', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px' }}
+                  />
+                </div>
+              )}
+              <Form.Text className="text-muted">
+                Upload a photo of the teacher (max 5MB, JPG/PNG)
+              </Form.Text>
+            </Form.Group>
+
             {error && (
               <Alert variant="danger" className="mt-3">
                 {error}
@@ -663,6 +825,29 @@ const Teachers = () => {
         <Modal.Body>
           {selectedTeacher && (
             <div className="teacher-details">
+              <div className="mb-3 text-center">
+                {selectedTeacher.imageUrl ? (
+                  <img 
+                    src={`${API_URL}${selectedTeacher.imageUrl}`} 
+                    alt={selectedTeacher.name}
+                    style={{ maxWidth: '200px', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #dee2e6' }}
+                  />
+                ) : (
+                  <div style={{ width: '200px', height: '200px', backgroundColor: '#f0f0f0', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
+                    <span className="text-muted">No Photo</span>
+                  </div>
+                )}
+                {isOperator && (
+                  <div className="mt-2">
+                    <Button variant="outline-primary" size="sm" onClick={() => {
+                      setEditImagePreview(selectedTeacher.imageUrl ? `${API_URL}${selectedTeacher.imageUrl}` : null);
+                      setShowEditImageModal(true);
+                    }}>
+                      {selectedTeacher.imageUrl ? 'Change Photo' : 'Add Photo'}
+                    </Button>
+                  </div>
+                )}
+              </div>
               <div className="detail-row mb-3">
                 <strong className="detail-label">Name:</strong>
                 <span className="detail-value">{selectedTeacher.name}</span>
@@ -670,6 +855,10 @@ const Teachers = () => {
               <div className="detail-row mb-3">
                 <strong className="detail-label">Email:</strong>
                 <span className="detail-value">{selectedTeacher.email}</span>
+              </div>
+              <div className="detail-row mb-3">
+                <strong className="detail-label">WhatsApp Number:</strong>
+                <span className="detail-value">{selectedTeacher.whatsappNumber || 'Not provided'}</span>
               </div>
               <div className="detail-row mb-3">
                 <strong className="detail-label">Subject:</strong>
@@ -894,6 +1083,64 @@ const Teachers = () => {
               </div>
             </Form>
           )}
+        </Modal.Body>
+      </Modal>
+
+      {/* Edit Teacher Image Modal */}
+      <Modal show={showEditImageModal} onHide={handleCloseEditImageModal} centered backdrop="static">
+        <Modal.Header closeButton>
+          <Modal.Title>Update Teacher Photo - {selectedTeacher?.name}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form onSubmit={handleUpdateImage}>
+            <Form.Group className="mb-3">
+              <Form.Label className="form-label">Teacher Photo</Form.Label>
+              <Form.Control
+                type="file"
+                accept="image/*"
+                onChange={handleEditImageChange}
+                className="form-control-custom"
+                required
+              />
+              {editImagePreview && (
+                <div className="mt-2">
+                  <img 
+                    src={editImagePreview} 
+                    alt="Preview" 
+                    style={{ maxWidth: '200px', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px' }}
+                  />
+                </div>
+              )}
+              <Form.Text className="text-muted">
+                Upload a photo of the teacher (max 5MB, JPG/PNG)
+              </Form.Text>
+            </Form.Group>
+
+            {error && (
+              <Alert variant="danger" className="mt-3">
+                {error}
+              </Alert>
+            )}
+
+            {success && (
+              <Alert variant="success" className="mt-3">
+                {success}
+              </Alert>
+            )}
+
+            <div className="d-flex justify-content-end gap-2 mt-4">
+              <Button variant="secondary" onClick={handleCloseEditImageModal}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={loading || !editImage}
+              >
+                {loading ? 'Updating...' : 'Update Photo'}
+              </Button>
+            </div>
+          </Form>
         </Modal.Body>
       </Modal>
     </Container>
