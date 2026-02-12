@@ -13,9 +13,9 @@
  * - Production: 'https://your-domain.com'
  * - Custom port: 'http://localhost:3000'
  */
-const API_URL =  'https://smartclass.nexgenai.asia';
+// const API_URL =  'https://smartclass.nexgenai.asia';
 // const API_URL =  'http://93.127.129.102:5253';
-// const API_URL =  'http://localhost:5253';
+const API_URL =  'http://localhost:5253';
 
 export default API_URL;
 

@@ -2861,31 +2861,66 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
     await client.initialize();
 
     // Wait for QR code
-    const qr = await qrPromise;
+    try {
+      const qr = await qrPromise;
 
-    if (qr) {
-      // QR code was generated
-      res.json({
-        success: true,
-        qrCode: qr,
-        message: 'QR code generated. Scan with WhatsApp mobile app.'
-      });
-    } else {
-      // Client is already ready (was authenticated before)
-      res.json({
-        success: true,
-        connected: true,
-        message: 'WhatsApp is already connected',
-        phoneNumber: whatsappState.phoneNumber
+      if (qr) {
+        // QR code was generated
+        res.json({
+          success: true,
+          qrCode: qr,
+          message: 'QR code generated. Scan with WhatsApp mobile app.'
+        });
+      } else {
+        // Client is already ready (was authenticated before)
+        res.json({
+          success: true,
+          connected: true,
+          message: 'WhatsApp is already connected',
+          phoneNumber: whatsappState.phoneNumber
+        });
+      }
+    } catch (qrError) {
+      // Handle timeout or other QR generation errors
+      console.error('QR code generation error:', qrError);
+      
+      // Clean up the client if it exists
+      if (whatsappState.client) {
+        try {
+          await whatsappState.client.destroy();
+        } catch (destroyErr) {
+          console.error('Error destroying client on timeout:', destroyErr);
+        }
+        whatsappState.client = null;
+      }
+      
+      // Reset state
+      whatsappState.qrCode = null;
+      
+      res.status(500).json({
+        success: false,
+        message: 'Failed to generate QR code: ' + qrError.message,
+        canDisconnect: true
       });
     }
     
   } catch (error) {
     console.error('WhatsApp QR generation error:', error);
-    whatsappState.client = null;
+    
+    // Clean up the client if it exists
+    if (whatsappState.client) {
+      try {
+        await whatsappState.client.destroy();
+      } catch (destroyErr) {
+        console.error('Error destroying client on error:', destroyErr);
+      }
+      whatsappState.client = null;
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Failed to generate QR code: ' + error.message
+      message: 'Failed to generate QR code: ' + error.message,
+      canDisconnect: true
     });
   }
 });
@@ -2893,27 +2928,52 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
 // Disconnect WhatsApp
 app.post('/api/whatsapp/disconnect', async (req, res) => {
   try {
+    // Clean up client if it exists
     if (whatsappState.client) {
       try {
-        await whatsappState.client.logout();
+        // Try to logout first (if connected)
+        if (whatsappState.connected) {
+          try {
+            await whatsappState.client.logout();
+          } catch (err) {
+            console.log('Logout error (may already be logged out):', err.message);
+          }
+        }
       } catch (err) {
-        console.log('Logout error (may already be logged out):', err.message);
+        console.log('Logout attempt error:', err.message);
       }
       
+      // Always try to destroy the client
       try {
         await whatsappState.client.destroy();
+        console.log('WhatsApp client destroyed successfully');
       } catch (err) {
-        console.log('Destroy error:', err.message);
+        console.log('Destroy error (client may already be destroyed):', err.message);
+        // Force cleanup even if destroy fails
+        try {
+          whatsappState.client = null;
+        } catch (cleanupErr) {
+          console.log('Cleanup error:', cleanupErr.message);
+        }
       }
     }
     
+    // Also try to clean up session files
+    try {
+      const sessionPath = path.join(__dirname, 'data', '.wwebjs_auth');
+      if (fs.existsSync(sessionPath)) {
+        // Note: We don't delete the session folder, just reset the state
+        // The session will be reused if user wants to reconnect
+      }
+    } catch (sessionErr) {
+      console.log('Session cleanup error:', sessionErr.message);
+    }
+    
     // Reset state
-    whatsappState = {
-      connected: false,
-      phoneNumber: null,
-      qrCode: null,
-      client: null
-    };
+    whatsappState.connected = false;
+    whatsappState.phoneNumber = null;
+    whatsappState.qrCode = null;
+    whatsappState.client = null;
     
     console.log('WhatsApp disconnected successfully');
     
@@ -2923,9 +2983,16 @@ app.post('/api/whatsapp/disconnect', async (req, res) => {
     });
   } catch (error) {
     console.error('WhatsApp disconnect error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to disconnect WhatsApp'
+    
+    // Force reset state even on error
+    whatsappState.connected = false;
+    whatsappState.phoneNumber = null;
+    whatsappState.qrCode = null;
+    whatsappState.client = null;
+    
+    res.json({
+      success: true,
+      message: 'WhatsApp state reset (may have been partially disconnected)'
     });
   }
 });

@@ -72,6 +72,13 @@ const WhatsAppLink = () => {
         qrRefreshInterval.current = setInterval(async () => {
           await checkConnectionStatus();
         }, 3000);
+      } else if (data.success && data.connected) {
+        // Already connected
+        setIsConnected(true);
+        setConnectionStatus('connected');
+        setPhoneNumber(data.phoneNumber || '');
+        setQrCode('');
+        setError('');
       } else {
         setError(data.message || 'Failed to generate QR code');
         setConnectionStatus('disconnected');
@@ -79,8 +86,9 @@ const WhatsAppLink = () => {
       }
     } catch (err) {
       console.error('Error generating QR code:', err);
-      setError('Unable to connect to server. Please try again later.');
+      setError('Unable to connect to server. Please try again later. You can try disconnecting and retrying.');
       setConnectionStatus('disconnected');
+      setQrCode('');
     } finally {
       setIsLoading(false);
     }
@@ -195,6 +203,29 @@ const WhatsAppLink = () => {
             <h5 className="mb-0">Connect WhatsApp</h5>
           </Card.Header>
           <Card.Body>
+            {error && error.includes('timeout') && (
+              <Alert variant="warning" className="mb-3">
+                <strong>Connection Timeout:</strong> QR code generation timed out. 
+                Please try disconnecting and generating a new QR code.
+                <div className="mt-2">
+                  <Button 
+                    variant="outline-danger" 
+                    size="sm"
+                    onClick={disconnectWhatsApp}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Spinner animation="border" size="sm" className="me-2" />
+                        Disconnecting...
+                      </>
+                    ) : (
+                      'Disconnect & Retry'
+                    )}
+                  </Button>
+                </div>
+              </Alert>
+            )}
             <div className="text-center">
               {qrCode ? (
                 <>
