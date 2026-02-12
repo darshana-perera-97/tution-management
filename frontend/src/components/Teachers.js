@@ -54,6 +54,20 @@ const Teachers = () => {
     fetchPayments();
     fetchStudents();
     fetchTeacherPayments();
+    
+    // Live syncing with minimum delay (5 seconds)
+    const SYNC_INTERVAL = 5000; // 5 seconds minimum delay
+    const syncInterval = setInterval(() => {
+      fetchTeachers();
+      fetchCourses();
+      fetchPayments();
+      fetchStudents();
+      fetchTeacherPayments();
+    }, SYNC_INTERVAL);
+    
+    return () => {
+      clearInterval(syncInterval);
+    };
   }, []);
 
   // Pagination

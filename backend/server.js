@@ -2530,6 +2530,27 @@ app.post('/api/attendance', (req, res) => {
     attendanceData.attendance.push(newAttendance);
     
     if (writeAttendanceData(attendanceData)) {
+      // Store in temporary queue for real-time notifications
+      const queueItem = {
+        id: newAttendance.id,
+        studentId,
+        courseId,
+        studentName: student ? student.fullName : 'Unknown',
+        courseName: course ? course.courseName : 'Unknown',
+        courseSubject: course ? course.subject : 'Unknown',
+        studentImageUrl: student ? student.imageUrl : null,
+        date: newAttendance.date,
+        createdAt: newAttendance.createdAt,
+        timestamp: Date.now() // For queue management
+      };
+      
+      temporaryAttendanceQueue.push(queueItem);
+      
+      // Keep only last 100 items in queue to prevent memory issues
+      if (temporaryAttendanceQueue.length > 100) {
+        temporaryAttendanceQueue.shift();
+      }
+      
       // Send WhatsApp notification to both student and parent
       if (student && course) {
         const notificationNumbers = getStudentNotificationNumbers(student);
@@ -2568,6 +2589,40 @@ app.post('/api/attendance', (req, res) => {
   }
 });
 
+// Get temporary attendance queue (for real-time notifications)
+app.get('/api/attendance/queue', (req, res) => {
+  try {
+    res.json({
+      success: true,
+      queue: temporaryAttendanceQueue,
+      count: temporaryAttendanceQueue.length
+    });
+  } catch (error) {
+    console.error('Get attendance queue error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Clear temporary attendance queue
+app.post('/api/attendance/queue/clear', (req, res) => {
+  try {
+    temporaryAttendanceQueue = [];
+    res.json({
+      success: true,
+      message: 'Attendance queue cleared successfully'
+    });
+  } catch (error) {
+    console.error('Clear attendance queue error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // WhatsApp connection state (in-memory storage - consider using a database in production)
 let whatsappState = {
   connected: false,
@@ -2575,6 +2630,9 @@ let whatsappState = {
   qrCode: null,
   client: null
 };
+
+// Temporary attendance queue (in-memory storage for real-time notifications)
+let temporaryAttendanceQueue = [];
 
 // Helper function to format phone number for WhatsApp
 const formatPhoneNumber = (phoneNumber) => {

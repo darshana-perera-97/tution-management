@@ -21,12 +21,25 @@ const Attendance = ({ hideMarkButton = false }) => {
   const [scannerInstance, setScannerInstance] = useState(null);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [showStudentDetails, setShowStudentDetails] = useState(false);
+  const [selectedAttendanceRecord, setSelectedAttendanceRecord] = useState(null);
+  const [showAttendanceDetailsModal, setShowAttendanceDetailsModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [warnings, setWarnings] = useState([]);
   const qrScannerRef = useRef(null);
   const isProcessingRef = useRef(false);
+  
+  // Queue system states
+  const [attendanceQueue, setAttendanceQueue] = useState([]);
+  const [lastQueueCount, setLastQueueCount] = useState(0);
+  const [showQueuePopup, setShowQueuePopup] = useState(false);
+  const [currentQueueItem, setCurrentQueueItem] = useState(null);
+  const [popupsEnabled, setPopupsEnabled] = useState(() => {
+    // Load from localStorage, default to true
+    const saved = localStorage.getItem('attendancePopupsEnabled');
+    return saved !== null ? saved === 'true' : true;
+  });
 
   // Safe function to stop scanner
   const safeStopScanner = async (scanner) => {
@@ -94,6 +107,41 @@ const Attendance = ({ hideMarkButton = false }) => {
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     setSelectedMonth(currentMonth);
+    
+    // Live syncing with minimum delay (5 seconds)
+    const SYNC_INTERVAL = 5000; // 5 seconds minimum delay
+    const syncInterval = setInterval(() => {
+      fetchStudents();
+      fetchCourses();
+      fetchPayments();
+      fetchAttendance();
+    }, SYNC_INTERVAL);
+    
+    // Check if user is admin or operator for queue polling
+    const isAdmin = localStorage.getItem('isAuthenticated');
+    const isOperator = localStorage.getItem('isOperatorAuthenticated');
+    const shouldPollQueue = isAdmin || isOperator;
+    
+    // Poll attendance queue every 2 seconds (only for admin/operator)
+    let queueInterval = null;
+    if (shouldPollQueue) {
+      // Initial fetch
+      fetchAttendanceQueue();
+      // Set up polling
+      queueInterval = setInterval(() => {
+        fetchAttendanceQueue();
+      }, 2000); // 2 seconds
+    }
+    
+    // Cleanup: Close modal and clear intervals when component unmounts or tab changes
+    return () => {
+      clearInterval(syncInterval);
+      if (queueInterval) {
+        clearInterval(queueInterval);
+      }
+      setShowAttendanceDetailsModal(false);
+      setSelectedAttendanceRecord(null);
+    };
   }, []);
 
   const checkStudentCourseStatus = useCallback((studentId, courseId) => {
@@ -361,6 +409,67 @@ const Attendance = ({ hideMarkButton = false }) => {
     }
   };
 
+  // Fetch attendance queue for real-time notifications
+  const fetchAttendanceQueue = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/attendance/queue`);
+      const data = await response.json();
+      if (data.success && data.queue) {
+        const newQueue = data.queue;
+        setAttendanceQueue(newQueue);
+        
+        // Check if there's a new item (queue count increased)
+        if (newQueue.length > lastQueueCount && popupsEnabled) {
+          // Get the last item (most recent)
+          const latestItem = newQueue[newQueue.length - 1];
+          if (latestItem) {
+            setCurrentQueueItem(latestItem);
+            setShowQueuePopup(true);
+          }
+        }
+        setLastQueueCount(newQueue.length);
+      }
+    } catch (err) {
+      console.error('Error fetching attendance queue:', err);
+    }
+  };
+
+  // Clear attendance queue
+  const handleClearQueue = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/attendance/queue/clear`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setAttendanceQueue([]);
+        setLastQueueCount(0);
+        setShowQueuePopup(false);
+        setCurrentQueueItem(null);
+      }
+    } catch (err) {
+      console.error('Error clearing queue:', err);
+    }
+  };
+
+  // Toggle popups enabled/disabled
+  const handleTogglePopups = (enabled) => {
+    setPopupsEnabled(enabled);
+    localStorage.setItem('attendancePopupsEnabled', enabled.toString());
+    if (!enabled) {
+      setShowQueuePopup(false);
+    }
+  };
+
+  // Close queue popup
+  const handleCloseQueuePopup = () => {
+    setShowQueuePopup(false);
+    setCurrentQueueItem(null);
+  };
+
   const handleCloseMarkAttendanceModal = () => {
     setShowMarkAttendanceModal(false);
     setSelectedCourse('');
@@ -457,22 +566,127 @@ const Attendance = ({ hideMarkButton = false }) => {
     return course ? course.courseName : 'Unknown';
   };
 
+  // Get student's enrolled courses
+  const getStudentCourses = (studentId) => {
+    return courses.filter(course => 
+      course.enrolledStudents && 
+      Array.isArray(course.enrolledStudents) && 
+      course.enrolledStudents.includes(studentId)
+    );
+  };
+
+  // Calculate pending payments for a student and specific course
+  const calculatePendingPaymentsForCourse = (student, courseId) => {
+    if (!student || !courseId) return { pendingAmount: 0, pendingMonths: [] };
+
+    const course = courses.find(c => c.id === courseId);
+    if (!course) return { pendingAmount: 0, pendingMonths: [] };
+
+    const studentPayments = payments.filter(p => p.studentId === student.id && p.courseId === courseId);
+    const enrollmentDate = new Date(student.createdAt);
+    const courseCreatedDate = new Date(course.createdAt);
+    const enrollmentDateForCourse = courseCreatedDate < enrollmentDate ? enrollmentDate : courseCreatedDate;
+    
+    const currentDate = new Date();
+    let currentMonth = new Date(enrollmentDateForCourse.getFullYear(), enrollmentDateForCourse.getMonth(), 1);
+    const lastDayOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    
+    const pendingMonths = [];
+    let totalPending = 0;
+    const courseFee = parseFloat(course.courseFee) || 0;
+
+    while (currentMonth <= lastDayOfCurrentMonth) {
+      const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+      const lastDayOfPaymentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+      
+      if (enrollmentDateForCourse <= lastDayOfPaymentMonth) {
+        const isPaid = studentPayments.some(
+          p => p.monthKey === monthKey
+        );
+        
+        if (!isPaid) {
+          const monthName = currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
+          pendingMonths.push({
+            month: monthName,
+            monthKey: monthKey,
+            amount: courseFee
+          });
+          totalPending += courseFee;
+        }
+      }
+      
+      currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+    }
+
+    return {
+      pendingAmount: totalPending,
+      pendingMonths: pendingMonths
+    };
+  };
+
+  // Handle attendance record click
+  const handleAttendanceRecordClick = (record) => {
+    const student = students.find(s => s.id === record.studentId);
+    if (student) {
+      setSelectedAttendanceRecord({
+        ...record,
+        student: student
+      });
+      setShowAttendanceDetailsModal(true);
+    }
+  };
+
+  // Close attendance details modal
+  const handleCloseAttendanceDetailsModal = () => {
+    setShowAttendanceDetailsModal(false);
+    setSelectedAttendanceRecord(null);
+  };
+
+  // Check if user is admin or operator
+  const isAdmin = localStorage.getItem('isAuthenticated');
+  const isOperator = localStorage.getItem('isOperatorAuthenticated');
+  const isAdminOrOperator = isAdmin || isOperator;
+
   return (
     <Container fluid>
       <div className="operators-header mb-4">
-        <div className="d-flex justify-content-between align-items-center">
+        <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
           <div>
             <h2 className="dashboard-title">Attendance</h2>
             <p className="dashboard-subtitle">Mark and view student attendance</p>
           </div>
-          {!hideMarkButton && (
-            <Button
-              className="add-operator-btn"
-              onClick={() => setShowMarkAttendanceModal(true)}
-            >
-              + Mark Attendance
-            </Button>
-          )}
+          <div className="d-flex align-items-center gap-3">
+            {isAdminOrOperator && (
+              <>
+                <div className="d-flex align-items-center gap-2">
+                  <Form.Check
+                    type="switch"
+                    id="popup-toggle"
+                    label="Show Popups"
+                    checked={popupsEnabled}
+                    onChange={(e) => handleTogglePopups(e.target.checked)}
+                    style={{ whiteSpace: 'nowrap' }}
+                  />
+                </div>
+                <Button
+                  variant="outline-danger"
+                  size="sm"
+                  onClick={handleClearQueue}
+                  disabled={attendanceQueue.length === 0}
+                >
+                  Clear Queue ({attendanceQueue.length})
+                </Button>
+              </>
+            )}
+            {!hideMarkButton && (
+              <Button
+                className="add-operator-btn"
+                onClick={() => setShowMarkAttendanceModal(true)}
+              >
+                + Mark Attendance
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -572,7 +786,12 @@ const Attendance = ({ hideMarkButton = false }) => {
                 </tr>
               ) : (
                 paginatedAttendance.map((record, index) => (
-                  <tr key={record.id}>
+                  <tr 
+                    key={record.id} 
+                    onClick={() => handleAttendanceRecordClick(record)}
+                    style={{ cursor: 'pointer' }}
+                    className="attendance-row-hover"
+                  >
                     <td>{startIndex + index + 1}</td>
                     <td><code>{record.studentId}</code></td>
                     <td>{record.studentName}</td>
@@ -598,7 +817,12 @@ const Attendance = ({ hideMarkButton = false }) => {
             ) : (
               <div className="student-cards-container">
                 {paginatedAttendance.map((record, index) => (
-                  <Card key={record.id} className="student-card mb-3">
+                  <Card 
+                    key={record.id} 
+                    className="student-card mb-3"
+                    onClick={() => handleAttendanceRecordClick(record)}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <Card.Body>
                       <div className="student-card-header mb-2">
                         <h5 className="student-card-name mb-1">{record.studentName}</h5>
@@ -838,6 +1062,295 @@ const Attendance = ({ hideMarkButton = false }) => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Attendance Details Modal */}
+      <Modal 
+        show={showAttendanceDetailsModal} 
+        onHide={handleCloseAttendanceDetailsModal} 
+        centered 
+        size="lg"
+        scrollable
+        fullscreen="sm-down"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Student Attendance Details</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedAttendanceRecord && selectedAttendanceRecord.student && (
+            <>
+              <Row className="mb-4">
+                <Col xs={12} md={4} className="text-center mb-3 mb-md-0">
+                  {selectedAttendanceRecord.student.imageUrl ? (
+                    <img
+                      src={`${API_URL}/${selectedAttendanceRecord.student.imageUrl}`}
+                      alt={selectedAttendanceRecord.student.fullName}
+                      style={{
+                        width: '100%',
+                        maxWidth: '150px',
+                        height: '150px',
+                        objectFit: 'cover',
+                        borderRadius: '8px',
+                        border: '2px solid #dee2e6'
+                      }}
+                      onError={(e) => {
+                        e.target.src = 'https://via.placeholder.com/150?text=No+Image';
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: '100%',
+                        maxWidth: '150px',
+                        height: '150px',
+                        borderRadius: '8px',
+                        border: '2px solid #dee2e6',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: '#f8f9fa',
+                        margin: '0 auto'
+                      }}
+                    >
+                      <span style={{ fontSize: '48px' }}>👤</span>
+                    </div>
+                  )}
+                </Col>
+                <Col xs={12} md={8}>
+                  <h4 className="mb-2" style={{ fontSize: 'clamp(1.1rem, 2.5vw, 1.5rem)' }}>
+                    {selectedAttendanceRecord.student.fullName}
+                  </h4>
+                  <p className="mb-1" style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>
+                    <strong>Student ID:</strong> <code>{selectedAttendanceRecord.student.id}</code>
+                  </p>
+                  <p className="mb-1" style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>
+                    <strong>Grade:</strong> {selectedAttendanceRecord.student.grade || 'N/A'}
+                  </p>
+                  <p className="mb-1" style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>
+                    <strong>Parent Name:</strong> {selectedAttendanceRecord.student.parentName || 'N/A'}
+                  </p>
+                  <p className="mb-0" style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>
+                    <strong>Contact:</strong> {selectedAttendanceRecord.student.contactNumber || 'N/A'}
+                  </p>
+                </Col>
+              </Row>
+
+              <hr />
+
+              <div className="mb-4">
+                <h5 className="mb-3" style={{ fontSize: 'clamp(1rem, 2.5vw, 1.25rem)' }}>
+                  Attendance Information
+                </h5>
+                <Row>
+                  <Col xs={12} sm={6} className="mb-2">
+                    <strong style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>Course:</strong>{' '}
+                    <span style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>
+                      {selectedAttendanceRecord.courseName}
+                    </span>
+                  </Col>
+                  <Col xs={12} sm={6} className="mb-2">
+                    <strong style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>Subject:</strong>{' '}
+                    <span style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>
+                      {selectedAttendanceRecord.courseSubject}
+                    </span>
+                  </Col>
+                  <Col xs={12} className="mb-2">
+                    <strong style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>Date & Time:</strong>{' '}
+                    <span style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>
+                      {selectedAttendanceRecord.date
+                        ? new Date(selectedAttendanceRecord.date).toLocaleString()
+                        : new Date(selectedAttendanceRecord.createdAt).toLocaleString()}
+                    </span>
+                  </Col>
+                </Row>
+              </div>
+
+              <hr />
+
+              {/* Pending Payments for Current Course */}
+              <div className="mb-4">
+                <h5 className="mb-3" style={{ fontSize: 'clamp(1rem, 2.5vw, 1.25rem)' }}>
+                  Pending Payments - {selectedAttendanceRecord.courseName}
+                </h5>
+                {(() => {
+                  const pendingInfo = calculatePendingPaymentsForCourse(
+                    selectedAttendanceRecord.student,
+                    selectedAttendanceRecord.courseId
+                  );
+                  
+                  if (pendingInfo.pendingAmount === 0) {
+                    return (
+                      <Alert variant="success">
+                        <strong>All payments are up to date!</strong>
+                      </Alert>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <Alert variant="warning">
+                        <strong>Total Pending:</strong> ₹{pendingInfo.pendingAmount.toFixed(2)}
+                      </Alert>
+                      {pendingInfo.pendingMonths.length > 0 && (
+                        <div className="table-responsive">
+                          <Table striped bordered hover size="sm">
+                            <thead>
+                              <tr>
+                                <th>Month</th>
+                                <th>Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {pendingInfo.pendingMonths.map((month, idx) => (
+                                <tr key={idx}>
+                                  <td>{month.month}</td>
+                                  <td>₹{month.amount.toFixed(2)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </Table>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+
+              <hr />
+
+              {/* Other Enrolled Courses */}
+              <div>
+                <h5 className="mb-3" style={{ fontSize: 'clamp(1rem, 2.5vw, 1.25rem)' }}>
+                  Other Enrolled Courses
+                </h5>
+                {(() => {
+                  const enrolledCourses = getStudentCourses(selectedAttendanceRecord.student.id);
+                  const otherCourses = enrolledCourses.filter(
+                    c => c.id !== selectedAttendanceRecord.courseId
+                  );
+
+                  if (otherCourses.length === 0) {
+                    return (
+                      <Alert variant="info">
+                        <strong>No other enrolled courses.</strong>
+                      </Alert>
+                    );
+                  }
+
+                  return (
+                    <div className="table-responsive">
+                      <Table striped bordered hover size="sm">
+                        <thead>
+                          <tr>
+                            <th>Course Name</th>
+                            <th>Subject</th>
+                            <th>Fee</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {otherCourses.map((course) => (
+                            <tr key={course.id}>
+                              <td>{course.courseName}</td>
+                              <td>{course.subject}</td>
+                              <td>₹{parseFloat(course.courseFee || 0).toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    </div>
+                  );
+                })()}
+              </div>
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer className="d-flex justify-content-center">
+          <Button 
+            variant="secondary" 
+            onClick={handleCloseAttendanceDetailsModal}
+            style={{ minWidth: '100px' }}
+          >
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Queue Popup Modal - Shows latest attendance record */}
+      {isAdminOrOperator && (
+        <Modal
+          show={showQueuePopup && currentQueueItem && popupsEnabled}
+          onHide={handleCloseQueuePopup}
+          centered
+          size="md"
+          backdrop={true}
+        >
+          <Modal.Header closeButton style={{ backgroundColor: '#4A90E2', color: 'white' }}>
+            <Modal.Title>✅ Attendance Marked</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {currentQueueItem && (
+              <div>
+                <Row className="mb-3">
+                  <Col xs={12} md={4} className="text-center mb-3 mb-md-0">
+                    {currentQueueItem.studentImageUrl ? (
+                      <img
+                        src={`${API_URL}/${currentQueueItem.studentImageUrl}`}
+                        alt={currentQueueItem.studentName}
+                        style={{
+                          width: '100%',
+                          maxWidth: '120px',
+                          height: '120px',
+                          objectFit: 'cover',
+                          borderRadius: '8px',
+                          border: '2px solid #dee2e6'
+                        }}
+                        onError={(e) => {
+                          e.target.src = 'https://via.placeholder.com/120?text=No+Image';
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: '120px',
+                          height: '120px',
+                          borderRadius: '8px',
+                          border: '2px solid #dee2e6',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: '#f8f9fa',
+                          margin: '0 auto'
+                        }}
+                      >
+                        <span style={{ fontSize: '40px' }}>👤</span>
+                      </div>
+                    )}
+                  </Col>
+                  <Col xs={12} md={8}>
+                    <h5 className="mb-2">{currentQueueItem.studentName}</h5>
+                    <p className="mb-1">
+                      <strong>Course:</strong> {currentQueueItem.courseName}
+                    </p>
+                    <p className="mb-1">
+                      <strong>Subject:</strong> {currentQueueItem.courseSubject}
+                    </p>
+                    <p className="mb-0">
+                      <strong>Time:</strong>{' '}
+                      {currentQueueItem.date
+                        ? new Date(currentQueueItem.date).toLocaleTimeString()
+                        : new Date(currentQueueItem.createdAt).toLocaleTimeString()}
+                    </p>
+                  </Col>
+                </Row>
+              </div>
+            )}
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={handleCloseQueuePopup}>
+              Close
+            </Button>
+          </Modal.Footer>
+        </Modal>
+      )}
     </Container>
   );
 };
