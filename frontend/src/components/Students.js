@@ -15,9 +15,11 @@ const Students = () => {
   const [showQRModal, setShowQRModal] = useState(false);
   const [showCoursesModal, setShowCoursesModal] = useState(false);
   const [showPaymentsModal, setShowPaymentsModal] = useState(false);
+  const [showIDCardModal, setShowIDCardModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [newStudentId, setNewStudentId] = useState(null);
   const qrCodeRef = useRef(null);
+  const idCardRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -533,6 +535,61 @@ const Students = () => {
     }
   };
 
+  const handleGenerateIDCard = (student) => {
+    setSelectedStudent(student);
+    setShowIDCardModal(true);
+  };
+
+  const handleCloseIDCardModal = () => {
+    setShowIDCardModal(false);
+    setSelectedStudent(null);
+  };
+
+  const handleDownloadIDCard = async () => {
+    if (!idCardRef.current || !selectedStudent) return;
+
+    try {
+      // Dynamically import html2canvas and jspdf
+      const html2canvas = (await import('html2canvas')).default;
+      const jsPDF = (await import('jspdf')).default;
+      
+      const canvas = await html2canvas(idCardRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: false
+      });
+
+      // Get canvas dimensions
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      
+      // Calculate PDF dimensions (A4 ratio or maintain aspect ratio)
+      const pdfWidth = 210; // A4 width in mm
+      const pdfHeight = (imgHeight * pdfWidth) / imgWidth;
+      
+      // Create PDF
+      const pdf = new jsPDF({
+        orientation: pdfHeight > pdfWidth ? 'portrait' : 'landscape',
+        unit: 'mm',
+        format: [pdfWidth, pdfHeight]
+      });
+      
+      // Convert canvas to image data
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Add image to PDF
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      
+      // Download PDF
+      pdf.save(`student-id-card-${selectedStudent.id}.pdf`);
+    } catch (error) {
+      console.error('Error downloading ID card:', error);
+      alert('Failed to download ID card. Please try again.');
+    }
+  };
+
   return (
     <Container fluid>
       <div className="operators-header mb-4">
@@ -624,6 +681,14 @@ const Students = () => {
                         View Payments
                       </Button>
                       <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleGenerateIDCard(student)}
+                        className="action-btn"
+                      >
+                        Generate ID Card
+                      </Button>
+                      <Button
                         variant="danger"
                         size="sm"
                         onClick={() => handleDelete(student.id)}
@@ -686,6 +751,14 @@ const Students = () => {
                           className="action-btn"
                         >
                           View Payments
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleGenerateIDCard(student)}
+                          className="action-btn"
+                        >
+                          Generate ID Card
                         </Button>
                         <Button
                           variant="danger"
@@ -1272,6 +1345,163 @@ const Students = () => {
             </div>
           </Form>
         </Modal.Body>
+      </Modal>
+
+      {/* ID Card Modal */}
+      <Modal show={showIDCardModal} onHide={handleCloseIDCardModal} centered size="lg" backdrop="static">
+        <Modal.Header closeButton>
+          <Modal.Title>Generate Student ID Card</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedStudent && (
+            <div>
+              <div
+                ref={idCardRef}
+                style={{
+                  width: '100%',
+                  maxWidth: '400px',
+                  aspectRatio: '2/3',
+                  margin: '0 auto',
+                  background: 'white',
+                  borderRadius: '16px',
+                  padding: '0',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                  overflow: 'hidden',
+                  position: 'relative'
+                }}
+              >
+                {/* Template Background Image */}
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundImage: `url(/id-card-template.jpg)`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                  zIndex: 0
+                }}></div>
+
+                {/* Content Overlay */}
+                <div style={{ position: 'relative', zIndex: 1, padding: '20px', paddingTop: '0' }}>
+                  {/* Student Image at the top */}
+                  <div style={{
+                    textAlign: 'center',
+                    marginBottom: '20px',
+                    marginTop: '39px'
+                  }}>
+                    <div style={{
+                      width: '225px',
+                      height: '225px',
+                      borderRadius: '1200px',
+                      overflow: 'hidden',
+                      margin: '0 auto',
+                      background: '#f8f9fa',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      {selectedStudent.imageUrl ? (
+                        <img
+                          src={`${API_URL}${selectedStudent.imageUrl}`}
+                          alt={selectedStudent.fullName}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                          }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            if (e.target.nextSibling) {
+                              e.target.nextSibling.style.display = 'flex';
+                            }
+                          }}
+                        />
+                      ) : null}
+                      <div style={{
+                        display: selectedStudent.imageUrl ? 'none' : 'flex',
+                        width: '100%',
+                        height: '100%',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                        color: 'white',
+                        fontSize: '48px',
+                        fontWeight: 'bold'
+                      }}>
+                        {selectedStudent.fullName ? selectedStudent.fullName.charAt(0).toUpperCase() : 'S'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Student Name */}
+                  <div style={{
+                    textAlign: 'center',
+                    marginBottom: '15px'
+                  }}>
+                    <h3 style={{
+                      margin: 0,
+                      marginTop: '10px',
+                      fontSize: '29px',
+                      fontWeight: 'bold',
+                      color: '#1e293b',
+                      lineHeight: '1.2'
+                    }}>
+                      {selectedStudent.fullName}
+                    </h3>
+                    {/* Student ID */}
+                    <div style={{}}>
+
+                      <p style={{
+                        margin: '4px 0 0 0',
+                        fontSize: '26px',
+                        borderRadius: '100px',
+                        color: '#fff',
+                        fontWeight: '700',
+                        background: '#66be36',
+                        display: 'inline-block',
+                        padding: '6px 22px'
+                      }}>
+                        {selectedStudent.id}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* QR Code */}
+                  <div style={{
+                    textAlign: 'center',
+                    marginTop: '-10px'
+                  }}>
+                    <div style={{
+                      display: 'inline-block',
+                      background: 'transparent'
+                    }}>
+                      <QRCodeSVG
+                        value={selectedStudent.id}
+                        size={220}
+                        level="H"
+                        includeMargin={true}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-muted text-center mt-3 small">
+                Preview of the student ID card. Click download to save as PDF.
+              </p>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseIDCardModal}>
+            Close
+          </Button>
+          <Button variant="primary" onClick={handleDownloadIDCard}>
+            Download ID Card
+          </Button>
+        </Modal.Footer>
       </Modal>
     </Container>
   );
