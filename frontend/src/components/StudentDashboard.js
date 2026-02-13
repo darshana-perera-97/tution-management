@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Row, Col, Card, Table, Button, Nav, Tab, Badge, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Card, Table, Button, Nav, Tab, Badge, Alert, Form } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { HiArrowDownTray } from 'react-icons/hi2';
 import StudentTopNavbar from './StudentTopNavbar';
@@ -11,6 +11,9 @@ const StudentDashboard = () => {
   const navigate = useNavigate();
   const [student, setStudent] = useState(null);
   const [courses, setCourses] = useState([]);
+  const [allCourses, setAllCourses] = useState([]);
+  const [enrolledCourseIds, setEnrolledCourseIds] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [showCourseDetails, setShowCourseDetails] = useState(false);
   const [attendance, setAttendance] = useState([]);
@@ -31,7 +34,7 @@ const StudentDashboard = () => {
     try {
       const parsedStudent = JSON.parse(studentData);
       setStudent(parsedStudent);
-      fetchCourses(parsedStudent.id);
+      fetchAllCourses(parsedStudent.id);
       fetchNotifications(parsedStudent.id);
     } catch (err) {
       console.error('Error parsing student data:', err);
@@ -39,13 +42,26 @@ const StudentDashboard = () => {
     }
   }, [navigate]);
 
-  const fetchCourses = async (studentId) => {
+  const fetchAllCourses = async (studentId) => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/api/students/${studentId}/courses`);
-      const data = await response.json();
-      if (data.success) {
-        setCourses(data.courses || []);
+      // Fetch all available courses
+      const allCoursesResponse = await fetch(`${API_URL}/api/courses`);
+      const allCoursesData = await allCoursesResponse.json();
+      
+      // Fetch enrolled courses to mark which ones student is enrolled in
+      const enrolledResponse = await fetch(`${API_URL}/api/students/${studentId}/courses`);
+      const enrolledData = await enrolledResponse.json();
+      
+      if (allCoursesData.success) {
+        setAllCourses(allCoursesData.courses || []);
+        // Get enrolled course IDs
+        const enrolledIds = enrolledData.success 
+          ? (enrolledData.courses || []).map(c => c.id)
+          : [];
+        setEnrolledCourseIds(enrolledIds);
+        // Set courses to all courses initially
+        setCourses(allCoursesData.courses || []);
       }
     } catch (err) {
       console.error('Error fetching courses:', err);
@@ -53,6 +69,22 @@ const StudentDashboard = () => {
       setLoading(false);
     }
   };
+
+  // Filter courses based on search query
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setCourses(allCourses);
+    } else {
+      const query = searchQuery.toLowerCase();
+      const filtered = allCourses.filter(course => 
+        course.courseName?.toLowerCase().includes(query) ||
+        course.subject?.toLowerCase().includes(query) ||
+        course.grade?.toLowerCase().includes(query) ||
+        course.teacherName?.toLowerCase().includes(query)
+      );
+      setCourses(filtered);
+    }
+  }, [searchQuery, allCourses]);
 
   const fetchNotifications = async (studentId) => {
     try {

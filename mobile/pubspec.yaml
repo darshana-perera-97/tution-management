@@ -40,6 +40,9 @@ dependencies:
   
   # Shared preferences for local storage
   shared_preferences: ^2.2.2
+  
+  # QR Code scanner
+  mobile_scanner: ^5.2.3
 
 dev_dependencies:
   flutter_test:
