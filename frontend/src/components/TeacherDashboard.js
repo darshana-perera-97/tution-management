@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Row, Col, Card, Table, Alert, Button, Nav, Tab, Form } from 'react-bootstrap';
+import { Container, Row, Col, Card, Table, Alert, Button, Nav, Tab, Form, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { 
   HiOutlineBookOpen, 
@@ -26,7 +26,11 @@ const TeacherDashboard = () => {
     totalIncome: 0,
     paidIncome: 0,
     pendingIncome: 0,
-    attendanceRecords: 0
+    attendanceRecords: 0,
+    advancePayments: 0,
+    remainingAmount: 0,
+    totalCollectedFees: 0,
+    amountToBePaid: 0
   });
   const [myCourses, setMyCourses] = useState([]);
   const [myStudents, setMyStudents] = useState([]);
@@ -35,6 +39,7 @@ const TeacherDashboard = () => {
   const [courses, setCourses] = useState([]);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [showCourseDetails, setShowCourseDetails] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
@@ -66,6 +71,8 @@ const TeacherDashboard = () => {
   const fetchTeacherData = async (teacherId) => {
     try {
       setLoading(true);
+      setError('');
+      setError('');
       
       // Fetch all data in parallel
       const [coursesRes, studentsRes, attendanceRes, paymentsRes, teacherPaymentsRes] = await Promise.all([
@@ -76,11 +83,25 @@ const TeacherDashboard = () => {
         fetch(`${API_URL}/api/teacher-payments`)
       ]);
 
+      // Check for HTTP errors
+      if (!coursesRes.ok) throw new Error(`Failed to fetch courses: ${coursesRes.status}`);
+      if (!studentsRes.ok) throw new Error(`Failed to fetch students: ${studentsRes.status}`);
+      if (!attendanceRes.ok) throw new Error(`Failed to fetch attendance: ${attendanceRes.status}`);
+      if (!paymentsRes.ok) throw new Error(`Failed to fetch payments: ${paymentsRes.status}`);
+      if (!teacherPaymentsRes.ok) throw new Error(`Failed to fetch teacher payments: ${teacherPaymentsRes.status}`);
+
       const coursesData = await coursesRes.json();
       const studentsData = await studentsRes.json();
       const attendanceData = await attendanceRes.json();
       const paymentsData = await paymentsRes.json();
       const teacherPaymentsData = await teacherPaymentsRes.json();
+
+      // Check for API errors
+      if (!coursesData.success) throw new Error(coursesData.message || 'Failed to load courses');
+      if (!studentsData.success) throw new Error(studentsData.message || 'Failed to load students');
+      if (!attendanceData.success) throw new Error(attendanceData.message || 'Failed to load attendance');
+      if (!paymentsData.success) throw new Error(paymentsData.message || 'Failed to load payments');
+      if (!teacherPaymentsData.success) throw new Error(teacherPaymentsData.message || 'Failed to load teacher payments');
 
       // Filter courses for this teacher
       const teacherCourses = coursesData.success 
@@ -120,13 +141,17 @@ const TeacherDashboard = () => {
       
       let totalIncome = 0;
       let paidIncome = 0;
+      let totalCollectedFees = 0;
+      let amountToBePaid = 0;
       
       paidPayments.forEach(payment => {
         const course = teacherCourses.find(c => c.id === payment.courseId);
         if (course && course.teacherPaymentPercentage) {
           const paymentAmount = parseFloat(payment.amount || 0);
+          totalCollectedFees += paymentAmount; // Total collected fees (full course fee amount)
           const teacherPercentage = parseFloat(course.teacherPaymentPercentage) || 0;
           const teacherPayment = (paymentAmount * teacherPercentage) / 100;
+          amountToBePaid += teacherPayment; // Amount to be paid to teacher from collected fees
           totalIncome += teacherPayment;
           paidIncome += teacherPayment;
         }
@@ -184,6 +209,9 @@ const TeacherDashboard = () => {
       const totalAdvancePayments = advancePayments.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
       paidIncome += totalAdvancePayments;
 
+      // Calculate remaining amount (pending income minus advance payments)
+      const remainingAmount = pendingIncome - totalAdvancePayments;
+
       setPayments(paidPayments);
       
       setStats({
@@ -192,10 +220,34 @@ const TeacherDashboard = () => {
         totalIncome: totalIncome + pendingIncome,
         paidIncome: paidIncome,
         pendingIncome: pendingIncome,
-        attendanceRecords: teacherAttendance.length
+        attendanceRecords: teacherAttendance.length,
+        advancePayments: totalAdvancePayments,
+        remainingAmount: remainingAmount > 0 ? remainingAmount : 0,
+        totalCollectedFees: totalCollectedFees,
+        amountToBePaid: amountToBePaid
       });
+      setError(''); // Clear any previous errors on success
     } catch (err) {
       console.error('Error fetching teacher data:', err);
+      const errorMessage = err.message || 'Failed to load data. Please check your connection and try again.';
+      setError(errorMessage);
+      // Set empty arrays on error to prevent crashes
+      setMyCourses([]);
+      setMyStudents([]);
+      setAttendance([]);
+      setPayments([]);
+      setStats({
+        myCourses: 0,
+        myStudents: 0,
+        totalIncome: 0,
+        paidIncome: 0,
+        pendingIncome: 0,
+        attendanceRecords: 0,
+        advancePayments: 0,
+        remainingAmount: 0,
+        totalCollectedFees: 0,
+        amountToBePaid: 0
+      });
     } finally {
       setLoading(false);
     }
@@ -971,8 +1023,8 @@ const TeacherDashboard = () => {
           </div>
         </div>
 
-        <Row className="g-3 mb-4">
-          <Col xs={12} md={4}>
+        <Row className="g-3 mb-4" style={{ display: 'flex', flexWrap: 'wrap' }}>
+          <Col xs={12} md style={{ flex: '1 1 0', minWidth: '200px' }}>
             <Card className="dashboard-stat-card h-100">
               <Card.Body>
                 <div className="stat-icon">
@@ -983,18 +1035,7 @@ const TeacherDashboard = () => {
               </Card.Body>
             </Card>
           </Col>
-          <Col xs={12} md={4}>
-            <Card className="dashboard-stat-card h-100">
-              <Card.Body>
-                <div className="stat-icon text-success">
-                  <HiOutlineCurrencyDollar />
-                </div>
-                <h3 className="stat-number text-success">{loading ? '...' : `Rs. ${stats.paidIncome.toFixed(2)}`}</h3>
-                <p className="stat-label">Paid Income</p>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col xs={12} md={4}>
+          <Col xs={12} md style={{ flex: '1 1 0', minWidth: '200px' }}>
             <Card className="dashboard-stat-card h-100">
               <Card.Body>
                 <div className="stat-icon text-danger">
@@ -1005,31 +1046,19 @@ const TeacherDashboard = () => {
               </Card.Body>
             </Card>
           </Col>
+          <Col xs={12} md style={{ flex: '1 1 0', minWidth: '200px' }}>
+            <Card className="dashboard-stat-card h-100">
+              <Card.Body>
+                <div className="stat-icon text-info">
+                  <HiOutlineCurrencyDollar />
+                </div>
+                <h3 className="stat-number text-info">{loading ? '...' : `Rs. ${stats.advancePayments.toFixed(2)}`}</h3>
+                <p className="stat-label">Advance Payments</p>
+              </Card.Body>
+            </Card>
+          </Col>
         </Row>
 
-        <Card>
-          <Card.Body>
-            <h5 className="mb-3">Payment Status</h5>
-            {stats.totalIncome > 0 ? (
-              <div>
-                <p>
-                  <strong>Payment Completion:</strong> {((stats.paidIncome / stats.totalIncome) * 100).toFixed(1)}%
-                </p>
-                <div className="progress mb-3">
-                  <div 
-                    className="progress-bar bg-success" 
-                    role="progressbar" 
-                    style={{ width: `${(stats.paidIncome / stats.totalIncome) * 100}%` }}
-                  >
-                    {((stats.paidIncome / stats.totalIncome) * 100).toFixed(1)}%
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p className="text-muted">No income data available.</p>
-            )}
-          </Card.Body>
-        </Card>
       </div>
     );
   };
@@ -1060,7 +1089,28 @@ const TeacherDashboard = () => {
                   <p className="dashboard-subtitle">Welcome back, {teacher.name || teacher.email}</p>
                 </div>
 
-                <Row className="g-3">
+                {error && (
+                  <Alert variant="danger" className="mb-3" onClose={() => setError('')} dismissible>
+                    <Alert.Heading>Error</Alert.Heading>
+                    {error}
+                  </Alert>
+                )}
+
+                {loading && (
+                  <Card className="mb-4">
+                    <Card.Body>
+                      <div className="text-center py-5">
+                        <Spinner animation="border" role="status" variant="primary" style={{ width: '3rem', height: '3rem' }}>
+                          <span className="visually-hidden">Loading...</span>
+                        </Spinner>
+                        <p className="mt-3 text-muted">Loading dashboard data...</p>
+                      </div>
+                    </Card.Body>
+                  </Card>
+                )}
+
+                {!loading && (
+                  <Row className="g-3">
                   <Col xs={6} md={3}>
                     <Card className="dashboard-stat-card h-100">
                       <Card.Body>
@@ -1086,26 +1136,34 @@ const TeacherDashboard = () => {
                   <Col xs={6} md={3}>
                     <Card className="dashboard-stat-card h-100">
                       <Card.Body>
-                        <div className="stat-icon">
+                        <div className="stat-icon text-success">
                           <HiOutlineCurrencyDollar />
                         </div>
-                        <h3 className="stat-number">{loading ? '...' : `Rs. ${stats.paidIncome.toFixed(2)}`}</h3>
-                        <p className="stat-label">Paid Income</p>
+                        <h3 className="stat-number text-success">{loading ? '...' : `Rs. ${stats.amountToBePaid.toFixed(2)}`}</h3>
+                        <p className="stat-label">Amount to be Paid</p>
+                        {!loading && (
+                          <div className="mt-2">
+                            <small className="text-muted d-block">
+                              Rs. {stats.paidIncome.toFixed(2)} Amount taken by teacher
+                            </small>
+                          </div>
+                        )}
                       </Card.Body>
                     </Card>
                   </Col>
                   <Col xs={6} md={3}>
                     <Card className="dashboard-stat-card h-100">
                       <Card.Body>
-                        <div className="stat-icon">
-                          <HiOutlineClipboardDocumentCheck />
+                        <div className="stat-icon text-info">
+                          <HiOutlineCurrencyDollar />
                         </div>
-                        <h3 className="stat-number">{loading ? '...' : stats.attendanceRecords}</h3>
-                        <p className="stat-label">Attendance Records</p>
+                        <h3 className="stat-number text-info">{loading ? '...' : `Rs. ${stats.advancePayments.toFixed(2)}`}</h3>
+                        <p className="stat-label">Advance Payments</p>
                       </Card.Body>
                     </Card>
                   </Col>
                 </Row>
+                )}
               </>
             )}
           </Container>

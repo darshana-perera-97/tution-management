@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Form, Table, Alert, Card } from 'react-bootstrap';
+import { Container, Form, Table, Alert, Card, Row, Col, Spinner } from 'react-bootstrap';
 import '../App.css';
 import API_URL from '../config';
 import { usePagination } from '../hooks/usePagination';
@@ -10,187 +10,352 @@ const Reports = () => {
   const [courses, setCourses] = useState([]);
   const [students, setStudents] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [attendance, setAttendance] = useState([]);
   const [selectedTeacherId, setSelectedTeacherId] = useState('');
-  const [reportData, setReportData] = useState([]);
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [selectedMonthKey, setSelectedMonthKey] = useState('');
+  const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchTeachers();
-    fetchCourses();
-    fetchStudents();
-    fetchPayments();
+    const loadInitialData = async () => {
+      setInitialLoading(true);
+      setError('');
+      try {
+        await Promise.all([
+          fetchTeachers(),
+          fetchCourses(),
+          fetchStudents(),
+          fetchPayments(),
+          fetchAttendance()
+        ]);
+      } catch (err) {
+        console.error('Error loading initial data:', err);
+        setError('Failed to load data. Please refresh the page.');
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+    loadInitialData();
   }, []);
 
   useEffect(() => {
-    if (selectedTeacherId) {
+    // Reset course and month when teacher changes
+    if (!selectedTeacherId) {
+      setSelectedCourseId('');
+      setSelectedMonthKey('');
+      setReportData(null);
+    } else {
+      setSelectedCourseId('');
+      setSelectedMonthKey('');
+      setReportData(null);
+    }
+  }, [selectedTeacherId]);
+
+  useEffect(() => {
+    // Reset month when course changes
+    if (!selectedCourseId) {
+      setSelectedMonthKey('');
+      setReportData(null);
+    } else {
+      setSelectedMonthKey('');
+      setReportData(null);
+    }
+  }, [selectedCourseId]);
+
+  useEffect(() => {
+    // Generate report when all filters are selected
+    if (selectedTeacherId && selectedCourseId && selectedMonthKey) {
       generateReport();
     } else {
-      setReportData([]);
+      setReportData(null);
     }
-  }, [selectedTeacherId, payments, courses, students]);
+  }, [selectedTeacherId, selectedCourseId, selectedMonthKey, payments, attendance, students]);
 
   const fetchTeachers = async () => {
     try {
       const response = await fetch(`${API_URL}/api/teachers`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success) {
         setTeachers(data.teachers);
+      } else {
+        throw new Error(data.message || 'Failed to fetch teachers');
       }
     } catch (err) {
       console.error('Error fetching teachers:', err);
-      setError('Unable to fetch teachers. Please try again later.');
+      throw new Error('Unable to fetch teachers. Please check your connection and try again.');
     }
   };
 
   const fetchCourses = async () => {
     try {
       const response = await fetch(`${API_URL}/api/courses`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success) {
         setCourses(data.courses);
+      } else {
+        throw new Error(data.message || 'Failed to fetch courses');
       }
     } catch (err) {
       console.error('Error fetching courses:', err);
+      throw new Error('Unable to fetch courses. Please check your connection and try again.');
     }
   };
 
   const fetchStudents = async () => {
     try {
       const response = await fetch(`${API_URL}/api/students`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success) {
         setStudents(data.students);
+      } else {
+        throw new Error(data.message || 'Failed to fetch students');
       }
     } catch (err) {
       console.error('Error fetching students:', err);
+      throw new Error('Unable to fetch students. Please check your connection and try again.');
     }
   };
 
   const fetchPayments = async () => {
     try {
       const response = await fetch(`${API_URL}/api/payments`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success) {
         setPayments(data.payments);
+      } else {
+        throw new Error(data.message || 'Failed to fetch payments');
       }
     } catch (err) {
       console.error('Error fetching payments:', err);
+      throw new Error('Unable to fetch payments. Please check your connection and try again.');
     }
   };
 
-  const generateReport = () => {
-    if (!selectedTeacherId) {
-      setReportData([]);
-      return;
-    }
-
-    setLoading(true);
+  const fetchAttendance = async () => {
     try {
-      // Get all courses taught by selected teacher
-      const teacherCourses = courses.filter(course => course.teacherId === selectedTeacherId);
-      
-      if (teacherCourses.length === 0) {
-        setReportData([]);
-        setLoading(false);
-        return;
+      const response = await fetch(`${API_URL}/api/attendance`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+      const data = await response.json();
+      if (data.success) {
+        setAttendance(data.attendance);
+      } else {
+        throw new Error(data.message || 'Failed to fetch attendance');
+      }
+    } catch (err) {
+      console.error('Error fetching attendance:', err);
+      throw new Error('Unable to fetch attendance. Please check your connection and try again.');
+    }
+  };
 
-      const currentDate = new Date();
-      const report = [];
+  // Get courses for selected teacher
+  const getTeacherCourses = () => {
+    if (!selectedTeacherId) return [];
+    return courses.filter(course => course.teacherId === selectedTeacherId);
+  };
 
-      // Process each course
-      teacherCourses.forEach(course => {
-        // Get students enrolled in this course
+  // Get available months for selected course
+  const getAvailableMonths = () => {
+    if (!selectedCourseId) return [];
+    
+    const course = courses.find(c => c.id === selectedCourseId);
+    if (!course) return [];
+
         const enrolledStudents = students.filter(student =>
           course.enrolledStudents &&
           Array.isArray(course.enrolledStudents) &&
           course.enrolledStudents.includes(student.id)
         );
 
-        if (enrolledStudents.length === 0) {
-          return;
-        }
+    if (enrolledStudents.length === 0) return [];
 
-        // Process each enrolled student
+    const monthsSet = new Set();
+    const currentDate = new Date();
+
         enrolledStudents.forEach(student => {
           const enrollmentDate = new Date(student.createdAt);
           const courseCreatedDate = new Date(course.createdAt);
           const enrollmentDateForCourse = courseCreatedDate < enrollmentDate ? enrollmentDate : courseCreatedDate;
 
-          // Calculate from enrollment month to current month
           let currentMonth = new Date(enrollmentDateForCourse.getFullYear(), enrollmentDateForCourse.getMonth(), 1);
           const lastDayOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
 
           while (currentMonth <= lastDayOfCurrentMonth) {
             const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
             const monthName = currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
-            const lastDayOfPaymentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+        monthsSet.add(JSON.stringify({ monthKey, monthName }));
+        currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+      }
+    });
 
-            if (enrollmentDateForCourse <= lastDayOfPaymentMonth) {
-              // Check if payment exists for this student, course, and month
-              const payment = payments.find(
-                p => p.studentId === student.id &&
-                     p.monthKey === monthKey &&
-                     p.courseId === course.id &&
-                     p.status === 'Paid'
-              );
+    return Array.from(monthsSet)
+      .map(item => JSON.parse(item))
+      .sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+  };
 
-              const courseFee = parseFloat(course.courseFee) || 0;
-              const teacherPercentage = parseFloat(course.teacherPaymentPercentage) || 0;
-              const teacherIncome = (courseFee * teacherPercentage) / 100;
+  const generateReport = () => {
+    if (!selectedTeacherId || !selectedCourseId || !selectedMonthKey) {
+      setReportData(null);
+      return;
+    }
 
-              // Check if this month/course combination already exists in report
-              const existingReport = report.find(
-                r => r.monthKey === monthKey && r.courseId === course.id
-              );
+    setLoading(true);
+    try {
+      const course = courses.find(c => c.id === selectedCourseId);
+      if (!course) {
+        setReportData(null);
+        setLoading(false);
+        return;
+      }
 
-              if (existingReport) {
-                // Add to existing entry
-                existingReport.totalFee += courseFee;
-                existingReport.teacherIncome += teacherIncome;
-                existingReport.paidFee += payment ? courseFee : 0;
-                existingReport.paidTeacherIncome += payment ? teacherIncome : 0;
-                existingReport.studentCount += 1;
-                if (payment) {
-                  existingReport.paidStudentCount += 1;
-                }
-              } else {
-                // Create new entry
-                report.push({
-                  monthKey,
-                  monthName,
-                  courseId: course.id,
-                  courseName: course.courseName,
-                  subject: course.subject || '-',
-                  grade: course.grade,
-                  totalFee: courseFee,
-                  teacherIncome: teacherIncome,
-                  paidFee: payment ? courseFee : 0,
-                  paidTeacherIncome: payment ? teacherIncome : 0,
-                  studentCount: 1,
-                  paidStudentCount: payment ? 1 : 0
-                });
-              }
-            }
+      // Get enrolled students
+      const enrolledStudents = students.filter(student =>
+        course.enrolledStudents &&
+        Array.isArray(course.enrolledStudents) &&
+        course.enrolledStudents.includes(student.id)
+      );
 
-            currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
-          }
-        });
+      // Get payments for this course and month
+      const monthPayments = payments.filter(
+        p => p.courseId === selectedCourseId && p.monthKey === selectedMonthKey
+      );
+
+      // Get attendance for this course and month
+      const [year, month] = selectedMonthKey.split('-');
+      const monthStart = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const monthEnd = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
+
+      const monthAttendance = attendance.filter(att => {
+        if (att.courseId !== selectedCourseId) return false;
+        const attDate = new Date(att.date);
+        return attDate >= monthStart && attDate <= monthEnd;
       });
 
-      // Sort by month (newest first) and then by course name
-      report.sort((a, b) => {
-        if (a.monthKey !== b.monthKey) {
-          return b.monthKey.localeCompare(a.monthKey);
+      // Calculate attendance statistics per student
+      const studentAttendanceMap = {};
+      monthAttendance.forEach(att => {
+        if (!studentAttendanceMap[att.studentId]) {
+          studentAttendanceMap[att.studentId] = { present: 0, absent: 0, total: 0 };
         }
-        return a.courseName.localeCompare(b.courseName);
+        studentAttendanceMap[att.studentId].total++;
+        if (att.status === 'Present') {
+          studentAttendanceMap[att.studentId].present++;
+              } else {
+          studentAttendanceMap[att.studentId].absent++;
+        }
       });
 
-      setReportData(report);
+      // Get paid students
+      const paidStudentIds = new Set(
+        monthPayments
+          .filter(p => p.status === 'Paid')
+          .map(p => p.studentId)
+      );
+
+      // Calculate totals
+      const courseFee = parseFloat(course.courseFee) || 0;
+      const teacherPercentage = parseFloat(course.teacherPaymentPercentage) || 0;
+      const teacherIncomePerStudent = (courseFee * teacherPercentage) / 100;
+
+      const totalStudents = enrolledStudents.length;
+      const paidStudents = paidStudentIds.size;
+      const unpaidStudents = totalStudents - paidStudents;
+      const totalFee = courseFee * totalStudents;
+      const totalTeacherIncome = teacherIncomePerStudent * totalStudents;
+      const paidFee = courseFee * paidStudents;
+      const paidTeacherIncome = teacherIncomePerStudent * paidStudents;
+      const pendingFee = totalFee - paidFee;
+      const pendingTeacherIncome = totalTeacherIncome - paidTeacherIncome;
+
+      // Calculate attendance statistics
+      const totalAttendanceDays = monthAttendance.length;
+      const totalPresentDays = monthAttendance.filter(a => a.status === 'Present').length;
+      const totalAbsentDays = totalAttendanceDays - totalPresentDays;
+      const averageAttendanceRate = totalStudents > 0 
+        ? ((Object.keys(studentAttendanceMap).length / totalStudents) * 100).toFixed(1)
+        : '0.0';
+
+      // Prepare student details
+      const studentDetails = enrolledStudents.map(student => {
+        const isPaid = paidStudentIds.has(student.id);
+        const attStats = studentAttendanceMap[student.id] || { present: 0, absent: 0, total: 0 };
+        const attendanceRate = attStats.total > 0 
+          ? ((attStats.present / attStats.total) * 100).toFixed(1)
+          : '0.0';
+
+        return {
+          id: student.id,
+          name: student.fullName,
+          contact: student.contactNumber,
+          grade: student.grade,
+          isPaid,
+          attendance: {
+            present: attStats.present,
+            absent: attStats.absent,
+            total: attStats.total,
+            rate: attendanceRate
+          }
+        };
+      });
+
+      const monthName = getAvailableMonths().find(m => m.monthKey === selectedMonthKey)?.monthName || selectedMonthKey;
+
+      setReportData({
+        course: {
+          id: course.id,
+          name: course.courseName,
+          subject: course.subject || '-',
+          grade: course.grade,
+          fee: courseFee,
+          teacherPercentage
+        },
+        month: {
+          key: selectedMonthKey,
+          name: monthName
+        },
+        teacher: {
+          id: selectedTeacherId,
+          name: teachers.find(t => t.id === selectedTeacherId)?.name || 'Unknown'
+        },
+        summary: {
+          totalStudents,
+          paidStudents,
+          unpaidStudents,
+          totalFee,
+          totalTeacherIncome,
+          paidFee,
+          paidTeacherIncome,
+          pendingFee,
+          pendingTeacherIncome,
+          totalAttendanceDays,
+          totalPresentDays,
+          totalAbsentDays,
+          averageAttendanceRate
+        },
+        students: studentDetails
+      });
+      setError(''); // Clear any previous errors
     } catch (err) {
       console.error('Error generating report:', err);
-      setError('Error generating report. Please try again.');
+      const errorMessage = err.message || 'Error generating report. Please check your connection and try again.';
+      setError(errorMessage);
+      setReportData(null);
     } finally {
       setLoading(false);
     }
@@ -200,54 +365,46 @@ const Reports = () => {
     return teachers.find(t => t.id === selectedTeacherId);
   };
 
-  const calculateTotals = () => {
-    return reportData.reduce((totals, item) => {
-      totals.totalFee += item.totalFee;
-      totals.teacherIncome += item.teacherIncome;
-      totals.paidFee += item.paidFee;
-      totals.paidTeacherIncome += item.paidTeacherIncome;
-      return totals;
-    }, {
-      totalFee: 0,
-      teacherIncome: 0,
-      paidFee: 0,
-      paidTeacherIncome: 0
-    });
+  const getSelectedCourse = () => {
+    return courses.find(c => c.id === selectedCourseId);
   };
-
-  // Pagination
-  const {
-    currentPage,
-    totalPages,
-    paginatedData: paginatedReportData,
-    goToPage,
-    nextPage,
-    prevPage,
-    startIndex,
-    endIndex,
-    totalItems
-  } = usePagination(reportData, {
-    itemsPerPageDesktop: 10,
-    itemsPerPageMobile: 5
-  });
 
   return (
     <Container fluid>
       <div className="operators-header mb-4">
         <div>
           <h2 className="dashboard-title">Reports</h2>
-          <p className="dashboard-subtitle">View teacher income reports by course and month</p>
+          <p className="dashboard-subtitle">View detailed reports by teacher, course, and month</p>
         </div>
       </div>
 
       {error && (
         <Alert variant="danger" className="mb-3" onClose={() => setError('')} dismissible>
+          <Alert.Heading>Error</Alert.Heading>
           {error}
         </Alert>
       )}
 
+      {/* Initial Loading */}
+      {initialLoading && (
+        <Card className="mb-4">
+          <Card.Body>
+            <div className="text-center py-5">
+              <Spinner animation="border" role="status" variant="primary" style={{ width: '3rem', height: '3rem' }}>
+                <span className="visually-hidden">Loading...</span>
+              </Spinner>
+              <p className="mt-3 text-muted">Loading data...</p>
+            </div>
+          </Card.Body>
+        </Card>
+      )}
+
+      {/* Filters */}
+      {!initialLoading && (
       <Card className="mb-4">
         <Card.Body>
+          <Row>
+            <Col md={4}>
           <Form.Group className="mb-3">
             <Form.Label><strong>Select Teacher</strong></Form.Label>
             <Form.Select
@@ -263,228 +420,220 @@ const Reports = () => {
               ))}
             </Form.Select>
           </Form.Group>
+            </Col>
+            {selectedTeacherId && (
+              <Col md={4}>
+                <Form.Group className="mb-3">
+                  <Form.Label><strong>Select Course</strong></Form.Label>
+                  <Form.Select
+                    value={selectedCourseId}
+                    onChange={(e) => setSelectedCourseId(e.target.value)}
+                    className="form-control-custom"
+                  >
+                    <option value="">-- Select a course --</option>
+                    {getTeacherCourses().map(course => (
+                      <option key={course.id} value={course.id}>
+                        {course.courseName} ({course.subject || 'N/A'})
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            )}
+            {selectedTeacherId && selectedCourseId && (
+              <Col md={4}>
+                <Form.Group className="mb-3">
+                  <Form.Label><strong>Select Month</strong></Form.Label>
+                  <Form.Select
+                    value={selectedMonthKey}
+                    onChange={(e) => setSelectedMonthKey(e.target.value)}
+                    className="form-control-custom"
+                  >
+                    <option value="">-- Select a month --</option>
+                    {getAvailableMonths().map(month => (
+                      <option key={month.monthKey} value={month.monthKey}>
+                        {month.monthName}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              </Col>
+            )}
+          </Row>
+        </Card.Body>
+      </Card>
+      )}
+
+      {/* Report Data Loading */}
+      {loading && (
+        <Card className="mb-4">
+          <Card.Body>
+            <div className="text-center py-5">
+              <Spinner animation="border" role="status" variant="primary" style={{ width: '3rem', height: '3rem' }}>
+                <span className="visually-hidden">Loading...</span>
+              </Spinner>
+              <p className="mt-3 text-muted">Generating report...</p>
+            </div>
+          </Card.Body>
+        </Card>
+      )}
+
+      {!loading && reportData && (
+        <div>
+          {/* Summary Card */}
+          <Card className="mb-4 border-primary">
+            <Card.Header className="bg-primary text-white">
+              <h5 className="mb-0">
+                Report: {reportData.course.name} - {reportData.month.name}
+              </h5>
+            </Card.Header>
+            <Card.Body>
+              <Row>
+                <Col md={6}>
+                  <h6 className="mb-3 text-start">Course Information</h6>
+                  <div className="text-start">
+                    <p className="mb-1"><strong>Course:</strong> {reportData.course.name}</p>
+                    <p className="mb-1"><strong>Subject:</strong> {reportData.course.subject}</p>
+                    <p className="mb-1"><strong>Grade:</strong> {reportData.course.grade}</p>
+                    <p className="mb-1"><strong>Teacher:</strong> {reportData.teacher.name}</p>
+                    <p className="mb-0"><strong>Course Fee:</strong> Rs. {reportData.course.fee.toFixed(2)}</p>
+                  </div>
+                </Col>
+                <Col md={6}>
+                  <h6 className="mb-3">Summary Statistics</h6>
+                  <Row>
+                    <Col xs={6}>
+                      <div className="mb-2">
+                        <small className="text-muted">Total Students</small>
+                        <h5>{reportData.summary.totalStudents}</h5>
+                      </div>
+                    </Col>
+                    <Col xs={6}>
+                      <div className="mb-2">
+                        <small className="text-muted">Paid Students</small>
+                        <h5 className="text-success">{reportData.summary.paidStudents}</h5>
+                      </div>
+                    </Col>
+                    <Col xs={6}>
+                      <div className="mb-2">
+                        <small className="text-muted">Unpaid Students</small>
+                        <h5 className="text-danger">{reportData.summary.unpaidStudents}</h5>
+                      </div>
+                    </Col>
+                    <Col xs={6}>
+                      <div className="mb-2">
+                        <small className="text-muted">Attendance Rate</small>
+                        <h5>{reportData.summary.averageAttendanceRate}%</h5>
+                      </div>
+                    </Col>
+                  </Row>
+                </Col>
+              </Row>
+            </Card.Body>
+          </Card>
+
+          {/* Financial Summary */}
+          <Card className="mb-4">
+            <Card.Header>
+              <h6 className="mb-0">Financial Summary</h6>
+            </Card.Header>
+            <Card.Body>
+              <Row>
+                <Col md={3}>
+                  <div className="text-center p-3 bg-light rounded mb-2">
+                    <small className="text-muted d-block">Total Fee</small>
+                    <h5>Rs. {reportData.summary.totalFee.toFixed(2)}</h5>
+                  </div>
+                </Col>
+                <Col md={3}>
+                  <div className="text-center p-3 bg-light rounded mb-2">
+                    <small className="text-muted d-block">Paid Fee</small>
+                    <h5 className="text-success">Rs. {reportData.summary.paidFee.toFixed(2)}</h5>
+                  </div>
+                </Col>
+                <Col md={3}>
+                  <div className="text-center p-3 bg-light rounded mb-2">
+                    <small className="text-muted d-block">Pending Fee</small>
+                    <h5 className="text-danger">Rs. {reportData.summary.pendingFee.toFixed(2)}</h5>
+                  </div>
+                </Col>
+                <Col md={3}>
+                  <div className="text-center p-3 bg-light rounded mb-2">
+                    <small className="text-muted d-block">Teacher Income</small>
+                    <h5>Rs. {reportData.summary.totalTeacherIncome.toFixed(2)}</h5>
+                    <small className="text-success">Paid: Rs. {reportData.summary.paidTeacherIncome.toFixed(2)}</small>
+                  </div>
+                </Col>
+              </Row>
         </Card.Body>
       </Card>
 
-      {selectedTeacherId && getSelectedTeacher() && (
-        <div className="mb-3">
+          {/* Students Table */}
           <Card>
+            <Card.Header>
+              <h6 className="mb-0">Student Details</h6>
+            </Card.Header>
             <Card.Body>
-              <h5 className="mb-3">Teacher: {getSelectedTeacher().name}</h5>
-              {loading ? (
-                <p className="text-muted">Loading report...</p>
-              ) : reportData.length === 0 ? (
-                <p className="text-muted">No data available for this teacher.</p>
-              ) : (
-                <>
-                  <div className="operators-table-container">
-                    {/* Desktop Table View */}
-                    <div className="table-responsive d-none d-lg-block">
-                      <Table striped bordered hover className="operators-table">
+              <div className="table-responsive">
+                <Table striped bordered hover>
                         <thead>
                           <tr>
-                            <th>Month</th>
-                            <th>Course</th>
-                            <th>Subject</th>
+                      <th>#</th>
+                      <th>Student Name</th>
+                      <th>Contact</th>
                             <th>Grade</th>
-                            <th>Total Course Fee</th>
-                            <th>Teacher Income (%)</th>
-                            <th>Paid Course Fee</th>
-                            <th>Paid Teacher Income</th>
-                            <th>Students</th>
-                            <th>Paid Students</th>
+                      <th>Payment Status</th>
+                      <th>Present</th>
+                      <th>Rate</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {paginatedReportData.length === 0 ? (
+                    {reportData.students.length === 0 ? (
                             <tr>
-                              <td colSpan="10" className="text-center text-muted py-4">
-                                No report data available.
+                        <td colSpan="7" className="text-center text-muted py-4">
+                          No students found.
                               </td>
                             </tr>
                           ) : (
-                            paginatedReportData.map((item, index) => (
-                              <tr key={`${item.monthKey}-${item.courseId}-${index}`}>
-                                <td><strong>{item.monthName}</strong></td>
-                                <td>{item.courseName}</td>
-                                <td>{item.subject}</td>
-                                <td>{item.grade}</td>
-                                <td>Rs. {item.totalFee.toFixed(2)}</td>
-                                <td>Rs. {item.teacherIncome.toFixed(2)}</td>
-                                <td>
-                                  <span className={item.paidFee > 0 ? 'text-success' : 'text-muted'}>
-                                    Rs. {item.paidFee.toFixed(2)}
-                                  </span>
+                      reportData.students.map((student, index) => (
+                        <tr key={student.id}>
+                          <td>{index + 1}</td>
+                          <td><strong>{student.name}</strong></td>
+                          <td>{student.contact}</td>
+                          <td>{student.grade}</td>
+                          <td>
+                            {student.isPaid ? (
+                              <span className="badge bg-success">Paid</span>
+                            ) : (
+                              <span className="badge bg-danger">Unpaid</span>
+                            )}
                                 </td>
+                          <td className="text-success">{student.attendance.present}</td>
                                 <td>
-                                  <span className={item.paidTeacherIncome > 0 ? 'text-success' : 'text-muted'}>
-                                    Rs. {item.paidTeacherIncome.toFixed(2)}
-                                  </span>
-                                </td>
-                                <td>{item.studentCount}</td>
-                                <td>
-                                  <span className={item.paidStudentCount > 0 ? 'text-success' : 'text-muted'}>
-                                    {item.paidStudentCount}
+                            <span className={parseFloat(student.attendance.rate) >= 75 ? 'text-success' : 'text-warning'}>
+                              {student.attendance.rate}%
                                   </span>
                                 </td>
                               </tr>
                             ))
                           )}
                         </tbody>
-                        <tfoot>
-                          <tr className="table-info">
-                            <td colSpan="4"><strong>Total</strong></td>
-                            <td><strong>Rs. {calculateTotals().totalFee.toFixed(2)}</strong></td>
-                            <td><strong>Rs. {calculateTotals().teacherIncome.toFixed(2)}</strong></td>
-                            <td><strong>Rs. {calculateTotals().paidFee.toFixed(2)}</strong></td>
-                            <td><strong>Rs. {calculateTotals().paidTeacherIncome.toFixed(2)}</strong></td>
-                            <td colSpan="2"></td>
-                          </tr>
-                        </tfoot>
                       </Table>
-                    </div>
-
-                    {/* Mobile Card View */}
-                    <div className="d-lg-none">
-                      {paginatedReportData.length === 0 ? (
-                        <div className="text-center text-muted py-5">
-                          <p>No report data available.</p>
-                        </div>
-                      ) : (
-                        <div className="student-cards-container">
-                          {paginatedReportData.map((item, index) => (
-                          <Card key={`${item.monthKey}-${item.courseId}-${index}`} className="student-card mb-3">
-                            <Card.Body>
-                              <div className="student-card-header mb-2">
-                                <h5 className="student-card-name mb-1">{item.courseName}</h5>
-                                <p className="text-muted small mb-1">
-                                  <strong>Month:</strong> {item.monthName}
-                                </p>
-                                <p className="text-muted small mb-1">
-                                  <strong>Subject:</strong> {item.subject} | <strong>Grade:</strong> {item.grade}
-                                </p>
-                              </div>
-                              <div className="mb-2">
-                                <div className="d-flex justify-content-between mb-1">
-                                  <span className="text-muted small">Total Course Fee:</span>
-                                  <strong>Rs. {item.totalFee.toFixed(2)}</strong>
-                                </div>
-                                <div className="d-flex justify-content-between mb-1">
-                                  <span className="text-muted small">Teacher Income:</span>
-                                  <strong>Rs. {item.teacherIncome.toFixed(2)}</strong>
-                                </div>
-                                <div className="d-flex justify-content-between mb-1">
-                                  <span className="text-muted small">Paid Course Fee:</span>
-                                  <span className={item.paidFee > 0 ? 'text-success' : 'text-muted'}>
-                                    <strong>Rs. {item.paidFee.toFixed(2)}</strong>
-                                  </span>
-                                </div>
-                                <div className="d-flex justify-content-between mb-1">
-                                  <span className="text-muted small">Paid Teacher Income:</span>
-                                  <span className={item.paidTeacherIncome > 0 ? 'text-success' : 'text-muted'}>
-                                    <strong>Rs. {item.paidTeacherIncome.toFixed(2)}</strong>
-                                  </span>
-                                </div>
-                                <div className="d-flex justify-content-between mb-1">
-                                  <span className="text-muted small">Students:</span>
-                                  <span>{item.studentCount}</span>
-                                </div>
-                                <div className="d-flex justify-content-between">
-                                  <span className="text-muted small">Paid Students:</span>
-                                  <span className={item.paidStudentCount > 0 ? 'text-success' : 'text-muted'}>
-                                    <strong>{item.paidStudentCount}</strong>
-                                  </span>
-                                </div>
                               </div>
                             </Card.Body>
                           </Card>
-                        ))}
                         </div>
                       )}
                       
-                      {/* Mobile Summary Card */}
-                      <Card className="mt-3 border-info">
+      {!loading && !reportData && selectedTeacherId && selectedCourseId && selectedMonthKey && (
+        <Card className="mb-4">
                         <Card.Body>
-                          <h6 className="mb-3">Summary</h6>
-                          <div className="mb-2">
-                            <div className="d-flex justify-content-between mb-1">
-                              <span><strong>Total Expected Income:</strong></span>
-                              <strong>Rs. {calculateTotals().teacherIncome.toFixed(2)}</strong>
-                            </div>
-                            <div className="d-flex justify-content-between mb-1">
-                              <span><strong>Total Paid Income:</strong></span>
-                              <span className="text-success">
-                                <strong>Rs. {calculateTotals().paidTeacherIncome.toFixed(2)}</strong>
-                              </span>
-                            </div>
-                            <div className="d-flex justify-content-between mb-1">
-                              <span><strong>Pending Income:</strong></span>
-                              <span className="text-danger">
-                                <strong>Rs. {(calculateTotals().teacherIncome - calculateTotals().paidTeacherIncome).toFixed(2)}</strong>
-                              </span>
-                            </div>
-                            <div className="d-flex justify-content-between">
-                              <span><strong>Payment Status:</strong></span>
-                              <span>
-                                {calculateTotals().teacherIncome > 0 
-                                  ? `${((calculateTotals().paidTeacherIncome / calculateTotals().teacherIncome) * 100).toFixed(1)}% Paid`
-                                  : 'N/A'}
-                              </span>
-                            </div>
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    </div>
-                    
-                    {/* Pagination */}
-                    {reportData.length > 0 && (
-                      <Pagination
-                        currentPage={currentPage}
-                        totalPages={totalPages}
-                        onPageChange={goToPage}
-                        onNext={nextPage}
-                        onPrev={prevPage}
-                        totalItems={totalItems}
-                        startIndex={startIndex}
-                        endIndex={endIndex}
-                      />
-                    )}
-                  </div>
-
-                  <div className="mt-3 p-3 bg-light rounded">
-                    <div className="row">
-                      <div className="col-md-6">
-                        <p className="mb-1">
-                          <strong>Total Expected Income:</strong> Rs. {calculateTotals().teacherIncome.toFixed(2)}
-                        </p>
-                        <p className="mb-1">
-                          <strong>Total Paid Income:</strong> 
-                          <span className="text-success"> Rs. {calculateTotals().paidTeacherIncome.toFixed(2)}</span>
-                        </p>
-                      </div>
-                      <div className="col-md-6">
-                        <p className="mb-1">
-                          <strong>Pending Income:</strong>
-                          <span className="text-danger"> Rs. {(calculateTotals().teacherIncome - calculateTotals().paidTeacherIncome).toFixed(2)}</span>
-                        </p>
-                        <p className="mb-0">
-                          <strong>Payment Status:</strong> 
-                          {calculateTotals().teacherIncome > 0 
-                            ? ` ${((calculateTotals().paidTeacherIncome / calculateTotals().teacherIncome) * 100).toFixed(1)}% Paid`
-                            : ' N/A'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
+            <p className="text-muted text-center">No data available for the selected filters.</p>
             </Card.Body>
           </Card>
-        </div>
       )}
     </Container>
   );
 };
 
 export default Reports;
-
