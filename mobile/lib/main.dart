@@ -38,7 +38,7 @@ class MyApp extends StatelessWidget {
           centerTitle: true,
           iconTheme: IconThemeData(color: Color(0xFF1A1A1A)),
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(

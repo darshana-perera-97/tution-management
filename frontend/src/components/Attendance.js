@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, startTransition } from 'react';
 import { Container, Button, Table, Modal, Form, Alert, Card, Row, Col } from 'react-bootstrap';
 import { Html5Qrcode } from 'html5-qrcode';
+import { HiOutlineArrowDownTray } from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
 import { usePagination } from '../hooks/usePagination';
@@ -733,6 +734,22 @@ const Attendance = ({ hideMarkButton = false }) => {
                   disabled={attendanceQueue.length === 0}
                 >
                   Clear Queue ({attendanceQueue.length})
+                </Button>
+                <Button
+                  variant="outline-primary"
+                  size="sm"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = '/app-release.apk';
+                    link.download = 'app-release.apk';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  <HiOutlineArrowDownTray className="me-1" style={{ fontSize: '16px', verticalAlign: 'middle' }} />
+                  Download APK
                 </Button>
               </>
             )}

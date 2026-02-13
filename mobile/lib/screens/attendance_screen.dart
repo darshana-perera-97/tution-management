@@ -17,6 +17,7 @@ class AttendanceScreen extends StatefulWidget {
 class _AttendanceScreenState extends State<AttendanceScreen> {
   final TextEditingController _studentIdController = TextEditingController();
   bool _isMarking = false;
+  bool _isMarkingAll = false;
   String? _successMessage;
   String? _errorMessage;
   bool _showQRScanner = false;
@@ -79,6 +80,89 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       setState(() {
         _isMarking = false;
       });
+    }
+  }
+
+  Future<void> _markAllAttendance() async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Mark All Attendance'),
+        content: const Text(
+          'Are you sure you want to mark attendance for all students in this course?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF22C55E),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Mark All'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isMarkingAll = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+
+    try {
+      final result = await AttendanceService.markAllAttendance(
+        courseId: widget.course['id'],
+      );
+
+      if (mounted) {
+        setState(() {
+          if (result['success'] == true) {
+            _successMessage = result['message'] ?? 
+                'Attendance marked for ${result['marked']} students';
+            
+            // Show errors if any
+            if (result['failed'] > 0 && result['errors'] != null) {
+              final errors = List<String>.from(result['errors']);
+              if (errors.isNotEmpty) {
+                _errorMessage = 'Some students failed: ${errors.take(3).join(', ')}${errors.length > 3 ? '...' : ''}';
+              }
+            }
+          } else {
+            _errorMessage = result['message'] ?? 'Failed to mark attendance for all students';
+          }
+        });
+
+        // Auto-hide success message after 5 seconds
+        if (result['success'] == true) {
+          Future.delayed(const Duration(seconds: 5), () {
+            if (mounted) {
+              setState(() {
+                _successMessage = null;
+              });
+            }
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString().replaceAll('Exception: ', '');
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isMarkingAll = false;
+        });
+      }
     }
   }
 
@@ -323,11 +407,64 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               ),
             ),
 
+          // Mark All Attendance Button
+          SizedBox(
+            height: 52,
+            child: ElevatedButton.icon(
+              onPressed: (_isMarking || _isMarkingAll)
+                  ? null
+                  : _markAllAttendance,
+              icon: _isMarkingAll
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.check_circle_outline, size: 20),
+              label: Text(
+                _isMarkingAll ? 'Marking All...' : 'Mark All Attendance',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF3B82F6),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Divider
+          Row(
+            children: [
+              Expanded(child: Divider(color: Colors.grey.shade300)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'OR MARK INDIVIDUALLY',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Expanded(child: Divider(color: Colors.grey.shade300)),
+            ],
+          ),
+          const SizedBox(height: 24),
+
           // QR Code Scan Button
           SizedBox(
             height: 52,
             child: ElevatedButton.icon(
-              onPressed: _isMarking
+              onPressed: (_isMarking || _isMarkingAll)
                   ? null
                   : () async {
                       setState(() {
@@ -392,7 +529,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           SizedBox(
             height: 52,
             child: ElevatedButton(
-              onPressed: _isMarking
+              onPressed: (_isMarking || _isMarkingAll)
                   ? null
                   : () => _markAttendance(_studentIdController.text.trim()),
               style: ElevatedButton.styleFrom(
