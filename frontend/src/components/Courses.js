@@ -25,6 +25,7 @@ const Courses = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isOperator, setIsOperator] = useState(false);
+  const [isAdminOrOperator, setIsAdminOrOperator] = useState(false);
   const [showBulkMessageModal, setShowBulkMessageModal] = useState(false);
   const [bulkMessage, setBulkMessage] = useState('');
   const [bulkMessageLoading, setBulkMessageLoading] = useState(false);
@@ -98,6 +99,7 @@ const Courses = () => {
     const isOperatorAuth = localStorage.getItem('isOperatorAuthenticated');
     const isAdminAuth = localStorage.getItem('isAuthenticated');
     setIsOperator(!!isOperatorAuth && !isAdminAuth);
+    setIsAdminOrOperator(!!isAdminAuth || !!isOperatorAuth);
     
     fetchCourses();
     fetchTeachers();
@@ -649,14 +651,14 @@ const Courses = () => {
                       >
                         Manage Students
                       </Button>
-                      {isOperator && (
+                      {isAdminOrOperator && (
                         <Button
                           variant="info"
                           size="sm"
                           onClick={() => handleBulkMessage(course)}
                           className="action-btn"
                         >
-                          Send Bulk Message
+                          Bulk Message
                         </Button>
                       )}
                       <Button
@@ -707,14 +709,14 @@ const Courses = () => {
                         >
                           Manage Students
                         </Button>
-                        {isOperator && (
+                        {isAdminOrOperator && (
                           <Button
                             variant="info"
                             size="sm"
                             onClick={() => handleBulkMessage(course)}
                             className="action-btn"
                           >
-                            Send Bulk Message
+                            Bulk Message
                           </Button>
                         )}
                         <Button

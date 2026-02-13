@@ -17,6 +17,7 @@ import Payments from './Payments';
 import Attendance from './Attendance';
 import Reports from './Reports';
 import WhatsAppLink from './WhatsAppLink';
+import AIChatbot from './AIChatbot';
 import '../App.css';
 import API_URL from '../config';
 
@@ -278,6 +279,8 @@ const Dashboard = () => {
               <Reports />
             ) : activeItem === 'whatsapp-link' ? (
               <WhatsAppLink />
+            ) : activeItem === 'ai-chatbot' ? (
+              <AIChatbot />
             ) : (
               <>
                 <div className="dashboard-header mb-4">

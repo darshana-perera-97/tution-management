@@ -5,6 +5,8 @@ const path = require('path');
 const fileUpload = require('express-fileupload');
 const qrcode = require('qrcode-terminal');
 const { Client, LocalAuth } = require('whatsapp-web.js');
+const pdfParse = require('pdf-parse');
+const OpenAI = require('openai');
 
 // Suppress dotenv console messages
 const originalConsoleLog = console.log;
@@ -64,10 +66,14 @@ const teacherPaymentsPath = path.join(__dirname, 'data', 'teacherPayments.json')
 const attendancePath = path.join(__dirname, 'data', 'attendance.json');
 // Path to LMS content data file
 const lmsContentPath = path.join(__dirname, 'data', 'lmsContent.json');
+// Path to AI Chatbot content data file
+const aiChatbotPath = path.join(__dirname, 'data', 'aiChatbot.json');
 // Path to uploads directory (stored in data folder)
 const uploadsPath = path.join(__dirname, 'data', 'uploads');
 // Path to course enrollments data file
 const enrollmentsPath = path.join(__dirname, 'data', 'enrollments.json');
+// Path to student chatbot quotas data file
+const studentChatbotQuotasPath = path.join(__dirname, 'data', 'studentChatbotQuotas.json');
 
 // Helper function to read admin data
 const readAdminData = () => {
@@ -2318,6 +2324,155 @@ const writeLmsContentData = (data) => {
   }
 };
 
+// Helper function to read AI Chatbot content data
+const readAIChatbotData = () => {
+  try {
+    const data = fs.readFileSync(aiChatbotPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    return { contents: [], combinedTexts: {} };
+  }
+};
+
+// Helper function to write AI Chatbot content data
+const writeAIChatbotData = (data) => {
+  try {
+    const dataDir = path.dirname(aiChatbotPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(aiChatbotPath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error writing AI Chatbot content data:', error);
+    return false;
+  }
+};
+
+// Helper function to generate and save combined text for a grade section
+const generateAndSaveCombinedText = async (gradeSection) => {
+  try {
+    const aiChatbotData = readAIChatbotData();
+    const sectionContents = aiChatbotData.contents.filter(
+      content => content.gradeSection === gradeSection
+    );
+
+    if (sectionContents.length === 0) {
+      // Clear combined text if no documents
+      if (!aiChatbotData.combinedTexts) {
+        aiChatbotData.combinedTexts = {};
+      }
+      aiChatbotData.combinedTexts[gradeSection] = {
+        text: '',
+        processedAt: new Date().toISOString(),
+        documentCount: 0
+      };
+      writeAIChatbotData(aiChatbotData);
+      return '';
+    }
+
+    // Combine all extracted texts
+    let rawCombinedText = sectionContents
+      .map((content, index) => {
+        const title = content.title || `Document ${index + 1}`;
+        const text = content.extractedText || '';
+        return `=== ${title} ===\n${text}\n\n`;
+      })
+      .join('');
+
+    let combinedText = rawCombinedText;
+    let processedWithOpenAI = false;
+
+    // Always use OpenAI if API key is available
+    if (process.env.OPENAI_API_KEY) {
+      try {
+        const openai = new OpenAI({
+          apiKey: process.env.OPENAI_API_KEY
+        });
+
+        // Process the combined text with OpenAI
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an educational content assistant specializing in ${gradeSection.replace('grade', 'Grade ').replace('-', '-')} curriculum. Your task is to process, organize, and present the extracted text from multiple educational documents in a clear, structured, and comprehensive format. Make the content easy to understand and well-organized.`
+            },
+            {
+              role: 'user',
+              content: `Please process, organize, and present the following extracted text from ${sectionContents.length} educational document(s) for ${gradeSection.replace('grade', 'Grade ').replace('-', '-')} students. Create a well-structured, comprehensive summary that combines all the information:\n\n${rawCombinedText.substring(0, 15000)}` // Limit to avoid token limits
+            }
+          ],
+          max_tokens: 3000,
+          temperature: 0.7
+        });
+
+        combinedText = completion.choices[0].message.content || rawCombinedText;
+        processedWithOpenAI = true;
+      } catch (openaiError) {
+        console.error('OpenAI processing error:', openaiError);
+        // Use raw combined text if OpenAI fails
+        combinedText = rawCombinedText;
+        processedWithOpenAI = false;
+      }
+    } else {
+      // If OpenAI API key is not configured
+      combinedText = rawCombinedText + '\n\n[Note: OpenAI API key not configured. Please add OPENAI_API_KEY to your .env file to enable AI processing.]';
+    }
+
+    // Save combined text to data structure
+    if (!aiChatbotData.combinedTexts) {
+      aiChatbotData.combinedTexts = {};
+    }
+    aiChatbotData.combinedTexts[gradeSection] = {
+      text: combinedText.trim(),
+      processedAt: new Date().toISOString(),
+      documentCount: sectionContents.length,
+      processedWithOpenAI: processedWithOpenAI
+    };
+
+    writeAIChatbotData(aiChatbotData);
+    return combinedText.trim();
+  } catch (error) {
+    console.error('Error generating combined text:', error);
+    return '';
+  }
+};
+
+// Helper function to extract text from files
+const extractTextFromFile = async (filePath, fileType) => {
+  try {
+    if (fileType === 'text/plain' || fileType.includes('text/')) {
+      // Read text files directly
+      return fs.readFileSync(filePath, 'utf8');
+    } else if (fileType === 'application/pdf') {
+      // Extract text from PDF using pdf-parse
+      if (!pdfParse || typeof pdfParse !== 'function') {
+        return '[PDF File Uploaded - pdf-parse library not available or not properly loaded]';
+      }
+      try {
+        const dataBuffer = fs.readFileSync(filePath);
+        const data = await pdfParse(dataBuffer);
+        return data.text || '[PDF file processed but no text content found]';
+      } catch (pdfError) {
+        console.error('Error extracting text from PDF:', pdfError);
+        return `[Error extracting text from PDF: ${pdfError.message}]`;
+      }
+    } else if (fileType.includes('word') || fileType.includes('document') || 
+               fileType === 'application/msword' || 
+               fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      // For Word documents, return a placeholder
+      // Note: Full Word document extraction requires mammoth or similar library
+      // Install with: npm install mammoth
+      return '[Word Document Uploaded - Text extraction requires mammoth library. Install with: npm install mammoth]';
+    }
+    return '[File uploaded - Text extraction not available for this file type]';
+  } catch (error) {
+    console.error('Error extracting text from file:', error);
+    return `[Error extracting text from file: ${error.message}]`;
+  }
+};
+
 // Ensure uploads directory exists
 if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true });
@@ -2662,6 +2817,475 @@ let whatsappState = {
 
 // Temporary attendance queue (in-memory storage for real-time notifications)
 let temporaryAttendanceQueue = [];
+
+// ==================== Student Chatbot Quota Management ====================
+
+// Helper function to read student chatbot quotas
+const readStudentChatbotQuotas = () => {
+  try {
+    if (!fs.existsSync(studentChatbotQuotasPath)) {
+      return { quotas: {} };
+    }
+    const data = fs.readFileSync(studentChatbotQuotasPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.error('Error reading student chatbot quotas:', error);
+    return { quotas: {} };
+  }
+};
+
+// Helper function to write student chatbot quotas
+const writeStudentChatbotQuotas = (data) => {
+  try {
+    const dataDir = path.dirname(studentChatbotQuotasPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(studentChatbotQuotasPath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error writing student chatbot quotas:', error);
+    return false;
+  }
+};
+
+// Get or initialize student quota (with daily reset)
+const getStudentQuota = (studentId) => {
+  const quotasData = readStudentChatbotQuotas();
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+  const MAX_MESSAGES_PER_DAY = 15;
+
+  if (!quotasData.quotas) {
+    quotasData.quotas = {};
+  }
+
+  const studentQuota = quotasData.quotas[studentId];
+
+  // If no quota exists or it's a new day, reset the quota
+  if (!studentQuota || studentQuota.date !== today) {
+    quotasData.quotas[studentId] = {
+      date: today,
+      count: 0
+    };
+    writeStudentChatbotQuotas(quotasData);
+    return {
+      date: today,
+      count: 0,
+      remaining: MAX_MESSAGES_PER_DAY,
+      limit: MAX_MESSAGES_PER_DAY
+    };
+  }
+
+  return {
+    date: studentQuota.date,
+    count: studentQuota.count,
+    remaining: Math.max(0, MAX_MESSAGES_PER_DAY - studentQuota.count),
+    limit: MAX_MESSAGES_PER_DAY
+  };
+};
+
+// Increment student quota
+const incrementStudentQuota = (studentId) => {
+  const quotasData = readStudentChatbotQuotas();
+  const today = new Date().toISOString().split('T')[0];
+  const MAX_MESSAGES_PER_DAY = 15;
+
+  if (!quotasData.quotas) {
+    quotasData.quotas = {};
+  }
+
+  const studentQuota = quotasData.quotas[studentId];
+
+  // If no quota exists or it's a new day, reset the quota
+  if (!studentQuota || studentQuota.date !== today) {
+    quotasData.quotas[studentId] = {
+      date: today,
+      count: 1
+    };
+  } else {
+    quotasData.quotas[studentId].count += 1;
+  }
+
+  writeStudentChatbotQuotas(quotasData);
+
+  return {
+    date: quotasData.quotas[studentId].date,
+    count: quotasData.quotas[studentId].count,
+    remaining: Math.max(0, MAX_MESSAGES_PER_DAY - quotasData.quotas[studentId].count),
+    limit: MAX_MESSAGES_PER_DAY
+  };
+};
+
+// ==================== AI Chatbot Content Endpoints ====================
+
+// Get AI Chatbot contents by grade section
+app.get('/api/ai-chatbot/:gradeSection', (req, res) => {
+  try {
+    const { gradeSection } = req.params;
+    const validSections = ['grade1-5', 'grade6-11', 'grade12-13'];
+    
+    if (!validSections.includes(gradeSection)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid grade section'
+      });
+    }
+
+    const aiChatbotData = readAIChatbotData();
+    const sectionContents = aiChatbotData.contents.filter(
+      content => content.gradeSection === gradeSection
+    );
+    
+    res.json({
+      success: true,
+      contents: sectionContents
+    });
+  } catch (error) {
+    console.error('Get AI Chatbot contents error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Upload AI Chatbot content
+app.post('/api/ai-chatbot/upload', async (req, res) => {
+  try {
+    const { title, gradeSection } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title is required'
+      });
+    }
+
+    if (!gradeSection || !['grade1-5', 'grade6-11', 'grade12-13'].includes(gradeSection)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid grade section is required'
+      });
+    }
+
+    if (!req.files || !req.files.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'File is required'
+      });
+    }
+
+    const file = req.files.file;
+    const fileType = file.mimetype;
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain'
+    ];
+
+    if (!allowedTypes.includes(fileType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file type. Only PDF, DOC, DOCX, and TXT files are allowed.'
+      });
+    }
+
+    // Save file
+    const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const filePath = path.join(uploadsPath, fileName);
+    
+    await file.mv(filePath);
+    const fileUrl = `/uploads/${fileName}`;
+
+    // Extract text from file
+    const extractedText = await extractTextFromFile(filePath, fileType);
+
+    // Save content to database
+    const aiChatbotData = readAIChatbotData();
+    const newContent = {
+      id: Date.now().toString(),
+      title: title.trim(),
+      gradeSection,
+      fileName: file.name,
+      fileType,
+      fileUrl,
+      extractedText,
+      createdAt: new Date().toISOString()
+    };
+
+    aiChatbotData.contents.push(newContent);
+
+    if (writeAIChatbotData(aiChatbotData)) {
+      // Automatically generate and save combined text for this grade section
+      generateAndSaveCombinedText(gradeSection).catch(err => {
+        console.error('Error generating combined text after upload:', err);
+      });
+
+      res.json({
+        success: true,
+        message: 'Content uploaded successfully',
+        content: newContent
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to save content'
+      });
+    }
+  } catch (error) {
+    console.error('Upload AI Chatbot content error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get combined extracted text for a grade section (returns cached version)
+app.get('/api/ai-chatbot/:gradeSection/combined-text', async (req, res) => {
+  try {
+    const { gradeSection } = req.params;
+    const validSections = ['grade1-5', 'grade6-11', 'grade12-13'];
+    
+    if (!validSections.includes(gradeSection)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid grade section'
+      });
+    }
+
+    const aiChatbotData = readAIChatbotData();
+    const sectionContents = aiChatbotData.contents.filter(
+      content => content.gradeSection === gradeSection
+    );
+
+    if (sectionContents.length === 0) {
+      return res.json({
+        success: true,
+        combinedText: '',
+        documentCount: 0,
+        processedWithOpenAI: false
+      });
+    }
+
+    // Check if we have cached combined text and if it's up to date
+    const cachedText = aiChatbotData.combinedTexts && aiChatbotData.combinedTexts[gradeSection];
+    const currentDocumentCount = sectionContents.length;
+
+    // If cached text exists and document count matches, return cached version
+    if (cachedText && cachedText.documentCount === currentDocumentCount && cachedText.text) {
+      return res.json({
+        success: true,
+        combinedText: cachedText.text,
+        documentCount: currentDocumentCount,
+        processedWithOpenAI: cachedText.processedWithOpenAI || false,
+        cached: true
+      });
+    }
+
+    // If no cache or document count changed, generate new combined text
+    const combinedText = await generateAndSaveCombinedText(gradeSection);
+    const updatedData = readAIChatbotData();
+    const updatedCachedText = updatedData.combinedTexts && updatedData.combinedTexts[gradeSection];
+
+    res.json({
+      success: true,
+      combinedText: combinedText,
+      documentCount: currentDocumentCount,
+      processedWithOpenAI: updatedCachedText ? updatedCachedText.processedWithOpenAI : false,
+      cached: false
+    });
+  } catch (error) {
+    console.error('Get combined text error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get student chatbot quota
+app.get('/api/student/chatbot/quota/:studentId', (req, res) => {
+  try {
+    const { studentId } = req.params;
+    
+    if (!studentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student ID is required'
+      });
+    }
+
+    const quota = getStudentQuota(studentId);
+    
+    res.json({
+      success: true,
+      quota: quota
+    });
+  } catch (error) {
+    console.error('Get student quota error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting student quota'
+    });
+  }
+});
+
+// Student chatbot endpoint
+app.post('/api/student/chatbot', async (req, res) => {
+  try {
+    const { studentId, message, gradeSection, masterPrompt, chatHistory } = req.body;
+
+    if (!studentId || !message || !message.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student ID and message are required'
+      });
+    }
+
+    // Check quota before processing
+    const quota = getStudentQuota(studentId);
+    if (quota.remaining <= 0) {
+      return res.status(429).json({
+        success: false,
+        message: `You've reached the daily limit of ${quota.limit} messages. Please try again tomorrow.`,
+        quota: quota
+      });
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({
+        success: false,
+        message: 'OpenAI API key not configured'
+      });
+    }
+
+    // Build conversation history with master prompt as system message
+    const messages = [];
+    
+    // Add system message with master prompt
+    if (masterPrompt && masterPrompt.trim()) {
+      messages.push({
+        role: 'system',
+        content: `You are a helpful and friendly AI study assistant for ${gradeSection ? gradeSection.replace('grade', 'Grade ').replace('-', '-') : 'students'}. Your knowledge base consists of the following educational content:\n\n${masterPrompt.substring(0, 12000)}\n\nUse this content to help answer student questions. Provide SHORT, concise answers (2-3 sentences maximum). Be clear, direct, and encouraging. If the question is not related to the provided content, politely let the student know and suggest they ask about the course materials.`
+      });
+    } else {
+      messages.push({
+        role: 'system',
+        content: `You are a helpful and friendly AI study assistant. Help students with their questions about their courses and educational materials. Provide SHORT, concise answers (2-3 sentences maximum). Be clear, direct, and encouraging.`
+      });
+    }
+
+    // Add chat history (last 10 messages to avoid token limits)
+    const recentHistory = chatHistory ? chatHistory.slice(-10) : [];
+    recentHistory.forEach(msg => {
+      if (msg.role && msg.content) {
+        messages.push({
+          role: msg.role,
+          content: msg.content
+        });
+      }
+    });
+
+    // Add current user message
+    messages.push({
+      role: 'user',
+      content: message.trim()
+    });
+
+    // Call OpenAI
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: messages,
+      max_tokens: 100,
+      temperature: 0.6
+    });
+
+    const response = completion.choices[0].message.content;
+
+    // Increment quota after successful response
+    const updatedQuota = incrementStudentQuota(studentId);
+
+    res.json({
+      success: true,
+      response: response,
+      quota: updatedQuota
+    });
+  } catch (error) {
+    console.error('Student chatbot error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error processing chatbot request'
+    });
+  }
+});
+
+// Delete AI Chatbot content
+app.delete('/api/ai-chatbot/:contentId', (req, res) => {
+  try {
+    const { contentId } = req.params;
+    const aiChatbotData = readAIChatbotData();
+    
+    const contentIndex = aiChatbotData.contents.findIndex(
+      item => item.id === contentId
+    );
+
+    if (contentIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Content not found'
+      });
+    }
+
+    const content = aiChatbotData.contents[contentIndex];
+    
+    // Delete file if exists
+    if (content.fileUrl) {
+      const filePath = path.join(__dirname, 'data', content.fileUrl.replace('/uploads/', 'uploads/'));
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (err) {
+        console.error('Error deleting file:', err);
+      }
+    }
+
+    // Get grade section before removing
+    const gradeSection = content.gradeSection;
+
+    // Remove content from array
+    aiChatbotData.contents.splice(contentIndex, 1);
+
+    if (writeAIChatbotData(aiChatbotData)) {
+      // Automatically generate and save combined text for this grade section
+      generateAndSaveCombinedText(gradeSection).catch(err => {
+        console.error('Error generating combined text after delete:', err);
+      });
+
+      res.json({
+        success: true,
+        message: 'Content deleted successfully'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete content'
+      });
+    }
+  } catch (error) {
+    console.error('Delete AI Chatbot content error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
 
 // Helper function to format phone number for WhatsApp
 const formatPhoneNumber = (phoneNumber) => {

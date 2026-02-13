@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Row, Col, Card, Table, Button, Nav, Tab, Badge, Alert } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
+import { HiArrowDownTray } from 'react-icons/hi2';
 import StudentTopNavbar from './StudentTopNavbar';
+import StudentChatbot from './StudentChatbot';
 import '../App.css';
 import API_URL from '../config';
 
@@ -98,6 +100,51 @@ const StudentDashboard = () => {
     } catch (err) {
       console.error('Error fetching LMS content:', err);
       setLmsContent([]);
+    }
+  };
+
+  const handleDownloadFile = async (content) => {
+    if (!content.fileUrl) return;
+    
+    try {
+      const fileUrl = `${API_URL}${content.fileUrl}`;
+      
+      // Get file name with proper extension
+      let fileName = content.fileName || content.title || 'download';
+      
+      // If fileName doesn't have extension, try to get it from fileUrl
+      if (!fileName.includes('.')) {
+        const urlParts = content.fileUrl.split('/');
+        const urlFileName = urlParts[urlParts.length - 1];
+        if (urlFileName.includes('.')) {
+          fileName = urlFileName;
+        } else {
+          // Add extension based on content type
+          const extension = content.type === 'pdf' ? '.pdf' : 
+                           content.type === 'image' ? '.jpg' : '';
+          fileName = fileName + extension;
+        }
+      }
+      
+      // Fetch the file
+      const response = await fetch(fileUrl);
+      if (!response.ok) {
+        throw new Error('Failed to fetch file');
+      }
+      const blob = await response.blob();
+      
+      // Create a temporary URL and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading file:', err);
+      alert('Failed to download file. Please try again.');
     }
   };
 
@@ -454,6 +501,30 @@ const StudentDashboard = () => {
                                       )}
                                     </div>
                                   )}
+                                  {(content.type === 'image' || content.type === 'pdf') && content.fileUrl && (
+                                    <div style={{ marginTop: '12px' }}>
+                                      <Button
+                                        variant="outline-primary"
+                                        size="sm"
+                                        onClick={() => handleDownloadFile(content)}
+                                        style={{
+                                          width: '100%',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          gap: '6px',
+                                          borderColor: '#6366f1',
+                                          color: '#6366f1',
+                                          fontSize: '12px',
+                                          fontWeight: '500',
+                                          padding: '8px'
+                                        }}
+                                      >
+                                        <HiArrowDownTray size={16} />
+                                        Download
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
                                 <div style={{ 
                                   marginTop: '12px',
@@ -555,6 +626,7 @@ const StudentDashboard = () => {
             </Tab.Container>
           </Container>
         </div>
+        <StudentChatbot student={student} />
       </div>
     );
   }
@@ -718,6 +790,7 @@ const StudentDashboard = () => {
           )}
         </Container>
       </div>
+      <StudentChatbot student={student} />
     </div>
   );
 };

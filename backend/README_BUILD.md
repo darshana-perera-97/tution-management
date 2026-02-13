@@ -49,9 +49,24 @@ Once the server is running:
 - Frontend: `http://localhost:5253`
 - API: `http://localhost:5253/api/*`
 
+## Environment Variables Setup
+
+1. **Copy the example environment file:**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Edit the `.env` file and add your actual values:**
+   - `OPENAI_API_KEY`: Your OpenAI API key (required for AI Chatbot feature)
+     - Get your API key from: https://platform.openai.com/api-keys
+   - `PORT`: Server port (default: 5253)
+
+3. **Important:** The `.env` file is already in `.gitignore` and will not be committed to version control.
+
 ## Notes
 
 - Make sure to rebuild the React app whenever you make frontend changes
 - The build folder must exist for the server to serve the React app
 - API routes take precedence over static file serving
+- The `.env` file must be in the `backend` directory for environment variables to load
 
