@@ -5,7 +5,8 @@ import {
   HiOutlineUserGroup, 
   HiOutlineAcademicCap, 
   HiOutlineBookOpen, 
-  HiOutlineCurrencyDollar 
+  HiOutlineCurrencyDollar,
+  HiOutlineChatBubbleLeftRight
 } from 'react-icons/hi2';
 import Sidebar from './Sidebar';
 import TopNavbar from './TopNavbar';
@@ -34,7 +35,11 @@ const Dashboard = () => {
     totalRevenue: 0,
     totalIncome: 0,
     instituteIncome: 0,
-    remainingTeacherPayments: 0
+    remainingTeacherPayments: 0,
+    chatbotStudentsToday: 0,
+    chatbotMessagesToday: 0,
+    chatbotMessagesLastMonth: 0,
+    chatbotTokensThisMonth: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -55,17 +60,19 @@ const Dashboard = () => {
       setLoading(true);
       
       // Fetch all data in parallel
-      const [studentsRes, teachersRes, coursesRes, paymentsRes] = await Promise.all([
+      const [studentsRes, teachersRes, coursesRes, paymentsRes, chatbotStatsRes] = await Promise.all([
         fetch(`${API_URL}/api/students`),
         fetch(`${API_URL}/api/teachers`),
         fetch(`${API_URL}/api/courses`),
-        fetch(`${API_URL}/api/payments`)
+        fetch(`${API_URL}/api/payments`),
+        fetch(`${API_URL}/api/student/chatbot/statistics`)
       ]);
 
       const studentsData = await studentsRes.json();
       const teachersData = await teachersRes.json();
       const coursesData = await coursesRes.json();
       const paymentsData = await paymentsRes.json();
+      const chatbotStatsData = await chatbotStatsRes.json();
 
       // Calculate stats
       const totalStudents = studentsData.success ? studentsData.students.length : 0;
@@ -198,6 +205,14 @@ const Dashboard = () => {
         });
       }
 
+      // Get chatbot statistics
+      const chatbotStats = chatbotStatsData.success ? chatbotStatsData.statistics : { 
+        studentsUsedToday: 0, 
+        totalMessagesToday: 0,
+        messagesLastMonth: 0,
+        tokensThisMonth: 0
+      };
+
       setStats({
         totalStudents,
         totalTeachers,
@@ -206,7 +221,11 @@ const Dashboard = () => {
         totalRevenue,
         totalIncome,
         instituteIncome,
-        remainingTeacherPayments
+        remainingTeacherPayments,
+        chatbotStudentsToday: chatbotStats.studentsUsedToday || 0,
+        chatbotMessagesToday: chatbotStats.totalMessagesToday || 0,
+        chatbotMessagesLastMonth: chatbotStats.messagesLastMonth || 0,
+        chatbotTokensThisMonth: chatbotStats.tokensThisMonth || 0
       });
     } catch (err) {
       console.error('Error fetching dashboard stats:', err);
@@ -386,6 +405,60 @@ const Dashboard = () => {
                           {loading ? '...' : `Rs. ${stats.remainingTeacherPayments.toFixed(2)}`}
                         </h3>
                         <p className="stat-label">Remaining Amount to be Paid for Teachers</p>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                </Row>
+                <Row className="mt-3">
+                  <Col xs={6} md={3}>
+                    <Card className="dashboard-stat-card h-100">
+                      <Card.Body>
+                        <div className="stat-icon">
+                          <HiOutlineChatBubbleLeftRight />
+                        </div>
+                        <h3 className="stat-number">
+                          {loading ? '...' : stats.chatbotStudentsToday}
+                        </h3>
+                        <p className="stat-label">Students Used AI Chatbot Today</p>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                  <Col xs={6} md={3}>
+                    <Card className="dashboard-stat-card h-100">
+                      <Card.Body>
+                        <div className="stat-icon">
+                          <HiOutlineChatBubbleLeftRight />
+                        </div>
+                        <h3 className="stat-number">
+                          {loading ? '...' : stats.chatbotMessagesToday}
+                        </h3>
+                        <p className="stat-label">Total Messages Sent Today</p>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                  <Col xs={6} md={3}>
+                    <Card className="dashboard-stat-card h-100">
+                      <Card.Body>
+                        <div className="stat-icon">
+                          <HiOutlineChatBubbleLeftRight />
+                        </div>
+                        <h3 className="stat-number">
+                          {loading ? '...' : stats.chatbotMessagesLastMonth}
+                        </h3>
+                        <p className="stat-label">Messages of Last Month</p>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                  <Col xs={6} md={3}>
+                    <Card className="dashboard-stat-card h-100">
+                      <Card.Body>
+                        <div className="stat-icon">
+                          <HiOutlineChatBubbleLeftRight />
+                        </div>
+                        <h3 className="stat-number">
+                          {loading ? '...' : stats.chatbotTokensThisMonth.toLocaleString()}
+                        </h3>
+                        <p className="stat-label">Used AI Tokens This Month</p>
                       </Card.Body>
                     </Card>
                   </Col>

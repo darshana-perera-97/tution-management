@@ -74,6 +74,8 @@ const uploadsPath = path.join(__dirname, 'data', 'uploads');
 const enrollmentsPath = path.join(__dirname, 'data', 'enrollments.json');
 // Path to student chatbot quotas data file
 const studentChatbotQuotasPath = path.join(__dirname, 'data', 'studentChatbotQuotas.json');
+// Path to chatbot token usage data file
+const chatbotTokenUsagePath = path.join(__dirname, 'data', 'chatbotTokenUsage.json');
 
 // Helper function to read admin data
 const readAdminData = () => {
@@ -2820,6 +2822,51 @@ let temporaryAttendanceQueue = [];
 
 // ==================== Student Chatbot Quota Management ====================
 
+// Helper function to read chatbot token usage
+const readChatbotTokenUsage = () => {
+  try {
+    if (!fs.existsSync(chatbotTokenUsagePath)) {
+      return { usage: [] };
+    }
+    const data = fs.readFileSync(chatbotTokenUsagePath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.error('Error reading chatbot token usage:', error);
+    return { usage: [] };
+  }
+};
+
+// Helper function to write chatbot token usage
+const writeChatbotTokenUsage = (data) => {
+  try {
+    const dataDir = path.dirname(chatbotTokenUsagePath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(chatbotTokenUsagePath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error writing chatbot token usage:', error);
+    return false;
+  }
+};
+
+// Track token usage
+const trackTokenUsage = (tokens, date) => {
+  const usageData = readChatbotTokenUsage();
+  if (!usageData.usage) {
+    usageData.usage = [];
+  }
+  
+  usageData.usage.push({
+    tokens,
+    date,
+    timestamp: new Date().toISOString()
+  });
+  
+  writeChatbotTokenUsage(usageData);
+};
+
 // Helper function to read student chatbot quotas
 const readStudentChatbotQuotas = () => {
   try {
@@ -3105,6 +3152,75 @@ app.get('/api/ai-chatbot/:gradeSection/combined-text', async (req, res) => {
   }
 });
 
+// Get chatbot statistics for admin dashboard
+app.get('/api/student/chatbot/statistics', (req, res) => {
+  try {
+    const quotasData = readStudentChatbotQuotas();
+    const tokenUsageData = readChatbotTokenUsage();
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    
+    // Get current month and last month
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonth = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+    if (!quotasData.quotas) {
+      return res.json({
+        success: true,
+        statistics: {
+          studentsUsedToday: 0,
+          totalMessagesToday: 0,
+          messagesLastMonth: 0,
+          tokensThisMonth: 0
+        }
+      });
+    }
+
+    // Count students who used chatbot today and total messages
+    let studentsUsedToday = 0;
+    let totalMessagesToday = 0;
+    let messagesLastMonth = 0;
+
+    Object.keys(quotasData.quotas).forEach(studentId => {
+      const quota = quotasData.quotas[studentId];
+      if (quota.date === today && quota.count > 0) {
+        studentsUsedToday++;
+        totalMessagesToday += quota.count;
+      }
+      
+      // Count messages from last month
+      if (quota.date && quota.date.startsWith(lastMonth) && quota.count > 0) {
+        messagesLastMonth += quota.count;
+      }
+    });
+
+    // Calculate tokens used this month
+    let tokensThisMonth = 0;
+    if (tokenUsageData.usage && Array.isArray(tokenUsageData.usage)) {
+      tokensThisMonth = tokenUsageData.usage
+        .filter(entry => entry.date && entry.date.startsWith(currentMonth))
+        .reduce((sum, entry) => sum + (entry.tokens || 0), 0);
+    }
+
+    res.json({
+      success: true,
+      statistics: {
+        studentsUsedToday,
+        totalMessagesToday,
+        messagesLastMonth,
+        tokensThisMonth
+      }
+    });
+  } catch (error) {
+    console.error('Get chatbot statistics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error getting chatbot statistics'
+    });
+  }
+});
+
 // Get student chatbot quota
 app.get('/api/student/chatbot/quota/:studentId', (req, res) => {
   try {
@@ -3207,6 +3323,13 @@ app.post('/api/student/chatbot', async (req, res) => {
     });
 
     const response = completion.choices[0].message.content;
+
+    // Track token usage
+    if (completion.usage) {
+      const totalTokens = completion.usage.total_tokens || 0;
+      const today = new Date().toISOString().split('T')[0];
+      trackTokenUsage(totalTokens, today);
+    }
 
     // Increment quota after successful response
     const updatedQuota = incrementStudentQuota(studentId);
