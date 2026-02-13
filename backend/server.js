@@ -2606,6 +2606,35 @@ app.get('/api/attendance/queue', (req, res) => {
   }
 });
 
+// Get next item from attendance queue (removes it from queue)
+app.get('/api/attendance/queue/next', (req, res) => {
+  try {
+    if (temporaryAttendanceQueue.length === 0) {
+      res.json({
+        success: true,
+        hasItem: false,
+        item: null,
+        message: 'Queue is empty'
+      });
+    } else {
+      // Get and remove the first item (FIFO - First In First Out)
+      const nextItem = temporaryAttendanceQueue.shift();
+      res.json({
+        success: true,
+        hasItem: true,
+        item: nextItem,
+        remainingCount: temporaryAttendanceQueue.length
+      });
+    }
+  } catch (error) {
+    console.error('Get next queue item error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // Clear temporary attendance queue
 app.post('/api/attendance/queue/clear', (req, res) => {
   try {

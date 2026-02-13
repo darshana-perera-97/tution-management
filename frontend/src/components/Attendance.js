@@ -29,6 +29,7 @@ const Attendance = ({ hideMarkButton = false }) => {
   const [warnings, setWarnings] = useState([]);
   const qrScannerRef = useRef(null);
   const isProcessingRef = useRef(false);
+  const isProcessingQueueRef = useRef(false);
   
   // Queue system states
   const [attendanceQueue, setAttendanceQueue] = useState([]);
@@ -97,6 +98,66 @@ const Attendance = ({ hideMarkButton = false }) => {
     }
   };
 
+  // Fetch attendance queue for display (count only)
+  const fetchAttendanceQueue = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/attendance/queue`);
+      const data = await response.json();
+      if (data.success && data.queue) {
+        setAttendanceQueue(data.queue);
+        setLastQueueCount(data.queue.length);
+      }
+    } catch (err) {
+      console.error('Error fetching attendance queue:', err);
+    }
+  };
+
+  // Process next item from queue one by one
+  const processNextQueueItem = useCallback(async () => {
+    if (isProcessingQueueRef.current || !popupsEnabled) return;
+    
+    try {
+      isProcessingQueueRef.current = true;
+      const response = await fetch(`${API_URL}/api/attendance/queue/next`);
+      const data = await response.json();
+      
+      if (data.success) {
+        if (data.hasItem && data.item) {
+          // Show popup for this item
+          setCurrentQueueItem(data.item);
+          setShowQueuePopup(true);
+          // Update queue count
+          setAttendanceQueue(prev => {
+            const newQueue = prev.filter(item => item.id !== data.item.id);
+            return newQueue;
+          });
+        } else {
+          // Queue is empty, stop processing
+          isProcessingQueueRef.current = false;
+          setAttendanceQueue([]);
+          setLastQueueCount(0);
+        }
+      }
+    } catch (err) {
+      console.error('Error processing queue item:', err);
+      isProcessingQueueRef.current = false;
+    }
+  }, [popupsEnabled]);
+
+  // Close queue popup and process next item
+  const handleCloseQueuePopup = useCallback(() => {
+    setShowQueuePopup(false);
+    setCurrentQueueItem(null);
+    isProcessingQueueRef.current = false;
+    
+    // Process next item after a short delay
+    if (popupsEnabled) {
+      setTimeout(() => {
+        processNextQueueItem();
+      }, 500); // Small delay to allow popup to close smoothly
+    }
+  }, [popupsEnabled, processNextQueueItem]);
+
   useEffect(() => {
     fetchStudents();
     fetchCourses();
@@ -117,32 +178,41 @@ const Attendance = ({ hideMarkButton = false }) => {
       fetchAttendance();
     }, SYNC_INTERVAL);
     
-    // Check if user is admin or operator for queue polling
+    // Check if user is admin or operator for queue processing
     const isAdmin = localStorage.getItem('isAuthenticated');
     const isOperator = localStorage.getItem('isOperatorAuthenticated');
-    const shouldPollQueue = isAdmin || isOperator;
+    const shouldProcessQueue = isAdmin || isOperator;
     
-    // Poll attendance queue every 2 seconds (only for admin/operator)
-    let queueInterval = null;
-    if (shouldPollQueue) {
-      // Initial fetch
+    // Poll queue count periodically to check for new items (only for admin/operator)
+    let queueCheckInterval = null;
+    if (shouldProcessQueue) {
+      // Initial fetch of queue count
       fetchAttendanceQueue();
-      // Set up polling
-      queueInterval = setInterval(() => {
+      // Set up periodic checking for new items
+      queueCheckInterval = setInterval(() => {
         fetchAttendanceQueue();
-      }, 2000); // 2 seconds
+        // If not currently processing and popups are enabled, check for next item
+        if (!isProcessingQueueRef.current && popupsEnabled) {
+          processNextQueueItem();
+        }
+      }, 2000); // Check every 2 seconds
+      
+      // Start processing if popups are enabled
+      if (popupsEnabled) {
+        processNextQueueItem();
+      }
     }
     
     // Cleanup: Close modal and clear intervals when component unmounts or tab changes
     return () => {
       clearInterval(syncInterval);
-      if (queueInterval) {
-        clearInterval(queueInterval);
+      if (queueCheckInterval) {
+        clearInterval(queueCheckInterval);
       }
       setShowAttendanceDetailsModal(false);
       setSelectedAttendanceRecord(null);
     };
-  }, []);
+  }, [popupsEnabled, processNextQueueItem]);
 
   const checkStudentCourseStatus = useCallback((studentId, courseId) => {
     const student = students.find(s => s.id === studentId);
@@ -361,6 +431,19 @@ const Attendance = ({ hideMarkButton = false }) => {
     };
   }, [showQRScanner, selectedCourse, handleMarkAttendance]);
 
+  // Auto-close queue popup after 3 seconds and show next item
+  useEffect(() => {
+    if (showQueuePopup && currentQueueItem && popupsEnabled) {
+      const autoCloseTimer = setTimeout(() => {
+        handleCloseQueuePopup();
+      }, 3000); // Auto-close after 3 seconds
+
+      return () => {
+        clearTimeout(autoCloseTimer);
+      };
+    }
+  }, [showQueuePopup, currentQueueItem, popupsEnabled, handleCloseQueuePopup]);
+
   const fetchStudents = async () => {
     try {
       const response = await fetch(`${API_URL}/api/students`);
@@ -409,30 +492,6 @@ const Attendance = ({ hideMarkButton = false }) => {
     }
   };
 
-  // Fetch attendance queue for real-time notifications
-  const fetchAttendanceQueue = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/attendance/queue`);
-      const data = await response.json();
-      if (data.success && data.queue) {
-        const newQueue = data.queue;
-        setAttendanceQueue(newQueue);
-        
-        // Check if there's a new item (queue count increased)
-        if (newQueue.length > lastQueueCount && popupsEnabled) {
-          // Get the last item (most recent)
-          const latestItem = newQueue[newQueue.length - 1];
-          if (latestItem) {
-            setCurrentQueueItem(latestItem);
-            setShowQueuePopup(true);
-          }
-        }
-        setLastQueueCount(newQueue.length);
-      }
-    } catch (err) {
-      console.error('Error fetching attendance queue:', err);
-    }
-  };
 
   // Clear attendance queue
   const handleClearQueue = async () => {
@@ -449,6 +508,7 @@ const Attendance = ({ hideMarkButton = false }) => {
         setLastQueueCount(0);
         setShowQueuePopup(false);
         setCurrentQueueItem(null);
+        isProcessingQueueRef.current = false;
       }
     } catch (err) {
       console.error('Error clearing queue:', err);
@@ -461,13 +521,11 @@ const Attendance = ({ hideMarkButton = false }) => {
     localStorage.setItem('attendancePopupsEnabled', enabled.toString());
     if (!enabled) {
       setShowQueuePopup(false);
+      isProcessingQueueRef.current = false;
+    } else {
+      // Start processing queue when enabled
+      processNextQueueItem();
     }
-  };
-
-  // Close queue popup
-  const handleCloseQueuePopup = () => {
-    setShowQueuePopup(false);
-    setCurrentQueueItem(null);
   };
 
   const handleCloseMarkAttendanceModal = () => {
