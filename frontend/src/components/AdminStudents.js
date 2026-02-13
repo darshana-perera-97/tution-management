@@ -1049,7 +1049,7 @@ const AdminStudents = () => {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  backgroundImage: `url(${API_URL}/templates/id-card-template.jpg)`,
+                  backgroundImage: `url(/id-card-template.jpg)`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   backgroundRepeat: 'no-repeat',
