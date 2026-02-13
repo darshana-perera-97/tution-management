@@ -70,6 +70,8 @@ const lmsContentPath = path.join(__dirname, 'data', 'lmsContent.json');
 const aiChatbotPath = path.join(__dirname, 'data', 'aiChatbot.json');
 // Path to uploads directory (stored in data folder)
 const uploadsPath = path.join(__dirname, 'data', 'uploads');
+// Path to ID card template image
+const idCardTemplatePath = path.join(__dirname, 'data', 'templates', 'id-card-template.png');
 // Path to course enrollments data file
 const enrollmentsPath = path.join(__dirname, 'data', 'enrollments.json');
 // Path to student chatbot quotas data file
@@ -2480,8 +2482,16 @@ if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true });
 }
 
+// Ensure templates directory exists
+const templatesPath = path.join(__dirname, 'data', 'templates');
+if (!fs.existsSync(templatesPath)) {
+  fs.mkdirSync(templatesPath, { recursive: true });
+}
+
 // Serve uploaded files from data/uploads
 app.use('/uploads', express.static(uploadsPath));
+// Serve template files from data/templates
+app.use('/templates', express.static(templatesPath));
 
 // Get LMS content for a course
 app.get('/api/courses/:courseId/lms', (req, res) => {

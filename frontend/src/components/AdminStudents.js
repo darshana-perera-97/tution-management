@@ -17,10 +17,12 @@ const AdminStudents = () => {
   const [showQRModal, setShowQRModal] = useState(false);
   const [showCoursesModal, setShowCoursesModal] = useState(false);
   const [showPaymentsModal, setShowPaymentsModal] = useState(false);
+  const [showIDCardModal, setShowIDCardModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedStudentId, setSelectedStudentId] = useState(null);
   const qrCodeRef = useRef(null);
-  
+  const idCardRef = useRef(null);
+
   // Search states
   const [searchName, setSearchName] = useState('');
   const [searchContact, setSearchContact] = useState('');
@@ -39,13 +41,13 @@ const AdminStudents = () => {
   useEffect(() => {
     let html5QrCode = null;
     let isMounted = true;
-    
+
     if (showQRScanner && qrScannerRef.current) {
       const startScanner = async () => {
         try {
           const scannerId = qrScannerRef.current.id;
           html5QrCode = new Html5Qrcode(scannerId);
-          
+
           await html5QrCode.start(
             { facingMode: "environment" },
             {
@@ -67,11 +69,11 @@ const AdminStudents = () => {
                 }).catch((err) => {
                   // Silently ignore errors about scanner not running or cannot stop
                   const errorMsg = err?.message || err?.toString() || '';
-                  if (errorMsg && 
-                      !errorMsg.includes('not running') && 
-                      !errorMsg.includes('not paused') &&
-                      !errorMsg.includes('Scanner is not running') &&
-                      !errorMsg.includes('Cannot stop')) {
+                  if (errorMsg &&
+                    !errorMsg.includes('not running') &&
+                    !errorMsg.includes('not paused') &&
+                    !errorMsg.includes('Scanner is not running') &&
+                    !errorMsg.includes('Cannot stop')) {
                     console.error('Error stopping scanner:', err);
                   }
                   if (isMounted) {
@@ -85,7 +87,7 @@ const AdminStudents = () => {
               // Error handling is done internally by the library
             }
           );
-          
+
           if (isMounted) {
             setScannerInstance(html5QrCode);
           }
@@ -111,11 +113,11 @@ const AdminStudents = () => {
         }).catch((err) => {
           // Silently ignore errors about scanner not running or cannot stop
           const errorMsg = err?.message || err?.toString() || '';
-          if (errorMsg && 
-              !errorMsg.includes('not running') && 
-              !errorMsg.includes('not paused') &&
-              !errorMsg.includes('Scanner is not running') &&
-              !errorMsg.includes('Cannot stop')) {
+          if (errorMsg &&
+            !errorMsg.includes('not running') &&
+            !errorMsg.includes('not paused') &&
+            !errorMsg.includes('Scanner is not running') &&
+            !errorMsg.includes('Cannot stop')) {
             console.error('Error in cleanup:', err);
           }
           // Try to clear anyway
@@ -213,10 +215,65 @@ const AdminStudents = () => {
     setSelectedStudent(null);
   };
 
+  const handleGenerateIDCard = (student) => {
+    setSelectedStudent(student);
+    setShowIDCardModal(true);
+  };
+
+  const handleCloseIDCardModal = () => {
+    setShowIDCardModal(false);
+    setSelectedStudent(null);
+  };
+
+  const handleDownloadIDCard = async () => {
+    if (!idCardRef.current || !selectedStudent) return;
+
+    try {
+      // Dynamically import html2canvas and jspdf
+      const html2canvas = (await import('html2canvas')).default;
+      const jsPDF = (await import('jspdf')).default;
+      
+      const canvas = await html2canvas(idCardRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: false
+      });
+
+      // Get canvas dimensions
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      
+      // Calculate PDF dimensions (A4 ratio or maintain aspect ratio)
+      const pdfWidth = 210; // A4 width in mm
+      const pdfHeight = (imgHeight * pdfWidth) / imgWidth;
+      
+      // Create PDF
+      const pdf = new jsPDF({
+        orientation: pdfHeight > pdfWidth ? 'portrait' : 'landscape',
+        unit: 'mm',
+        format: [pdfWidth, pdfHeight]
+      });
+      
+      // Convert canvas to image data
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Add image to PDF
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      
+      // Download PDF
+      pdf.save(`student-id-card-${selectedStudent.id}.pdf`);
+    } catch (error) {
+      console.error('Error downloading ID card:', error);
+      alert('Failed to download ID card. Please try again.');
+    }
+  };
+
   const getStudentCourses = (studentId) => {
-    return courses.filter(course => 
-      course.enrolledStudents && 
-      Array.isArray(course.enrolledStudents) && 
+    return courses.filter(course =>
+      course.enrolledStudents &&
+      Array.isArray(course.enrolledStudents) &&
       course.enrolledStudents.includes(studentId)
     );
   };
@@ -233,39 +290,39 @@ const AdminStudents = () => {
 
     // Start from the 1st of the enrollment month (month 1st is considered a new month)
     let currentMonth = new Date(enrollmentDate.getFullYear(), enrollmentDate.getMonth(), 1);
-    
+
     // Calculate the last day of current month
     const lastDayOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-    
+
     while (currentMonth <= lastDayOfCurrentMonth) {
       const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
       const monthName = currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
-      
+
       // Calculate total fee for this month
       let totalFee = 0;
       const courseDetails = [];
-      
+
       studentCourses.forEach(course => {
         // Check if student was enrolled in this course before or during this month
         // Course enrollment date (when course was created or student was added)
         const courseCreatedDate = new Date(course.createdAt);
         const enrollmentDateForCourse = courseCreatedDate < enrollmentDate ? enrollmentDate : courseCreatedDate;
-        
+
         // Last day of current payment month
         const lastDayOfPaymentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-        
+
         // Student should pay if they were enrolled before or during this month
         if (enrollmentDateForCourse <= lastDayOfPaymentMonth) {
           const courseFee = parseFloat(course.courseFee) || 0;
           totalFee += courseFee;
-          
+
           // Check if this specific course is paid for this month
           const coursePayment = payments.find(
-            p => p.studentId === student.id && 
-                 p.monthKey === monthKey && 
-                 p.courseId === course.id
+            p => p.studentId === student.id &&
+              p.monthKey === monthKey &&
+              p.courseId === course.id
           );
-          
+
           courseDetails.push({
             courseId: course.id,
             courseName: course.courseName,
@@ -284,10 +341,10 @@ const AdminStudents = () => {
           .filter(c => c.isPaid)
           .reduce((sum, c) => sum + c.fee, 0);
         const pendingAmount = totalFee - paidAmount;
-        
+
         // Check if all courses are paid
         const allPaid = courseDetails.length > 0 && courseDetails.every(c => c.isPaid);
-        
+
         payments.push({
           month: monthName,
           monthKey: monthKey,
@@ -314,21 +371,21 @@ const AdminStudents = () => {
           const svgData = new XMLSerializer().serializeToString(svg);
           const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
           const svgUrl = URL.createObjectURL(svgBlob);
-          
+
           const img = new Image();
           img.onload = () => {
             const canvas = document.createElement('canvas');
             canvas.width = img.width;
             canvas.height = img.height;
             const ctx = canvas.getContext('2d');
-            
+
             // Fill white background
             ctx.fillStyle = 'white';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
+
             // Draw the QR code
             ctx.drawImage(img, 0, 0);
-            
+
             // Convert to blob and download
             canvas.toBlob((blob) => {
               if (blob) {
@@ -344,7 +401,7 @@ const AdminStudents = () => {
               }
             }, 'image/png');
           };
-          
+
           img.onerror = () => {
             // Fallback: download as SVG
             const link = document.createElement('a');
@@ -355,7 +412,7 @@ const AdminStudents = () => {
             document.body.removeChild(link);
             URL.revokeObjectURL(svgUrl);
           };
-          
+
           img.src = svgUrl;
         } catch (error) {
           console.error('Error downloading QR code:', error);
@@ -367,14 +424,14 @@ const AdminStudents = () => {
 
   // Filter students based on search criteria
   const filteredStudents = students.filter(student => {
-    const nameMatch = !searchName || 
+    const nameMatch = !searchName ||
       student.fullName.toLowerCase().includes(searchName.toLowerCase());
-    const contactMatch = !searchContact || 
+    const contactMatch = !searchContact ||
       student.contactNumber.includes(searchContact) ||
       (student.whatsappNumber && student.whatsappNumber.includes(searchContact));
-    const qrMatch = !searchQRCode || 
+    const qrMatch = !searchQRCode ||
       student.id.toString().includes(searchQRCode);
-    
+
     return nameMatch && contactMatch && qrMatch;
   });
 
@@ -411,11 +468,11 @@ const AdminStudents = () => {
       }).catch((err) => {
         // Silently ignore errors about scanner not running
         const errorMsg = err?.message || err?.toString() || '';
-        if (errorMsg && 
-            !errorMsg.includes('not running') && 
-            !errorMsg.includes('not paused') &&
-            !errorMsg.includes('Scanner is not running') &&
-            !errorMsg.includes('Cannot stop')) {
+        if (errorMsg &&
+          !errorMsg.includes('not running') &&
+          !errorMsg.includes('not paused') &&
+          !errorMsg.includes('Scanner is not running') &&
+          !errorMsg.includes('Cannot stop')) {
           console.error('Error stopping scanner:', err);
         }
         // Try to clear anyway
@@ -579,6 +636,14 @@ const AdminStudents = () => {
                           >
                             View Payments
                           </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleGenerateIDCard(student)}
+                            className="action-btn"
+                          >
+                            Generate ID Card
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -635,6 +700,14 @@ const AdminStudents = () => {
                             >
                               View Payments
                             </Button>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleGenerateIDCard(student)}
+                              className="action-btn"
+                            >
+                              Generate ID Card
+                            </Button>
                           </div>
                         </div>
                       </Card.Body>
@@ -645,7 +718,7 @@ const AdminStudents = () => {
             </div>
           </>
         )}
-        
+
         {/* Pagination */}
         {filteredStudents.length > 0 && (
           <Pagination
@@ -727,7 +800,7 @@ const AdminStudents = () => {
         <Modal.Body className="text-center">
           {selectedStudentId && (
             <div>
-              <p className="mb-3">Student ID: <strong>{selectedStudentId}</strong></p>
+              <p className="mb-3"><strong>{selectedStudentId}</strong></p>
               <div ref={qrCodeRef} className="d-flex justify-content-center mb-3" style={{ padding: '20px', backgroundColor: 'white' }}>
                 <QRCodeSVG
                   value={selectedStudentId}
@@ -766,7 +839,7 @@ const AdminStudents = () => {
                   <strong>Grade:</strong> {selectedStudent.grade}
                 </p>
               </div>
-              
+
               {getStudentCourses(selectedStudent.id).length > 0 ? (
                 <div className="table-responsive">
                   <Table striped bordered hover size="sm" className="courses-table">
@@ -793,7 +866,7 @@ const AdminStudents = () => {
                   </Table>
                   <div className="mt-3 p-3 bg-light rounded">
                     <strong>Total Monthly Fee: </strong>
-                    Rs. {getStudentCourses(selectedStudent.id).reduce((sum, course) => 
+                    Rs. {getStudentCourses(selectedStudent.id).reduce((sum, course) =>
                       sum + (parseFloat(course.courseFee) || 0), 0
                     ).toFixed(2)}
                   </div>
@@ -830,7 +903,7 @@ const AdminStudents = () => {
                   <strong>Enrollment Date:</strong> {new Date(selectedStudent.createdAt).toLocaleDateString()}
                 </p>
               </div>
-              
+
               {calculateMonthlyPayments(selectedStudent).length > 0 ? (
                 <div className="table-responsive">
                   <Table striped bordered hover size="sm" className="payments-table">
@@ -877,11 +950,10 @@ const AdminStudents = () => {
                             </span>
                           </td>
                           <td>
-                            <span className={`badge ${
-                              payment.status === 'Paid' ? 'bg-success' : 
-                              payment.status === 'Partial' ? 'bg-info' : 
-                              'bg-warning'
-                            }`}>
+                            <span className={`badge ${payment.status === 'Paid' ? 'bg-success' :
+                                payment.status === 'Partial' ? 'bg-info' :
+                                  'bg-warning'
+                              }`}>
                               {payment.status}
                             </span>
                           </td>
@@ -893,7 +965,7 @@ const AdminStudents = () => {
                     <div className="d-flex flex-column flex-md-row justify-content-between gap-3">
                       <div>
                         <strong>Total Amount: </strong>
-                        Rs. {calculateMonthlyPayments(selectedStudent).reduce((sum, payment) => 
+                        Rs. {calculateMonthlyPayments(selectedStudent).reduce((sum, payment) =>
                           sum + payment.totalFee, 0
                         ).toFixed(2)}
                       </div>
@@ -943,6 +1015,163 @@ const AdminStudents = () => {
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseQRScanner}>
             Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* ID Card Modal */}
+      <Modal show={showIDCardModal} onHide={handleCloseIDCardModal} centered size="lg" backdrop="static">
+        <Modal.Header closeButton>
+          <Modal.Title>Generate Student ID Card</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedStudent && (
+            <div>
+              <div
+                ref={idCardRef}
+                style={{
+                  width: '100%',
+                  maxWidth: '400px',
+                  aspectRatio: '2/3',
+                  margin: '0 auto',
+                  background: 'white',
+                  borderRadius: '16px',
+                  padding: '0',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                  overflow: 'hidden',
+                  position: 'relative'
+                }}
+              >
+                {/* Template Background Image */}
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundImage: `url(${API_URL}/templates/id-card-template.jpg)`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                  zIndex: 0
+                }}></div>
+
+                {/* Content Overlay */}
+                <div style={{ position: 'relative', zIndex: 1, padding: '20px', paddingTop: '0' }}>
+                  {/* Student Image at the top */}
+                  <div style={{
+                    textAlign: 'center',
+                    marginBottom: '20px',
+                    marginTop: '39px'
+                  }}>
+                    <div style={{
+                      width: '225px',
+                      height: '225px',
+                      borderRadius: '1200px',
+                      overflow: 'hidden',
+                      margin: '0 auto',
+                      background: '#f8f9fa',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      {selectedStudent.imageUrl ? (
+                        <img
+                          src={`${API_URL}${selectedStudent.imageUrl}`}
+                          alt={selectedStudent.fullName}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                          }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            if (e.target.nextSibling) {
+                              e.target.nextSibling.style.display = 'flex';
+                            }
+                          }}
+                        />
+                      ) : null}
+                      <div style={{
+                        display: selectedStudent.imageUrl ? 'none' : 'flex',
+                        width: '100%',
+                        height: '100%',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                        color: 'white',
+                        fontSize: '48px',
+                        fontWeight: 'bold'
+                      }}>
+                        {selectedStudent.fullName ? selectedStudent.fullName.charAt(0).toUpperCase() : 'S'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Student Name */}
+                  <div style={{
+                    textAlign: 'center',
+                    marginBottom: '15px'
+                  }}>
+                    <h3 style={{
+                      margin: 0,
+                      marginTop: '10px',
+                      fontSize: '29px',
+                      fontWeight: 'bold',
+                      color: '#1e293b',
+                      lineHeight: '1.2'
+                    }}>
+                      {selectedStudent.fullName}
+                    </h3>
+                    {/* Student ID */}
+                    <div style={{}}>
+
+                      <p style={{
+                        margin: '4px 0 0 0',
+                        fontSize: '26px',
+                        borderRadius: '100px',
+                        color: '#fff',
+                        fontWeight: '700',
+                        background: '#66be36',
+                        display: 'inline-block',
+                        padding: '6px 22px'
+                      }}>
+                        {selectedStudent.id}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* QR Code */}
+                  <div style={{
+                    textAlign: 'center',
+                    marginTop: '-10px'
+                  }}>
+                    <div style={{
+                      display: 'inline-block',
+                      background: 'transparent'
+                    }}>
+                      <QRCodeSVG
+                        value={selectedStudent.id}
+                        size={220}
+                        level="H"
+                        includeMargin={true}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-muted text-center mt-3 small">
+                Preview of the student ID card. Click download to save as PDF.
+              </p>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseIDCardModal}>
+            Close
+          </Button>
+          <Button variant="primary" onClick={handleDownloadIDCard}>
+            Download ID Card
           </Button>
         </Modal.Footer>
       </Modal>

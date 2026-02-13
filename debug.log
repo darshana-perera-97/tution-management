@@ -8,4 +8,4 @@ from this, want to send messages to student whatsapp number to notify bellow not
 - attendance marking and presence to class
 - payment notifications
 - payment reminders in 2nd week
-- LMS updateds
+- LMS updateds[0213/112557.599:ERROR:third_party\crashpad\crashpad\util\win\registration_protocol_win.cc:108] CreateFile: The system cannot find the file specified. (0x2)
