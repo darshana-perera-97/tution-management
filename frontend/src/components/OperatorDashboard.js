@@ -22,6 +22,7 @@ const OperatorDashboard = () => {
   const [operator, setOperator] = useState(null);
   const [activeItem, setActiveItem] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [stats, setStats] = useState({
     totalStudents: 0,
     totalTeachers: 0,
@@ -163,6 +164,10 @@ const OperatorDashboard = () => {
     setSidebarOpen(false);
   };
 
+  const toggleSidebarCollapse = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('operator');
     localStorage.removeItem('isOperatorAuthenticated');
@@ -179,8 +184,15 @@ const OperatorDashboard = () => {
         className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`}
         onClick={closeSidebar}
       ></div>
-      <OperatorSidebar activeItem={activeItem} onItemClick={handleItemClick} className={sidebarOpen ? 'open' : ''} onLogout={handleLogout} />
-      <div className="dashboard-content">
+      <OperatorSidebar 
+        activeItem={activeItem} 
+        onItemClick={handleItemClick} 
+        className={sidebarOpen ? 'open' : ''} 
+        onLogout={handleLogout}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={toggleSidebarCollapse}
+      />
+      <div className={`dashboard-content ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <OperatorTopNavbar operator={operator} onMenuToggle={toggleSidebar} />
         <div className="dashboard-main">
           <Container fluid>

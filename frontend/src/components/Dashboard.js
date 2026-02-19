@@ -27,6 +27,7 @@ const Dashboard = () => {
   const [admin, setAdmin] = useState(null);
   const [activeItem, setActiveItem] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [stats, setStats] = useState({
     totalStudents: 0,
     totalTeachers: 0,
@@ -261,6 +262,10 @@ const Dashboard = () => {
     setSidebarOpen(false);
   };
 
+  const toggleSidebarCollapse = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('admin');
     localStorage.removeItem('isAuthenticated');
@@ -277,8 +282,15 @@ const Dashboard = () => {
         className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`}
         onClick={closeSidebar}
       ></div>
-      <Sidebar activeItem={activeItem} onItemClick={handleItemClick} className={sidebarOpen ? 'open' : ''} onLogout={handleLogout} />
-      <div className="dashboard-content">
+      <Sidebar 
+        activeItem={activeItem} 
+        onItemClick={handleItemClick} 
+        className={sidebarOpen ? 'open' : ''} 
+        onLogout={handleLogout}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={toggleSidebarCollapse}
+      />
+      <div className={`dashboard-content ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         <TopNavbar admin={admin} onMenuToggle={toggleSidebar} />
         <div className="dashboard-main">
           <Container fluid>

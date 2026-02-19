@@ -45,26 +45,29 @@ const StudentDashboard = () => {
   const fetchAllCourses = async (studentId) => {
     try {
       setLoading(true);
-      // Fetch all available courses
-      const allCoursesResponse = await fetch(`${API_URL}/api/courses`);
-      const allCoursesData = await allCoursesResponse.json();
-      
-      // Fetch enrolled courses to mark which ones student is enrolled in
+      // Fetch enrolled courses for the student
       const enrolledResponse = await fetch(`${API_URL}/api/students/${studentId}/courses`);
       const enrolledData = await enrolledResponse.json();
       
-      if (allCoursesData.success) {
-        setAllCourses(allCoursesData.courses || []);
+      if (enrolledData.success) {
+        const enrolledCourses = enrolledData.courses || [];
         // Get enrolled course IDs
-        const enrolledIds = enrolledData.success 
-          ? (enrolledData.courses || []).map(c => c.id)
-          : [];
+        const enrolledIds = enrolledCourses.map(c => c.id);
         setEnrolledCourseIds(enrolledIds);
-        // Set courses to all courses initially
-        setCourses(allCoursesData.courses || []);
+        // Set courses to only enrolled courses
+        setCourses(enrolledCourses);
+        setAllCourses(enrolledCourses);
+      } else {
+        // No enrolled courses
+        setCourses([]);
+        setAllCourses([]);
+        setEnrolledCourseIds([]);
       }
     } catch (err) {
       console.error('Error fetching courses:', err);
+      setCourses([]);
+      setAllCourses([]);
+      setEnrolledCourseIds([]);
     } finally {
       setLoading(false);
     }
