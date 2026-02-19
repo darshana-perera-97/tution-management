@@ -1,7 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Container, Button, Table, Modal, Form, Alert, Card } from 'react-bootstrap';
+import { Container, Button, Table, Modal, Form, Alert, Card, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
+import { 
+  HiOutlineEye, 
+  HiOutlineUserGroup, 
+  HiOutlineChatBubbleLeftRight, 
+  HiOutlineTrash,
+  HiOutlineBookOpen,
+  HiOutlineAcademicCap,
+  HiOutlineUser,
+  HiOutlineCurrencyDollar,
+  HiOutlineClock,
+  HiOutlineCalendar,
+  HiOutlineQrCode,
+  HiOutlinePlus,
+  HiOutlineXMark,
+  HiOutlineIdentification,
+  HiOutlinePaperAirplane,
+  HiOutlineDocumentText,
+  HiOutlineUsers
+} from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
 import { usePagination } from '../hooks/usePagination';
@@ -604,78 +623,158 @@ const Courses = () => {
       )}
 
       <div className="operators-table-container">
-        {/* Desktop Table View */}
-        <Table striped bordered hover className="operators-table d-none d-lg-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Course Name</th>
-              <th>Subject</th>
-              <th>Teacher</th>
-              <th>Grade</th>
-              <th>Course Fee</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedCourses.length === 0 ? (
+        <div className="table-header-section">
+          <h3>
+            Courses
+            <span className="text-muted ms-2" style={{ fontSize: '14px', fontWeight: '400' }}>
+              ({courses.length} {courses.length === 1 ? 'course' : 'courses'})
+            </span>
+          </h3>
+        </div>
+        <div className="table-responsive">
+          <Table striped bordered hover className="operators-table d-none d-lg-table">
+            <thead>
               <tr>
-                <td colSpan="7" className="text-center text-muted py-4">
-                  No courses found. Click "Add Course" to create one.
-                </td>
+                <th>#</th>
+                <th>Course Name</th>
+                <th>Subject</th>
+                <th>Teacher</th>
+                <th>Grade</th>
+                <th>Course Fee</th>
+                <th>Actions</th>
               </tr>
-            ) : (
-              paginatedCourses.map((course, index) => (
-                <tr key={course.id}>
-                  <td>{startIndex + index + 1}</td>
-                  <td>{course.courseName}</td>
-                  <td>{course.subject || '-'}</td>
-                  <td>{getTeacherName(course.teacherId)}</td>
-                  <td>{course.grade}</td>
-                  <td>{course.courseFee ? `Rs. ${parseFloat(course.courseFee).toFixed(2)}` : '-'}</td>
-                  <td>
-                    <div className="d-flex gap-2 flex-wrap">
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => handleViewMore(course)}
-                        className="action-btn"
-                      >
-                        View More
-                      </Button>
-                      <Button
-                        variant="success"
-                        size="sm"
-                        onClick={() => handleManageStudents(course)}
-                        className="action-btn"
-                      >
-                        Manage Students
-                      </Button>
-                      {isAdminOrOperator && (
-                        <Button
-                          variant="info"
-                          size="sm"
-                          onClick={() => handleBulkMessage(course)}
-                          className="action-btn"
-                        >
-                          Bulk Message
-                        </Button>
-                      )}
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => handleDelete(course.id)}
-                        className="action-btn"
-                      >
-                        Delete
-                      </Button>
+            </thead>
+            <tbody>
+              {paginatedCourses.length === 0 ? (
+                <tr>
+                  <td colSpan="7" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                      <HiOutlineBookOpen style={{ fontSize: '48px', color: '#94a3b8', opacity: 0.5 }} />
+                      <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px' }}>
+                        No courses found. Click "Add Course" to create one.
+                      </p>
                     </div>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </Table>
+              ) : (
+                paginatedCourses.map((course, index) => (
+                  <tr key={course.id}>
+                    <td style={{ padding: '16px 32px' }}>{startIndex + index + 1}</td>
+                    <td style={{ padding: '16px 32px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          backgroundColor: '#dbeafe',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}>
+                          <HiOutlineBookOpen style={{ fontSize: '18px', color: '#3b82f6' }} />
+                        </div>
+                        <span style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>
+                          {course.courseName}
+                        </span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px 32px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <HiOutlineAcademicCap style={{ fontSize: '16px', color: '#64748b' }} />
+                        <span style={{ fontSize: '14px', color: '#475569', fontWeight: '500' }}>
+                          {course.subject || '-'}
+                        </span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px 32px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <HiOutlineUser style={{ fontSize: '16px', color: '#64748b' }} />
+                        <span style={{ fontSize: '14px', color: '#475569' }}>
+                          {getTeacherName(course.teacherId)}
+                        </span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px 32px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <HiOutlineAcademicCap style={{ fontSize: '16px', color: '#64748b' }} />
+                        <span style={{ fontSize: '14px', color: '#475569', fontWeight: '500' }}>
+                          {course.grade}
+                        </span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px 32px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <HiOutlineCurrencyDollar style={{ fontSize: '16px', color: '#64748b' }} />
+                        <span style={{ fontSize: '14px', color: '#475569' }}>
+                          {course.courseFee ? `Rs. ${parseFloat(course.courseFee).toFixed(2)}` : '-'}
+                        </span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px 32px' }}>
+                      <div className="d-flex gap-2 flex-wrap">
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={<Tooltip>View More</Tooltip>}
+                        >
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => handleViewMore(course)}
+                            className="action-btn-icon"
+                          >
+                            <HiOutlineEye />
+                          </Button>
+                        </OverlayTrigger>
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={<Tooltip>Manage Students</Tooltip>}
+                        >
+                          <Button
+                            variant="success"
+                            size="sm"
+                            onClick={() => handleManageStudents(course)}
+                            className="action-btn-icon"
+                          >
+                            <HiOutlineUserGroup />
+                          </Button>
+                        </OverlayTrigger>
+                        {isAdminOrOperator && (
+                          <OverlayTrigger
+                            placement="top"
+                            overlay={<Tooltip>Bulk Message</Tooltip>}
+                          >
+                            <Button
+                              variant="info"
+                              size="sm"
+                              onClick={() => handleBulkMessage(course)}
+                              className="action-btn-icon"
+                            >
+                              <HiOutlineChatBubbleLeftRight />
+                            </Button>
+                          </OverlayTrigger>
+                        )}
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={<Tooltip>Delete</Tooltip>}
+                        >
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleDelete(course.id)}
+                            className="action-btn-icon"
+                          >
+                            <HiOutlineTrash />
+                          </Button>
+                        </OverlayTrigger>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </Table>
+        </div>
 
         {/* Mobile Card View */}
         <div className="d-lg-none">
@@ -693,40 +792,60 @@ const Courses = () => {
                     </div>
                     <div className="student-card-actions">
                       <div className="student-actions-grid">
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={<Tooltip>View More</Tooltip>}
+                        >
                         <Button
                           variant="primary"
                           size="sm"
                           onClick={() => handleViewMore(course)}
-                          className="action-btn"
+                            className="action-btn-icon"
                         >
-                          View More
+                            <HiOutlineEye />
                         </Button>
+                        </OverlayTrigger>
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={<Tooltip>Manage Students</Tooltip>}
+                        >
                         <Button
                           variant="success"
                           size="sm"
                           onClick={() => handleManageStudents(course)}
-                          className="action-btn"
+                            className="action-btn-icon"
                         >
-                          Manage Students
+                            <HiOutlineUserGroup />
                         </Button>
+                        </OverlayTrigger>
                         {isAdminOrOperator && (
+                          <OverlayTrigger
+                            placement="top"
+                            overlay={<Tooltip>Bulk Message</Tooltip>}
+                          >
                           <Button
                             variant="info"
                             size="sm"
                             onClick={() => handleBulkMessage(course)}
-                            className="action-btn"
+                              className="action-btn-icon"
                           >
-                            Bulk Message
+                              <HiOutlineChatBubbleLeftRight />
                           </Button>
+                          </OverlayTrigger>
                         )}
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={<Tooltip>Delete</Tooltip>}
+                        >
                         <Button
                           variant="danger"
                           size="sm"
                           onClick={() => handleDelete(course.id)}
-                          className="action-btn"
+                            className="action-btn-icon"
                         >
-                          Delete
+                            <HiOutlineTrash />
                         </Button>
+                        </OverlayTrigger>
                       </div>
                     </div>
                   </Card.Body>
@@ -752,255 +871,397 @@ const Courses = () => {
       </div>
 
       {/* Add Course Modal */}
-      <Modal show={showModal} onHide={handleClose} centered backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Add New Course</Modal.Title>
+      <Modal show={showModal} onHide={handleClose} centered size="lg" backdrop="static">
+        <Modal.Header closeButton style={{ padding: 0, border: 'none' }}>
+          <div className="student-form-header" style={{ width: '100%' }}>
+            <h2>Add New Course</h2>
+            <p>Create a new course for students</p>
+          </div>
         </Modal.Header>
-        <Modal.Body>
+        <Modal.Body style={{ padding: 0 }}>
           <Form onSubmit={handleSubmit}>
-            <Form.Group className="mb-3">
-              <Form.Label className="form-label">Course Name</Form.Label>
-              <Form.Control
-                type="text"
-                name="courseName"
-                placeholder="Enter course name"
-                value={formData.courseName}
-                onChange={handleChange}
-                required
-                className="form-control-custom"
-              />
-            </Form.Group>
+            <div className="student-form-body">
+              <div className="student-form-grid" style={{ padding: '24px' }}>
+                {/* Left Column */}
+                <div className="student-form-column">
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineBookOpen className="student-form-label-icon" />
+                      Course Name
+                    </label>
+                    <input
+                      type="text"
+                      name="courseName"
+                      placeholder="Enter course name"
+                      value={formData.courseName}
+                      onChange={handleChange}
+                      required
+                      className="student-form-input"
+                    />
+                  </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label className="form-label">Subject</Form.Label>
-              <Form.Select
-                name="subject"
-                value={formData.subject}
-                onChange={handleChange}
-                required
-                className="form-control-custom"
-              >
-                <option value="">Select a subject</option>
-                <option value="Mathematics">Mathematics</option>
-                <option value="Physics">Physics</option>
-                <option value="Chemistry">Chemistry</option>
-                <option value="Biology">Biology</option>
-                <option value="English">English</option>
-                <option value="History">History</option>
-                <option value="Geography">Geography</option>
-                <option value="Computer Science">Computer Science</option>
-                <option value="Economics">Economics</option>
-                <option value="Business Studies">Business Studies</option>
-                <option value="Accounting">Accounting</option>
-                <option value="Art">Art</option>
-                <option value="Music">Music</option>
-                <option value="Physical Education">Physical Education</option>
-                <option value="Psychology">Psychology</option>
-                <option value="Sociology">Sociology</option>
-                <option value="Political Science">Political Science</option>
-                <option value="Literature">Literature</option>
-                <option value="Foreign Language">Foreign Language</option>
-                <option value="Statistics">Statistics</option>
-              </Form.Select>
-            </Form.Group>
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineAcademicCap className="student-form-label-icon" />
+                      Subject
+                    </label>
+                    <select
+                      name="subject"
+                      value={formData.subject}
+                      onChange={handleChange}
+                      required
+                      className="student-form-select"
+                    >
+                      <option value="">Select a subject</option>
+                      <option value="Mathematics">Mathematics</option>
+                      <option value="Physics">Physics</option>
+                      <option value="Chemistry">Chemistry</option>
+                      <option value="Biology">Biology</option>
+                      <option value="English">English</option>
+                      <option value="History">History</option>
+                      <option value="Geography">Geography</option>
+                      <option value="Computer Science">Computer Science</option>
+                      <option value="Economics">Economics</option>
+                      <option value="Business Studies">Business Studies</option>
+                      <option value="Accounting">Accounting</option>
+                      <option value="Art">Art</option>
+                      <option value="Music">Music</option>
+                      <option value="Physical Education">Physical Education</option>
+                      <option value="Psychology">Psychology</option>
+                      <option value="Sociology">Sociology</option>
+                      <option value="Political Science">Political Science</option>
+                      <option value="Literature">Literature</option>
+                      <option value="Foreign Language">Foreign Language</option>
+                      <option value="Statistics">Statistics</option>
+                    </select>
+                  </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label className="form-label">Select Registered Teacher</Form.Label>
-              <Form.Select
-                name="teacherId"
-                value={formData.teacherId}
-                onChange={handleChange}
-                required
-                className="form-control-custom"
-              >
-                <option value="">Select a teacher</option>
-                {teachers.map((teacher) => (
-                  <option key={teacher.id} value={teacher.id}>
-                    {teacher.name} - {teacher.subject}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineUser className="student-form-label-icon" />
+                      Select Registered Teacher
+                    </label>
+                    <select
+                      name="teacherId"
+                      value={formData.teacherId}
+                      onChange={handleChange}
+                      required
+                      className="student-form-select"
+                    >
+                      <option value="">Select a teacher</option>
+                      {teachers.map((teacher) => (
+                        <option key={teacher.id} value={teacher.id}>
+                          {teacher.name} - {teacher.subject}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label className="form-label">Select Grade</Form.Label>
-              <Form.Select
-                name="grade"
-                value={formData.grade}
-                onChange={handleChange}
-                required
-                className="form-control-custom"
-              >
-                <option value="">Select a grade</option>
-                <option value="Grade 1">Grade 1</option>
-                <option value="Grade 2">Grade 2</option>
-                <option value="Grade 3">Grade 3</option>
-                <option value="Grade 4">Grade 4</option>
-                <option value="Grade 5">Grade 5</option>
-                <option value="Grade 6">Grade 6</option>
-                <option value="Grade 7">Grade 7</option>
-                <option value="Grade 8">Grade 8</option>
-                <option value="Grade 9">Grade 9</option>
-                <option value="Grade 10">Grade 10</option>
-                <option value="Grade 11">Grade 11</option>
-                <option value="Grade 12">Grade 12</option>
-                <option value="Grade 13">Grade 13</option>
-                <option value="After AL">After AL</option>
-                <option value="After OL">After OL</option>
-              </Form.Select>
-            </Form.Group>
+                {/* Right Column */}
+                <div className="student-form-column">
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineAcademicCap className="student-form-label-icon" />
+                      Select Grade
+                    </label>
+                    <select
+                      name="grade"
+                      value={formData.grade}
+                      onChange={handleChange}
+                      required
+                      className="student-form-select"
+                    >
+                      <option value="">Select a grade</option>
+                      <option value="Grade 1">Grade 1</option>
+                      <option value="Grade 2">Grade 2</option>
+                      <option value="Grade 3">Grade 3</option>
+                      <option value="Grade 4">Grade 4</option>
+                      <option value="Grade 5">Grade 5</option>
+                      <option value="Grade 6">Grade 6</option>
+                      <option value="Grade 7">Grade 7</option>
+                      <option value="Grade 8">Grade 8</option>
+                      <option value="Grade 9">Grade 9</option>
+                      <option value="Grade 10">Grade 10</option>
+                      <option value="Grade 11">Grade 11</option>
+                      <option value="Grade 12">Grade 12</option>
+                      <option value="Grade 13">Grade 13</option>
+                      <option value="After AL">After AL</option>
+                      <option value="After OL">After OL</option>
+                    </select>
+                  </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label className="form-label">Course Fee (for Student)</Form.Label>
-              <Form.Control
-                type="number"
-                name="courseFee"
-                placeholder="Enter course fee (e.g., 100.00)"
-                value={formData.courseFee}
-                onChange={handleChange}
-                required
-                min="0"
-                step="0.01"
-                className="form-control-custom"
-              />
-            </Form.Group>
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineCurrencyDollar className="student-form-label-icon" />
+                      Course Fee (for Student)
+                    </label>
+                    <input
+                      type="number"
+                      name="courseFee"
+                      placeholder="Enter course fee (e.g., 100.00)"
+                      value={formData.courseFee}
+                      onChange={handleChange}
+                      required
+                      min="0"
+                      step="0.01"
+                      className="student-form-input"
+                    />
+                  </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label className="form-label">Teacher Payment Percentage</Form.Label>
-              <Form.Control
-                type="number"
-                name="teacherPaymentPercentage"
-                placeholder="Enter percentage (e.g., 70)"
-                value={formData.teacherPaymentPercentage}
-                onChange={handleChange}
-                required
-                min="0"
-                max="100"
-                step="0.01"
-                className="form-control-custom"
-              />
-              <Form.Text className="text-muted">
-                Percentage of course fee that will be paid to the teacher (0-100%)
-              </Form.Text>
-            </Form.Group>
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineCurrencyDollar className="student-form-label-icon" />
+                      Teacher Payment Percentage
+                    </label>
+                    <input
+                      type="number"
+                      name="teacherPaymentPercentage"
+                      placeholder="Enter percentage (e.g., 70)"
+                      value={formData.teacherPaymentPercentage}
+                      onChange={handleChange}
+                      required
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      className="student-form-input"
+                    />
+                    <div style={{ 
+                      fontSize: '12px', 
+                      color: '#64748b',
+                      marginTop: '6px'
+                    }}>
+                      Percentage of course fee that will be paid to the teacher (0-100%)
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-            {error && (
-              <Alert variant="danger" className="mt-3">
-                {error}
-              </Alert>
-            )}
+              {error && (
+                <Alert variant="danger" style={{ 
+                  marginTop: '24px',
+                  marginLeft: '24px',
+                  marginRight: '24px',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  color: '#dc2626',
+                  border: 'none',
+                  borderRadius: '8px'
+                }}>
+                  {error}
+                </Alert>
+              )}
 
-            <div className="d-flex justify-content-end gap-2 mt-4">
-              <Button variant="secondary" onClick={handleClose}>
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                className="login-button"
-                disabled={loading}
-              >
-                {loading ? 'Creating...' : 'Add Course'}
-              </Button>
+              <div className="student-form-actions">
+                <button 
+                  type="button"
+                  onClick={handleClose}
+                  className="student-form-cancel-btn"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="student-form-submit-btn"
+                  disabled={loading}
+                >
+                  {loading ? 'Creating...' : (
+                    <>
+                      <span>+</span>
+                      Create Course
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </Form>
         </Modal.Body>
       </Modal>
 
-      {/* View Course Details Modal */}
+      {/* View Course Details Modal - Benchmark Style */}
       <Modal show={showViewModal} onHide={handleCloseViewModal} centered size="lg" backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Course Details</Modal.Title>
+        <Modal.Header closeButton style={{ padding: 0, border: 'none' }}>
+          <div className="student-form-header" style={{ width: '100%' }}>
+            <h2>Course Details</h2>
+            <p>View complete course information</p>
+          </div>
         </Modal.Header>
-        <Modal.Body>
+        <Modal.Body style={{ padding: 0 }}>
           {selectedCourse && (
-            <div className="teacher-details">
-              <div className="detail-row mb-3">
-                <strong className="detail-label">Course Name:</strong>
-                <span className="detail-value">{selectedCourse.courseName}</span>
+            <div className="student-form-body">
+              {/* Details Grid */}
+              <div className="student-form-grid" style={{ padding: '24px' }}>
+                {/* Left Column */}
+                <div className="student-form-column">
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineBookOpen className="student-form-label-icon" />
+                      Course Name
+                    </label>
+                    <div className="student-details-value">{selectedCourse.courseName}</div>
               </div>
-              <div className="detail-row mb-3">
-                <strong className="detail-label">Subject:</strong>
-                <span className="detail-value">{selectedCourse.subject || '-'}</span>
+
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineAcademicCap className="student-form-label-icon" />
+                      Subject
+                    </label>
+                    <div className="student-details-value">{selectedCourse.subject || '-'}</div>
               </div>
-              <div className="detail-row mb-3">
-                <strong className="detail-label">Teacher:</strong>
-                <span className="detail-value">{getTeacherName(selectedCourse.teacherId)}</span>
+
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineUser className="student-form-label-icon" />
+                      Teacher
+                    </label>
+                    <div className="student-details-value">{getTeacherName(selectedCourse.teacherId)}</div>
               </div>
-              <div className="detail-row mb-3">
-                <strong className="detail-label">Grade:</strong>
-                <span className="detail-value">{selectedCourse.grade}</span>
+
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineAcademicCap className="student-form-label-icon" />
+                      Grade
+                    </label>
+                    <div className="student-details-value">{selectedCourse.grade}</div>
               </div>
-              <div className="detail-row mb-3">
-                <strong className="detail-label">Course Fee:</strong>
-                <span className="detail-value">
+                </div>
+
+                {/* Right Column */}
+                <div className="student-form-column">
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineCurrencyDollar className="student-form-label-icon" />
+                      Course Fee
+                    </label>
+                    <div className="student-details-value">
                   {selectedCourse.courseFee ? `Rs. ${parseFloat(selectedCourse.courseFee).toFixed(2)}` : '-'}
-                </span>
               </div>
-              <div className="detail-row mb-3">
-                <strong className="detail-label">Teacher Payment Percentage:</strong>
-                <span className="detail-value">
+                  </div>
+
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineCurrencyDollar className="student-form-label-icon" />
+                      Teacher Payment Percentage
+                    </label>
+                    <div className="student-details-value">
                   {selectedCourse.teacherPaymentPercentage ? `${selectedCourse.teacherPaymentPercentage}%` : '-'}
-                </span>
               </div>
-              <div className="detail-row mb-3">
-                <strong className="detail-label">Teacher Payment Amount:</strong>
-                <span className="detail-value">
+                  </div>
+
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineCurrencyDollar className="student-form-label-icon" />
+                      Teacher Payment Amount
+                    </label>
+                    <div className="student-details-value">
                   {selectedCourse.courseFee && selectedCourse.teacherPaymentPercentage 
                     ? `Rs. ${((parseFloat(selectedCourse.courseFee) * parseFloat(selectedCourse.teacherPaymentPercentage)) / 100).toFixed(2)}` 
                     : '-'}
-                </span>
               </div>
-              <div className="detail-row mb-3">
-                <strong className="detail-label">Created At:</strong>
-                <span className="detail-value">
+                  </div>
+
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineClock className="student-form-label-icon" />
+                      Created At
+                    </label>
+                    <div className="student-details-value">
                   {selectedCourse.createdAt 
                     ? new Date(selectedCourse.createdAt).toLocaleString() 
                     : '-'}
-                </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseViewModal}>
+        <Modal.Footer style={{ 
+          background: '#f8fafc', 
+          borderTop: '1px solid #e2e8f0', 
+          padding: '16px 24px',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: '12px'
+        }}>
+          <Button 
+            variant="secondary" 
+            onClick={handleCloseViewModal}
+            style={{
+              borderRadius: '8px',
+              padding: '10px 20px',
+              fontWeight: '600',
+              background: '#e2e8f0',
+              color: '#475569',
+              border: 'none'
+            }}
+          >
             Close
           </Button>
         </Modal.Footer>
       </Modal>
 
-      {/* Manage Students Modal */}
+      {/* Manage Students Modal - Benchmark Style */}
       <Modal show={showManageStudentsModal} onHide={handleCloseManageStudentsModal} centered size="lg" backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Manage Students - {selectedCourse?.courseName}</Modal.Title>
+        <Modal.Header closeButton style={{ padding: 0, border: 'none' }}>
+          <div className="student-form-header" style={{ width: '100%' }}>
+            <h2>Manage Students</h2>
+            <p>{selectedCourse?.courseName} • {selectedCourse?.grade} • {selectedCourse?.subject || 'N/A'}</p>
+          </div>
         </Modal.Header>
-        <Modal.Body>
+        <Modal.Body style={{ padding: 0 }}>
           {selectedCourse && (
-            <div>
+            <div className="student-form-body">
               {error && (
-                <Alert variant="danger" className="mb-3" onClose={() => setError('')} dismissible>
+                <Alert variant="danger" style={{ 
+                  margin: '24px 24px 0 24px',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  color: '#dc2626',
+                  border: 'none',
+                  borderRadius: '8px'
+                }} onClose={() => setError('')} dismissible>
                   {error}
                 </Alert>
               )}
 
               {success && (
-                <Alert variant="success" className="mb-3" onClose={() => setSuccess('')} dismissible>
+                <Alert variant="success" style={{ 
+                  margin: '24px 24px 0 24px',
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  color: '#059669',
+                  border: 'none',
+                  borderRadius: '8px'
+                }} onClose={() => setSuccess('')} dismissible>
                   {success}
                 </Alert>
               )}
 
-              <div className="mb-3">
-                <p className="text-muted">
-                  <strong>Course:</strong> {selectedCourse.courseName} | 
-                  <strong> Grade:</strong> {selectedCourse.grade} | 
-                  <strong> Subject:</strong> {selectedCourse.subject || '-'}
-                </p>
-              </div>
-
               {/* Add Student Section */}
-              <div className="mb-4 p-3 border rounded">
-                <h6 className="mb-3">Add Student</h6>
-                <div className="d-flex gap-2 mb-2" style={{ flexWrap: 'nowrap' }}>
-                  <Form.Control
+              <div style={{ 
+                padding: '24px',
+                borderBottom: '1px solid #e2e8f0',
+                background: '#f8fafc'
+              }}>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px', 
+                  marginBottom: '16px' 
+                }}>
+                  <HiOutlinePlus style={{ fontSize: '16px', color: '#64748b' }} />
+                  <h6 style={{ 
+                    fontSize: '14px', 
+                    fontWeight: '700', 
+                    color: '#0f172a', 
+                    margin: 0,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                  }}>
+                    Add Student
+                  </h6>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1', minWidth: '200px' }}>
+                    <input
                     type="text"
                     placeholder="Enter Student ID"
                     value={studentIdInput}
@@ -1008,21 +1269,32 @@ const Courses = () => {
                       setStudentIdInput(e.target.value);
                       setError('');
                     }}
-                    className="form-control-custom"
-                    style={{ flex: '1', minWidth: '0' }}
+                      className="student-form-input"
+                      style={{ marginBottom: 0 }}
                   />
+                  </div>
                   <Button
                     variant="primary"
                     onClick={() => handleAddStudent(studentIdInput)}
-                    style={{ whiteSpace: 'nowrap' }}
+                    style={{
+                      borderRadius: '8px',
+                      padding: '10px 20px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      whiteSpace: 'nowrap',
+                      background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+                    }}
                   >
+                    <HiOutlinePlus style={{ marginRight: '6px' }} />
                     Add by ID
                   </Button>
                   <Button
                     variant="info"
                     onClick={() => {
                       if (showQRScanner && scannerInstance) {
-                        // Stop scanner if it's running
                         safeStopScanner(scannerInstance).then(() => {
                           setScannerInstance(null);
                         });
@@ -1031,31 +1303,62 @@ const Courses = () => {
                       setQrScanResult('');
                       setError('');
                     }}
-                    style={{ whiteSpace: 'nowrap' }}
+                    style={{
+                      borderRadius: '8px',
+                      padding: '10px 20px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      whiteSpace: 'nowrap',
+                      background: showQRScanner ? '#ef4444' : 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      boxShadow: showQRScanner ? '0 4px 12px rgba(239, 68, 68, 0.3)' : '0 4px 12px rgba(6, 182, 212, 0.3)'
+                    }}
                   >
+                    <HiOutlineQrCode style={{ marginRight: '6px' }} />
                     {showQRScanner ? 'Cancel Scan' : 'Scan QR Code'}
                   </Button>
                 </div>
                 
                 {showQRScanner && selectedCourse && (
-                  <div className="mt-3 p-3 bg-light rounded">
-                    <Form.Group className="mb-3">
-                      <Form.Label>Camera QR Scanner</Form.Label>
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    marginTop: '16px'
+                  }}>
+                    <div style={{ marginBottom: '16px' }}>
+                      <label className="student-form-label">
+                        <HiOutlineQrCode className="student-form-label-icon" />
+                        Camera QR Scanner
+                      </label>
                       <div 
                         id={`qr-reader-${selectedCourse.id || 'default'}`}
                         ref={qrScannerRef}
-                        style={{ width: '100%', maxWidth: '500px', margin: '0 auto' }}
+                        style={{ width: '100%', maxWidth: '500px', margin: '16px auto 0 auto' }}
                       ></div>
-                      <Form.Text className="text-muted d-block mt-2">
+                      <p style={{ 
+                        fontSize: '12px', 
+                        color: '#94a3b8', 
+                        marginTop: '12px',
+                        marginBottom: 0
+                      }}>
                         Point your camera at the student's QR code. The scanner will automatically detect and add the student.
-                      </Form.Text>
-                    </Form.Group>
+                      </p>
+                    </div>
                     {qrScanResult && (
-                      <Alert variant="info" className="mb-2">
+                      <Alert variant="info" style={{ 
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        color: '#2563eb',
+                        border: 'none',
+                        borderRadius: '8px',
+                        marginBottom: '16px'
+                      }}>
                         Scanned ID: <strong>{qrScanResult}</strong>
                       </Alert>
                     )}
-                    <div className="d-flex gap-2">
+                    <div style={{ display: 'flex', gap: '12px' }}>
                       <Button
                         variant="secondary"
                         size="sm"
@@ -1068,6 +1371,15 @@ const Courses = () => {
                           setShowQRScanner(false);
                           setQrScanResult('');
                         }}
+                        style={{
+                          borderRadius: '8px',
+                          padding: '8px 16px',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          background: '#e2e8f0',
+                          color: '#475569',
+                          border: 'none'
+                        }}
                       >
                         Stop Scanner
                       </Button>
@@ -1076,7 +1388,18 @@ const Courses = () => {
                           variant="success"
                           size="sm"
                           onClick={() => handleAddStudent(qrScanResult)}
+                          style={{
+                            borderRadius: '8px',
+                            padding: '8px 16px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            color: '#ffffff',
+                            border: 'none',
+                            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                          }}
                         >
+                          <HiOutlinePlus style={{ marginRight: '4px' }} />
                           Add Student
                         </Button>
                       )}
@@ -1086,11 +1409,16 @@ const Courses = () => {
               </div>
               
               {/* Enrolled Students Section */}
-              <div className="mb-3">
-                <h6>Enrolled Students ({selectedCourse.enrolledStudents && Array.isArray(selectedCourse.enrolledStudents) ? selectedCourse.enrolledStudents.length : 0})</h6>
+              <div style={{ padding: '24px' }}>
+                <div className="table-header-section" style={{ marginBottom: '0' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+                    Enrolled Students ({selectedCourse.enrolledStudents && Array.isArray(selectedCourse.enrolledStudents) ? selectedCourse.enrolledStudents.length : 0})
+                  </h3>
+                </div>
                 {selectedCourse.enrolledStudents && Array.isArray(selectedCourse.enrolledStudents) && selectedCourse.enrolledStudents.length > 0 ? (
+                  <div className="operators-table-container">
                   <div className="table-responsive">
-                    <Table striped bordered hover size="sm">
+                      <Table className="operators-table">
                       <thead>
                         <tr>
                           <th>#</th>
@@ -1105,30 +1433,50 @@ const Courses = () => {
                           return student ? (
                             <tr key={studentId}>
                               <td>{index + 1}</td>
-                              <td><code>{student.id}</code></td>
+                                <td>
+                                  <code style={{ 
+                                    background: '#f8fafc', 
+                                    padding: '4px 8px', 
+                                    borderRadius: '6px',
+                                    fontSize: '13px',
+                                    color: '#3b82f6',
+                                    fontWeight: '600'
+                                  }}>{student.id}</code>
+                                </td>
                               <td>{student.fullName}</td>
                               <td>
                                 <Button
                                   variant="danger"
                                   size="sm"
                                   onClick={() => handleRemoveStudent(studentId)}
+                                    className="action-btn-icon"
                                 >
-                                  Remove
+                                    <HiOutlineXMark />
                                 </Button>
                               </td>
                             </tr>
                           ) : (
                             <tr key={studentId}>
                               <td>{index + 1}</td>
-                              <td><code>{studentId}</code></td>
-                              <td className="text-muted">Student not found</td>
+                                <td>
+                                  <code style={{ 
+                                    background: '#f8fafc', 
+                                    padding: '4px 8px', 
+                                    borderRadius: '6px',
+                                    fontSize: '13px',
+                                    color: '#3b82f6',
+                                    fontWeight: '600'
+                                  }}>{studentId}</code>
+                                </td>
+                                <td style={{ color: '#94a3b8' }}>Student not found</td>
                               <td>
                                 <Button
                                   variant="danger"
                                   size="sm"
                                   onClick={() => handleRemoveStudent(studentId)}
+                                    className="action-btn-icon"
                                 >
-                                  Remove
+                                    <HiOutlineXMark />
                                 </Button>
                               </td>
                             </tr>
@@ -1136,79 +1484,136 @@ const Courses = () => {
                         })}
                       </tbody>
                     </Table>
+                    </div>
                   </div>
                 ) : (
-                  <p className="text-muted">No students enrolled in this course.</p>
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '40px 20px',
+                    color: '#94a3b8'
+                  }}>
+                    <HiOutlineUserGroup style={{ fontSize: '48px', marginBottom: '12px', opacity: 0.5 }} />
+                    <p style={{ margin: 0, fontSize: '14px' }}>No students enrolled in this course.</p>
+                  </div>
                 )}
               </div>
             </div>
           )}
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseManageStudentsModal}>
+        <Modal.Footer style={{ 
+          background: '#f8fafc', 
+          borderTop: '1px solid #e2e8f0', 
+          padding: '16px 24px',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: '12px'
+        }}>
+          <Button 
+            variant="secondary" 
+            onClick={handleCloseManageStudentsModal}
+            style={{
+              borderRadius: '8px',
+              padding: '10px 20px',
+              fontWeight: '600',
+              background: '#e2e8f0',
+              color: '#475569',
+              border: 'none'
+            }}
+          >
             Close
           </Button>
         </Modal.Footer>
       </Modal>
 
-      {/* Bulk Message Modal */}
+      {/* Bulk Message Modal - Benchmark Style */}
       <Modal show={showBulkMessageModal} onHide={handleCloseBulkMessageModal} centered size="lg" backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Send Bulk Message - {selectedCourse?.courseName}</Modal.Title>
+        <Modal.Header closeButton style={{ padding: 0, border: 'none' }}>
+          <div className="student-form-header" style={{ width: '100%' }}>
+            <h2>Send Bulk Message</h2>
+            <p>{selectedCourse?.courseName} • {selectedCourse?.subject || 'N/A'} • {selectedCourse?.enrolledStudents?.length || 0} student(s)</p>
+          </div>
         </Modal.Header>
-        <Modal.Body>
+        <Modal.Body style={{ padding: 0 }}>
           {selectedCourse && (
-            <div>
-              <div className="mb-3">
-                <p className="text-muted">
-                  <strong>Course:</strong> {selectedCourse.courseName} ({selectedCourse.subject})<br />
-                  <strong>Enrolled Students:</strong> {selectedCourse.enrolledStudents?.length || 0} student(s)
-                </p>
-                <p className="text-muted small">
-                  This message will be sent to all students enrolled in this course via WhatsApp.
-                </p>
-              </div>
-              
-              <Form onSubmit={handleSendBulkMessage}>
-                <Form.Group className="mb-3">
-                  <Form.Label className="form-label">Message</Form.Label>
-                  <Form.Control
-                    as="textarea"
-                    rows={6}
-                    placeholder="Enter your message here..."
-                    value={bulkMessage}
-                    onChange={(e) => setBulkMessage(e.target.value)}
-                    required
-                    className="form-control-custom"
-                  />
-                  <Form.Text className="text-muted">
-                    The message will be sent to all enrolled students' WhatsApp numbers.
-                  </Form.Text>
-                </Form.Group>
-
+            <div className="student-form-body">
                 {error && (
-                  <Alert variant="danger" className="mt-3">
+                <Alert variant="danger" style={{ 
+                  margin: '0 24px 24px 24px',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  color: '#dc2626',
+                  border: 'none',
+                  borderRadius: '8px'
+                }} onClose={() => setError('')} dismissible>
                     {error}
                   </Alert>
                 )}
 
                 {success && (
-                  <Alert variant="success" className="mt-3">
+                <Alert variant="success" style={{ 
+                  margin: '0 24px 24px 24px',
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  color: '#059669',
+                  border: 'none',
+                  borderRadius: '8px'
+                }} onClose={() => setSuccess('')} dismissible>
                     {success}
                   </Alert>
                 )}
 
-                <div className="d-flex justify-content-end gap-2 mt-4">
-                  <Button variant="secondary" onClick={handleCloseBulkMessageModal} disabled={bulkMessageLoading}>
+              <Form onSubmit={handleSendBulkMessage} style={{ padding: '0 24px' }}>
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlineDocumentText className="student-form-label-icon" />
+                    Message
+                  </label>
+                  <textarea
+                    rows={8}
+                    placeholder="Enter your message here..."
+                    value={bulkMessage}
+                    onChange={(e) => setBulkMessage(e.target.value)}
+                    required
+                    className="student-form-input"
+                    style={{ 
+                      resize: 'vertical', 
+                      minHeight: '160px',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                  <p style={{ 
+                    fontSize: '12px', 
+                    color: '#94a3b8', 
+                    marginTop: '8px',
+                    marginBottom: 0
+                  }}>
+                    The message will be sent to all enrolled students' WhatsApp numbers.
+                  </p>
+                </div>
+
+                <div className="student-form-actions" style={{ marginTop: '32px' }}>
+                  <button 
+                    type="button"
+                    onClick={handleCloseBulkMessageModal}
+                    className="student-form-cancel-btn"
+                    disabled={bulkMessageLoading}
+                  >
                     Cancel
-                  </Button>
-                  <Button
+                  </button>
+                  <button
                     type="submit"
-                    variant="primary"
+                    className="student-form-submit-btn"
                     disabled={bulkMessageLoading || !bulkMessage.trim()}
                   >
-                    {bulkMessageLoading ? 'Sending...' : 'Send Message'}
-                  </Button>
+                    {bulkMessageLoading ? (
+                      <>
+                        <span>Sending...</span>
+                      </>
+                    ) : (
+                      <>
+                        <HiOutlinePaperAirplane style={{ fontSize: '16px' }} />
+                        Send Message
+                      </>
+                    )}
+                  </button>
                 </div>
               </Form>
             </div>

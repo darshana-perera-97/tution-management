@@ -1,6 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Container, Button, Table, Modal, Form, Alert, Card } from 'react-bootstrap';
+import { Container, Button, Table, Modal, Form, Alert, Card, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { QRCodeSVG } from 'qrcode.react';
+import { 
+  HiOutlineEye, 
+  HiOutlineQrCode, 
+  HiOutlineBookOpen, 
+  HiOutlineCurrencyDollar, 
+  HiOutlineIdentification,
+  HiOutlineUser,
+  HiOutlineUsers,
+  HiOutlinePhone,
+  HiOutlineHome,
+  HiOutlineAcademicCap,
+  HiOutlineCalendar,
+  HiOutlinePhoto,
+  HiOutlineEnvelope,
+  HiOutlineMapPin,
+  HiOutlineClock,
+  HiOutlineTrash
+} from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
 import { usePagination } from '../hooks/usePagination';
@@ -621,88 +639,192 @@ const Students = () => {
       )}
 
       <div className="operators-table-container">
-        {/* Desktop Table View */}
-        <Table striped bordered hover className="operators-table d-none d-lg-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Full Name</th>
-              <th>Grade</th>
-              <th>Contact Number</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedStudents.length === 0 ? (
+        <div className="table-header-section">
+          <h3>Students ({paginatedStudents.length} {paginatedStudents.length === 1 ? 'student' : 'students'})</h3>
+        </div>
+        <div className="table-responsive">
+          {/* Desktop Table View */}
+          <Table className="operators-table d-none d-lg-table" style={{ margin: 0 }}>
+            <thead>
               <tr>
-                <td colSpan="5" className="text-center text-muted py-4">
-                  No students found. Click "Add Student" to create one.
-                </td>
+                <th style={{ width: '60px' }}>#</th>
+                <th>Full Name</th>
+                <th style={{ width: '180px' }}>Grade</th>
+                <th>Contact Number</th>
+                <th style={{ width: '280px' }}>Actions</th>
               </tr>
-            ) : (
-              paginatedStudents.map((student, index) => (
-                <tr key={student.id}>
-                  <td>{startIndex + index + 1}</td>
-                  <td>{student.fullName}</td>
-                  <td>{student.grade}</td>
-                  <td>{student.contactNumber}</td>
-                  <td>
-                    <div className="d-flex gap-2 flex-wrap">
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => handleViewDetails(student)}
-                        className="action-btn"
-                      >
-                        View Details
-                      </Button>
-                      <Button
-                        variant="info"
-                        size="sm"
-                        onClick={() => handleViewQRCode(student)}
-                        className="action-btn"
-                      >
-                        View QR Code
-                      </Button>
-                      <Button
-                        variant="success"
-                        size="sm"
-                        onClick={() => handleViewCourses(student)}
-                        className="action-btn"
-                      >
-                        View Courses
-                      </Button>
-                      <Button
-                        variant="warning"
-                        size="sm"
-                        onClick={() => handleViewPayments(student)}
-                        className="action-btn"
-                      >
-                        View Payments
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleGenerateIDCard(student)}
-                        className="action-btn"
-                      >
-                        Generate ID Card
-                      </Button>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => handleDelete(student.id)}
-                        className="action-btn"
-                      >
-                        Delete
-                      </Button>
+            </thead>
+            <tbody>
+              {paginatedStudents.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="text-center py-5" style={{ color: '#64748b' }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      alignItems: 'center', 
+                      gap: '12px' 
+                    }}>
+                      <HiOutlineUsers size={48} style={{ opacity: 0.3 }} />
+                      <p style={{ margin: 0, fontSize: '14px', fontWeight: '500' }}>
+                        No students found. Click "Add Student" to create one.
+                      </p>
                     </div>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </Table>
+              ) : (
+                paginatedStudents.map((student, index) => (
+                  <tr key={student.id} style={{ transition: 'background-color 0.2s ease' }}>
+                    <td style={{ 
+                      padding: '16px 32px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: '#64748b'
+                    }}>
+                      {startIndex + index + 1}
+                    </td>
+                    <td style={{ padding: '16px 32px' }}>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '12px' 
+                      }}>
+                        <div style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          background: 'rgba(59, 130, 246, 0.1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#3b82f6',
+                          flexShrink: 0
+                        }}>
+                          <HiOutlineUser size={16} />
+                        </div>
+                        <div>
+                          <div style={{ 
+                            fontSize: '14px', 
+                            fontWeight: '700', 
+                            color: '#1e293b'
+                          }}>
+                            {student.fullName}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px 32px' }}>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '8px',
+                        fontSize: '14px',
+                        color: '#64748b',
+                        fontWeight: '500'
+                      }}>
+                        <HiOutlineAcademicCap size={16} style={{ color: '#94a3b8' }} />
+                        <span>{student.grade}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px 32px' }}>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '8px',
+                        fontSize: '14px',
+                        color: '#64748b'
+                      }}>
+                        <HiOutlinePhone size={16} style={{ color: '#94a3b8' }} />
+                        <span>{student.contactNumber}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px 32px' }}>
+                      <div className="d-flex gap-2 flex-wrap">
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={<Tooltip>View Details</Tooltip>}
+                        >
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => handleViewDetails(student)}
+                            className="action-btn-icon"
+                          >
+                            <HiOutlineEye />
+                          </Button>
+                        </OverlayTrigger>
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={<Tooltip>View QR Code</Tooltip>}
+                        >
+                          <Button
+                            variant="info"
+                            size="sm"
+                            onClick={() => handleViewQRCode(student)}
+                            className="action-btn-icon"
+                          >
+                            <HiOutlineQrCode />
+                          </Button>
+                        </OverlayTrigger>
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={<Tooltip>View Courses</Tooltip>}
+                        >
+                          <Button
+                            variant="success"
+                            size="sm"
+                            onClick={() => handleViewCourses(student)}
+                            className="action-btn-icon"
+                          >
+                            <HiOutlineBookOpen />
+                          </Button>
+                        </OverlayTrigger>
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={<Tooltip>View Payments</Tooltip>}
+                        >
+                          <Button
+                            variant="warning"
+                            size="sm"
+                            onClick={() => handleViewPayments(student)}
+                            className="action-btn-icon"
+                          >
+                            <HiOutlineCurrencyDollar />
+                          </Button>
+                        </OverlayTrigger>
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={<Tooltip>Generate ID Card</Tooltip>}
+                        >
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleGenerateIDCard(student)}
+                            className="action-btn-icon"
+                          >
+                            <HiOutlineIdentification />
+                          </Button>
+                        </OverlayTrigger>
+                        <OverlayTrigger
+                          placement="top"
+                          overlay={<Tooltip>Delete Student</Tooltip>}
+                        >
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleDelete(student.id)}
+                            className="action-btn-icon"
+                          >
+                            <HiOutlineTrash />
+                          </Button>
+                        </OverlayTrigger>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </Table>
+        </div>
 
         {/* Mobile Card View */}
         <div className="d-lg-none">
@@ -792,294 +914,468 @@ const Students = () => {
         )}
       </div>
 
-      {/* Add Student Modal */}
+      {/* Add Student Modal - Benchmark Style */}
       <Modal show={showModal} onHide={handleClose} centered size="lg" backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Add New Student</Modal.Title>
+        <Modal.Header closeButton style={{ padding: 0, border: 'none' }}>
+          <div className="student-form-header" style={{ width: '100%' }}>
+            <h2>Create New Student Profile</h2>
+            <p>Add a new student to the system</p>
+          </div>
         </Modal.Header>
-        <Modal.Body>
-          <Form onSubmit={handleSubmit}>
-            <Form.Group className="mb-3">
-              <Form.Label className="form-label">Student Full Name</Form.Label>
-              <Form.Control
+        <Modal.Body style={{ padding: 0 }}>
+          <Form onSubmit={handleSubmit} className="student-form-body">
+            <div className="student-form-grid">
+              {/* Left Column */}
+              <div className="student-form-column">
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlineUser className="student-form-label-icon" />
+                    Student Full Name
+                  </label>
+                  <input
                 type="text"
                 name="fullName"
-                placeholder="Enter student full name"
+                    placeholder="e.g. John Doe"
                 value={formData.fullName}
                 onChange={handleChange}
                 required
-                className="form-control-custom"
+                    className="student-form-input"
               />
-            </Form.Group>
+                </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label className="form-label">Date of Birth</Form.Label>
-              <Form.Control
+                <div className="student-form-grid-2">
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineCalendar className="student-form-label-icon" />
+                      Date of Birth
+                    </label>
+                    <input
                 type="date"
                 name="dob"
                 value={formData.dob}
                 onChange={handleChange}
                 required
-                className="form-control-custom"
+                      className="student-form-input"
               />
-              <Form.Text className="text-muted">
-                Age for 2026 will be calculated automatically
-              </Form.Text>
-            </Form.Group>
+                  </div>
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineAcademicCap className="student-form-label-icon" />
+                      Grade
+                    </label>
+                    <input
+                      type="text"
+                      name="grade"
+                      placeholder="e.g. Grade 1"
+                      value={formData.grade}
+                      onChange={handleChange}
+                      required
+                      className="student-form-input"
+                    />
+                  </div>
+                </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label className="form-label">Parent Name</Form.Label>
-              <Form.Control
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlineUser className="student-form-label-icon" />
+                    Parent Name
+                  </label>
+                  <input
                 type="text"
                 name="parentName"
                 placeholder="Enter parent name"
                 value={formData.parentName}
                 onChange={handleChange}
                 required
-                className="form-control-custom"
+                    className="student-form-input"
               />
-            </Form.Group>
+                </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label className="form-label">Contact Number</Form.Label>
-              <Form.Control
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlinePhone className="student-form-label-icon" />
+                    Contact Number
+                  </label>
+                  <input
                 type="tel"
                 name="contactNumber"
-                placeholder="Enter contact number"
+                    placeholder="+94 77 XXX XXXX"
                 value={formData.contactNumber}
                 onChange={handleChange}
                 required
-                className="form-control-custom"
-              />
-            </Form.Group>
+                    className="student-form-input"
+                  />
+                </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label className="form-label">Student WhatsApp Number (Optional)</Form.Label>
-              <Form.Control
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlineHome className="student-form-label-icon" />
+                    Address
+                  </label>
+                  <textarea
+                    name="address"
+                    placeholder="Enter address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    required
+                    rows={3}
+                    className="student-form-input"
+                    style={{ resize: 'vertical', minHeight: '80px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Right Column */}
+              <div className="student-form-column">
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlinePhone className="student-form-label-icon" />
+                    Student WhatsApp (Optional)
+                  </label>
+                  <input
                 type="tel"
                 name="studentWhatsAppNumber"
-                placeholder="Enter student WhatsApp number"
+                    placeholder="+94 77 XXX XXXX"
                 value={formData.studentWhatsAppNumber}
                 onChange={handleChange}
-                className="form-control-custom"
+                    className="student-form-input"
               />
-              <Form.Text className="text-muted">
-                WhatsApp number for the student
-              </Form.Text>
-            </Form.Group>
+                </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label className="form-label">Parent WhatsApp Number (Optional)</Form.Label>
-              <Form.Control
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlinePhone className="student-form-label-icon" />
+                    Parent WhatsApp (Optional)
+                  </label>
+                  <input
                 type="tel"
                 name="parentWhatsAppNumber"
-                placeholder="Enter parent WhatsApp number"
+                    placeholder="+94 77 XXX XXXX"
                 value={formData.parentWhatsAppNumber}
                 onChange={handleChange}
-                className="form-control-custom"
-              />
-              <Form.Text className="text-muted">
-                WhatsApp number for the parent. If not provided, contact number will be used.
-              </Form.Text>
-            </Form.Group>
+                    className="student-form-input"
+                  />
+                </div>
 
-            <Form.Group className="mb-3">
-              <Form.Label className="form-label">Address</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                name="address"
-                placeholder="Enter address"
-                value={formData.address}
-                onChange={handleChange}
-                required
-                className="form-control-custom"
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label className="form-label">Grade</Form.Label>
-              <Form.Control
-                type="text"
-                name="grade"
-                placeholder="Enter grade (e.g., Grade 1, Grade 2, etc.)"
-                value={formData.grade}
-                onChange={handleChange}
-                required
-                className="form-control-custom"
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label className="form-label">Student Photo (Optional)</Form.Label>
-              <Form.Control
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlinePhoto className="student-form-label-icon" />
+                    Student Photo (Optional)
+                  </label>
+                  <input
                 type="file"
                 accept="image/*"
                 onChange={handleImageChange}
-                className="form-control-custom"
+                    className="student-form-input"
               />
               {studentImagePreview && (
-                <div className="mt-2">
+                    <div style={{ marginTop: '12px' }}>
                   <img 
                     src={studentImagePreview} 
                     alt="Preview" 
-                    style={{ maxWidth: '200px', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px' }}
+                        style={{ 
+                          maxWidth: '200px', 
+                          maxHeight: '200px', 
+                          objectFit: 'cover', 
+                          borderRadius: '12px',
+                          border: '1px solid #e2e8f0'
+                        }}
                   />
                 </div>
               )}
-              <Form.Text className="text-muted">
-                Upload a photo of the student (max 5MB, JPG/PNG)
-              </Form.Text>
-            </Form.Group>
+                </div>
+              </div>
+            </div>
 
             {formData.grade && (
-              <Form.Group className="mb-3">
-                <Form.Label className="form-label">Select Courses (Optional)</Form.Label>
-                <div className="border rounded p-3" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+              <div className="student-form-field" style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
+                <label className="student-form-label">
+                  <HiOutlineBookOpen className="student-form-label-icon" />
+                  Select Courses (Optional)
+                </label>
+                <div style={{ 
+                  border: '1px solid #e2e8f0', 
+                  borderRadius: '12px', 
+                  padding: '16px', 
+                  maxHeight: '300px', 
+                  overflowY: 'auto',
+                  background: '#f8fafc'
+                }}>
                   {getAvailableCourses().length > 0 ? (
                     <>
                       {getAvailableCourses().map((course) => (
-                        <Form.Check
-                          key={course.id}
+                        <div key={course.id} style={{ marginBottom: '12px' }}>
+                          <label style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            cursor: 'pointer',
+                            padding: '8px',
+                            borderRadius: '8px',
+                            transition: 'background 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <input
                           type="checkbox"
-                          id={`course-${course.id}`}
-                          label={
+                              checked={selectedCourses.includes(course.id)}
+                              onChange={() => handleCourseToggle(course.id)}
+                              style={{ marginRight: '12px', cursor: 'pointer' }}
+                            />
                             <div>
-                              <strong>{course.courseName}</strong>
-                              <span className="text-muted ms-2">
+                              <strong style={{ color: '#0f172a', fontSize: '14px' }}>{course.courseName}</strong>
+                              <span style={{ color: '#64748b', fontSize: '13px', marginLeft: '8px' }}>
                                 ({course.subject}) - Rs. {parseFloat(course.courseFee || 0).toFixed(2)}
                               </span>
                             </div>
-                          }
-                          checked={selectedCourses.includes(course.id)}
-                          onChange={() => handleCourseToggle(course.id)}
-                          className="mb-2"
-                        />
+                          </label>
+                        </div>
                       ))}
                       {selectedCourses.length > 0 && (
-                        <div className="mt-3 p-2 bg-light rounded">
-                          <small>
-                            <strong>Selected: </strong>
-                            {selectedCourses.length} course{selectedCourses.length !== 1 ? 's' : ''}
+                        <div style={{ 
+                          marginTop: '16px', 
+                          padding: '12px', 
+                          background: 'rgba(59, 130, 246, 0.1)', 
+                          borderRadius: '8px',
+                          border: '1px solid rgba(59, 130, 246, 0.2)'
+                        }}>
+                          <small style={{ color: '#2563eb', fontWeight: '600' }}>
+                            Selected: {selectedCourses.length} course{selectedCourses.length !== 1 ? 's' : ''}
                           </small>
                         </div>
                       )}
                     </>
                   ) : (
-                    <p className="text-muted mb-0">
+                    <p style={{ color: '#64748b', margin: 0, fontSize: '14px' }}>
                       No courses available for grade "{formData.grade}". 
                       Please create courses for this grade first.
                     </p>
                   )}
                 </div>
-                <Form.Text className="text-muted">
-                  Select the courses this student will be enrolled in. You can enroll them in courses later as well.
-                </Form.Text>
-              </Form.Group>
+              </div>
             )}
 
             {error && (
-              <Alert variant="danger" className="mt-3">
+              <Alert variant="danger" style={{ 
+                marginTop: '24px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: '#dc2626',
+                border: 'none',
+                borderRadius: '8px'
+              }}>
                 {error}
               </Alert>
             )}
 
-            <div className="d-flex justify-content-end gap-2 mt-4">
-              <Button variant="secondary" onClick={handleClose}>
+            <div className="student-form-actions">
+              <button 
+                type="button"
+                onClick={handleClose}
+                className="student-form-cancel-btn"
+              >
                 Cancel
-              </Button>
-              <Button
+              </button>
+              <button
                 type="submit"
-                className="login-button"
+                className="student-form-submit-btn"
                 disabled={loading}
               >
-                {loading ? 'Adding...' : 'Add Student'}
-              </Button>
+                {loading ? 'Creating...' : (
+                  <>
+                    <span>+</span>
+                    Create Student
+                  </>
+                )}
+              </button>
             </div>
           </Form>
         </Modal.Body>
       </Modal>
 
-      {/* Student Details Modal */}
+      {/* Student Details Modal - Benchmark Style */}
       <Modal show={showDetailsModal} onHide={handleCloseDetailsModal} centered size="lg" backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Student Details</Modal.Title>
+        <Modal.Header closeButton style={{ padding: 0, border: 'none' }}>
+          <div className="student-form-header" style={{ width: '100%' }}>
+            <h2>Student Details</h2>
+            <p>View complete student information</p>
+          </div>
         </Modal.Header>
-        <Modal.Body>
+        <Modal.Body style={{ padding: 0 }}>
           {selectedStudent && (
-            <div>
-              <div className="mb-3 text-center">
+            <div className="student-form-body">
+              {/* Student Photo Section */}
+              <div style={{ textAlign: 'center', padding: '24px', borderBottom: '1px solid #e2e8f0' }}>
                 {selectedStudent.imageUrl ? (
                   <img 
                     src={`${API_URL}${selectedStudent.imageUrl}`} 
                     alt={selectedStudent.fullName}
-                    style={{ maxWidth: '200px', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', border: '2px solid #dee2e6' }}
+                    style={{ 
+                      maxWidth: '180px', 
+                      maxHeight: '180px', 
+                      objectFit: 'cover', 
+                      borderRadius: '16px', 
+                      border: '2px solid #e2e8f0',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)'
+                    }}
                   />
                 ) : (
-                  <div style={{ width: '200px', height: '200px', backgroundColor: '#f0f0f0', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
-                    <span className="text-muted">No Photo</span>
+                  <div style={{ 
+                    width: '180px', 
+                    height: '180px', 
+                    backgroundColor: '#f8fafc', 
+                    borderRadius: '16px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    margin: '0 auto',
+                    border: '2px solid #e2e8f0'
+                  }}>
+                    <HiOutlinePhoto style={{ fontSize: '48px', color: '#94a3b8' }} />
                   </div>
                 )}
                 {isOperator && (
-                  <div className="mt-2">
-                    <Button variant="outline-primary" size="sm" onClick={() => {
+                  <div style={{ marginTop: '16px' }}>
+                    <Button 
+                      variant="outline-primary" 
+                      size="sm" 
+                      onClick={() => {
                       setEditImagePreview(selectedStudent.imageUrl ? `${API_URL}${selectedStudent.imageUrl}` : null);
                       setShowEditImageModal(true);
-                    }}>
+                      }}
+                      style={{
+                        borderRadius: '8px',
+                        padding: '6px 16px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        borderColor: '#3b82f6',
+                        color: '#3b82f6'
+                      }}
+                    >
                       {selectedStudent.imageUrl ? 'Change Photo' : 'Add Photo'}
                     </Button>
                   </div>
                 )}
               </div>
-              <div className="mb-3">
-                <strong>Full Name:</strong>
-                <p className="mb-0">{selectedStudent.fullName}</p>
+
+              {/* Details Grid */}
+              <div className="student-form-grid" style={{ padding: '24px' }}>
+                {/* Left Column */}
+                <div className="student-form-column">
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineUser className="student-form-label-icon" />
+                      Full Name
+                    </label>
+                    <div className="student-details-value">{selectedStudent.fullName}</div>
               </div>
-              <div className="mb-3">
-                <strong>Age (for 2026):</strong>
-                <p className="mb-0">{selectedStudent.age} years</p>
-              </div>
-              <div className="mb-3">
-                <strong>Date of Birth:</strong>
-                <p className="mb-0">
+
+                  <div className="student-form-grid-2">
+                    <div className="student-form-field">
+                      <label className="student-form-label">
+                        <HiOutlineCalendar className="student-form-label-icon" />
+                        Date of Birth
+                      </label>
+                      <div className="student-details-value">
                   {selectedStudent.dob ? new Date(selectedStudent.dob).toLocaleDateString() : '-'}
-                </p>
               </div>
-              <div className="mb-3">
-                <strong>Parent Name:</strong>
-                <p className="mb-0">{selectedStudent.parentName}</p>
               </div>
-              <div className="mb-3">
-                <strong>Contact Number:</strong>
-                <p className="mb-0">{selectedStudent.contactNumber}</p>
+                    <div className="student-form-field">
+                      <label className="student-form-label">
+                        Age (for 2026)
+                      </label>
+                      <div className="student-details-value">{selectedStudent.age} years</div>
               </div>
-              <div className="mb-3">
-                <strong>Student WhatsApp Number:</strong>
-                <p className="mb-0">{selectedStudent.studentWhatsAppNumber || 'Not provided'}</p>
               </div>
-              <div className="mb-3">
-                <strong>Parent WhatsApp Number:</strong>
-                <p className="mb-0">{selectedStudent.parentWhatsAppNumber || selectedStudent.contactNumber || 'Not provided'}</p>
+
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineUser className="student-form-label-icon" />
+                      Parent Name
+                    </label>
+                    <div className="student-details-value">{selectedStudent.parentName}</div>
               </div>
-              <div className="mb-3">
-                <strong>Address:</strong>
-                <p className="mb-0">{selectedStudent.address}</p>
+
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlinePhone className="student-form-label-icon" />
+                      Contact Number
+                    </label>
+                    <div className="student-details-value">{selectedStudent.contactNumber}</div>
               </div>
-              <div className="mb-3">
-                <strong>Grade:</strong>
-                <p className="mb-0">{selectedStudent.grade}</p>
               </div>
-              <div className="mb-3">
-                <strong>Created At:</strong>
-                <p className="mb-0">
+
+                {/* Right Column */}
+                <div className="student-form-column">
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlinePhone className="student-form-label-icon" />
+                      Student WhatsApp
+                    </label>
+                    <div className="student-details-value">
+                      {selectedStudent.studentWhatsAppNumber || 'Not provided'}
+                    </div>
+                  </div>
+
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlinePhone className="student-form-label-icon" />
+                      Parent WhatsApp
+                    </label>
+                    <div className="student-details-value">
+                      {selectedStudent.parentWhatsAppNumber || selectedStudent.contactNumber || 'Not provided'}
+                    </div>
+                  </div>
+
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineMapPin className="student-form-label-icon" />
+                      Address
+                    </label>
+                    <div className="student-details-value">{selectedStudent.address}</div>
+                  </div>
+
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineAcademicCap className="student-form-label-icon" />
+                      Grade
+                    </label>
+                    <div className="student-details-value">{selectedStudent.grade}</div>
+                  </div>
+
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineClock className="student-form-label-icon" />
+                      Created At
+                    </label>
+                    <div className="student-details-value">
                   {selectedStudent.createdAt ? new Date(selectedStudent.createdAt).toLocaleString() : '-'}
-                </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseDetailsModal}>
+        <Modal.Footer style={{ 
+          background: '#f8fafc', 
+          borderTop: '1px solid #e2e8f0', 
+          padding: '16px 24px',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: '12px'
+        }}>
+          <Button 
+            variant="secondary" 
+            onClick={handleCloseDetailsModal}
+            style={{
+              borderRadius: '8px',
+              padding: '10px 20px',
+              fontWeight: '600',
+              background: '#e2e8f0',
+              color: '#475569',
+              border: 'none'
+            }}
+          >
             Close
           </Button>
         </Modal.Footer>
@@ -1116,24 +1412,25 @@ const Students = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* View Courses Modal */}
+      {/* View Courses Modal - Benchmark Style */}
       <Modal show={showCoursesModal} onHide={handleCloseCoursesModal} centered size="lg" backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Student Courses - {selectedStudent?.fullName}</Modal.Title>
+        <Modal.Header closeButton style={{ padding: 0, border: 'none' }}>
+          <div className="student-form-header" style={{ width: '100%' }}>
+            <h2>Student Courses</h2>
+            <p>{selectedStudent?.fullName} • Grade {selectedStudent?.grade}</p>
+          </div>
         </Modal.Header>
-        <Modal.Body>
+        <Modal.Body style={{ padding: 0 }}>
           {selectedStudent && (
-            <div>
-              <div className="mb-3">
-                <p className="text-muted">
-                  <strong>Student:</strong> {selectedStudent.fullName} | 
-                  <strong> Grade:</strong> {selectedStudent.grade}
-                </p>
-              </div>
-              
+            <div className="student-form-body">
               {getStudentCourses(selectedStudent.id).length > 0 ? (
+                <>
+                  <div className="operators-table-container">
+                    <div className="table-header-section">
+                      <h3>Enrolled Courses ({getStudentCourses(selectedStudent.id).length})</h3>
+                    </div>
                 <div className="table-responsive">
-                  <Table striped bordered hover size="sm">
+                      <Table className="operators-table">
                     <thead>
                       <tr>
                         <th>#</th>
@@ -1150,50 +1447,133 @@ const Students = () => {
                           <td>{course.courseName}</td>
                           <td>{course.subject || '-'}</td>
                           <td>{course.grade}</td>
-                          <td>{course.courseFee ? `Rs. ${parseFloat(course.courseFee).toFixed(2)}` : '-'}</td>
+                              <td>
+                                {course.courseFee ? (
+                                  <span style={{ 
+                                    fontWeight: '600', 
+                                    color: '#3b82f6' 
+                                  }}>
+                                    Rs. {parseFloat(course.courseFee).toFixed(2)}
+                                  </span>
+                                ) : '-'}
+                              </td>
                         </tr>
                       ))}
                     </tbody>
                   </Table>
-                  <div className="mt-3 p-3 bg-light rounded">
-                    <strong>Total Monthly Fee: </strong>
+                    </div>
+                  </div>
+                  <div style={{
+                    margin: '24px',
+                    padding: '20px',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+                  }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center' 
+                    }}>
+                      <div>
+                        <div style={{ 
+                          fontSize: '10px', 
+                          fontWeight: '700', 
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          color: '#64748b',
+                          marginBottom: '8px'
+                        }}>
+                          Total Monthly Fee
+                        </div>
+                        <div style={{ 
+                          fontSize: '28px', 
+                          fontWeight: '700',
+                          color: '#0f172a'
+                        }}>
                     Rs. {getStudentCourses(selectedStudent.id).reduce((sum, course) => 
                       sum + (parseFloat(course.courseFee) || 0), 0
                     ).toFixed(2)}
                   </div>
                 </div>
+                      <div style={{
+                        width: '56px',
+                        height: '56px',
+                        borderRadius: '12px',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#3b82f6'
+                      }}>
+                        <HiOutlineCurrencyDollar style={{ 
+                          fontSize: '28px'
+                        }} />
+                      </div>
+                    </div>
+                  </div>
+                </>
               ) : (
-                <p className="text-muted text-center py-4">No courses enrolled.</p>
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '60px 20px',
+                  color: '#94a3b8'
+                }}>
+                  <HiOutlineBookOpen style={{ fontSize: '64px', marginBottom: '16px', opacity: 0.5 }} />
+                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>No courses enrolled.</p>
+                  <p style={{ margin: '8px 0 0 0', fontSize: '14px', opacity: 0.8 }}>
+                    This student is not enrolled in any courses yet.
+                  </p>
+                </div>
               )}
             </div>
           )}
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseCoursesModal}>
+        <Modal.Footer style={{ 
+          background: '#f8fafc', 
+          borderTop: '1px solid #e2e8f0', 
+          padding: '16px 24px',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: '12px'
+        }}>
+          <Button 
+            variant="secondary" 
+            onClick={handleCloseCoursesModal}
+            style={{
+              borderRadius: '8px',
+              padding: '10px 20px',
+              fontWeight: '600',
+              background: '#e2e8f0',
+              color: '#475569',
+              border: 'none'
+            }}
+          >
             Close
           </Button>
         </Modal.Footer>
       </Modal>
 
-      {/* View Payments Modal */}
+      {/* View Payments Modal - Benchmark Style */}
       <Modal show={showPaymentsModal} onHide={handleClosePaymentsModal} centered size="lg" backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Student Payments - {selectedStudent?.fullName}</Modal.Title>
+        <Modal.Header closeButton style={{ padding: 0, border: 'none' }}>
+          <div className="student-form-header" style={{ width: '100%' }}>
+            <h2>Student Payments</h2>
+            <p>{selectedStudent?.fullName} • Grade {selectedStudent?.grade} • Enrolled {selectedStudent?.createdAt ? new Date(selectedStudent.createdAt).toLocaleDateString() : 'N/A'}</p>
+          </div>
         </Modal.Header>
-        <Modal.Body>
+        <Modal.Body style={{ padding: 0 }}>
           {selectedStudent && (
-            <div>
-              <div className="mb-3">
-                <p className="text-muted">
-                  <strong>Student:</strong> {selectedStudent.fullName} | 
-                  <strong> Grade:</strong> {selectedStudent.grade} |
-                  <strong> Enrollment Date:</strong> {new Date(selectedStudent.createdAt).toLocaleDateString()}
-                </p>
-              </div>
-              
+            <div className="student-form-body">
               {calculateMonthlyPayments(selectedStudent).length > 0 ? (
+                <>
+                  <div className="operators-table-container">
+                    <div className="table-header-section">
+                      <h3>Payment Records ({calculateMonthlyPayments(selectedStudent).length} months)</h3>
+                    </div>
                 <div className="table-responsive">
-                  <Table striped bordered hover size="sm">
+                      <Table className="operators-table">
                     <thead>
                       <tr>
                         <th>Month</th>
@@ -1209,15 +1589,38 @@ const Students = () => {
                         <tr key={payment.monthKey}>
                           <td><strong>{payment.month}</strong></td>
                           <td>
-                            <div className="small">
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                               {payment.courses.map((course, idx) => (
-                                <div key={idx} className={`mb-2 p-2 rounded ${course.isPaid ? 'bg-light' : 'bg-warning bg-opacity-10'}`}>
-                                  <strong>{course.courseName}</strong> ({course.subject}) - Rs. {course.fee.toFixed(2)}
+                                    <div key={idx} style={{
+                                      padding: '8px 12px',
+                                      borderRadius: '8px',
+                                      background: course.isPaid ? '#f8fafc' : 'rgba(245, 158, 11, 0.1)',
+                                      border: `1px solid ${course.isPaid ? '#e2e8f0' : 'rgba(245, 158, 11, 0.2)'}`,
+                                      fontSize: '13px'
+                                    }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                        <strong>{course.courseName}</strong>
+                                        <span style={{ color: '#64748b' }}>({course.subject})</span>
+                                        <span style={{ fontWeight: '600', color: '#3b82f6' }}>Rs. {course.fee.toFixed(2)}</span>
                                   {course.isPaid && (
-                                    <span className="badge bg-success ms-2">Paid</span>
+                                          <span style={{
+                                            padding: '2px 8px',
+                                            borderRadius: '6px',
+                                            fontSize: '11px',
+                                            fontWeight: '700',
+                                            background: 'rgba(16, 185, 129, 0.1)',
+                                            color: '#059669'
+                                          }}>
+                                            Paid
+                                          </span>
                                   )}
+                                      </div>
                                   {course.isPaid && course.paymentDate && (
-                                    <div className="text-muted small mt-1">
+                                        <div style={{ 
+                                          fontSize: '11px', 
+                                          color: '#94a3b8',
+                                          marginTop: '4px'
+                                        }}>
                                       Paid on {new Date(course.paymentDate).toLocaleDateString()}
                                     </div>
                                   )}
@@ -1225,23 +1628,32 @@ const Students = () => {
                               ))}
                             </div>
                           </td>
-                          <td><strong>Rs. {payment.totalFee.toFixed(2)}</strong></td>
+                              <td>
+                                <strong style={{ color: '#0f172a' }}>Rs. {payment.totalFee.toFixed(2)}</strong>
+                              </td>
                           <td>
-                            <span className="text-success">
-                              <strong>Rs. {payment.paidAmount.toFixed(2)}</strong>
+                                <span style={{ fontWeight: '600', color: '#059669' }}>
+                                  Rs. {payment.paidAmount.toFixed(2)}
                             </span>
                           </td>
                           <td>
-                            <span className="text-danger">
-                              <strong>Rs. {payment.pendingAmount.toFixed(2)}</strong>
+                                <span style={{ fontWeight: '600', color: '#dc2626' }}>
+                                  Rs. {payment.pendingAmount.toFixed(2)}
                             </span>
                           </td>
                           <td>
-                            <span className={`badge ${
-                              payment.status === 'Paid' ? 'bg-success' : 
-                              payment.status === 'Partial' ? 'bg-info' : 
-                              'bg-warning'
-                            }`}>
+                                <span style={{
+                                  padding: '4px 12px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: '700',
+                                  background: payment.status === 'Paid' ? 'rgba(16, 185, 129, 0.1)' : 
+                                             payment.status === 'Partial' ? 'rgba(59, 130, 246, 0.1)' : 
+                                             'rgba(245, 158, 11, 0.1)',
+                                  color: payment.status === 'Paid' ? '#059669' : 
+                                         payment.status === 'Partial' ? '#2563eb' : 
+                                         '#d97706'
+                                }}>
                               {payment.status}
                             </span>
                           </td>
@@ -1249,41 +1661,123 @@ const Students = () => {
                       ))}
                     </tbody>
                   </Table>
-                  <div className="mt-3 p-3 bg-light rounded">
-                    <div className="d-flex justify-content-between">
+                    </div>
+                  </div>
+                  <div style={{
+                    margin: '24px',
+                    padding: '20px',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+                  }}>
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                      gap: '20px' 
+                    }}>
                       <div>
-                        <strong>Total Amount: </strong>
+                        <div style={{ 
+                          fontSize: '10px', 
+                          fontWeight: '700', 
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          color: '#64748b',
+                          marginBottom: '8px'
+                        }}>
+                          Total Amount
+                        </div>
+                        <div style={{ 
+                          fontSize: '24px', 
+                          fontWeight: '700',
+                          color: '#0f172a'
+                        }}>
                         Rs. {calculateMonthlyPayments(selectedStudent).reduce((sum, payment) => 
                           sum + payment.totalFee, 0
                         ).toFixed(2)}
+                        </div>
                       </div>
                       <div>
-                        <strong>Total Paid: </strong>
-                        <span className="text-success">
+                        <div style={{ 
+                          fontSize: '10px', 
+                          fontWeight: '700', 
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          color: '#64748b',
+                          marginBottom: '8px'
+                        }}>
+                          Total Paid
+                        </div>
+                        <div style={{ 
+                          fontSize: '24px', 
+                          fontWeight: '700',
+                          color: '#059669'
+                        }}>
                           Rs. {calculateMonthlyPayments(selectedStudent)
                             .reduce((sum, payment) => sum + payment.paidAmount, 0)
                             .toFixed(2)}
-                        </span>
+                        </div>
                       </div>
                       <div>
-                        <strong>To Be Paid: </strong>
-                        <span className="text-danger">
+                        <div style={{ 
+                          fontSize: '10px', 
+                          fontWeight: '700', 
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          color: '#64748b',
+                          marginBottom: '8px'
+                        }}>
+                          To Be Paid
+                        </div>
+                        <div style={{ 
+                          fontSize: '24px', 
+                          fontWeight: '700',
+                          color: '#dc2626'
+                        }}>
                           Rs. {calculateMonthlyPayments(selectedStudent)
                             .reduce((sum, payment) => sum + payment.pendingAmount, 0)
                             .toFixed(2)}
-                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
+                </>
               ) : (
-                <p className="text-muted text-center py-4">No payment records found. Student is not enrolled in any courses.</p>
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '60px 20px',
+                  color: '#94a3b8'
+                }}>
+                  <HiOutlineCurrencyDollar style={{ fontSize: '64px', marginBottom: '16px', opacity: 0.5 }} />
+                  <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>No payment records found.</p>
+                  <p style={{ margin: '8px 0 0 0', fontSize: '14px', opacity: 0.8 }}>
+                    Student is not enrolled in any courses yet.
+                  </p>
+                </div>
               )}
             </div>
           )}
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleClosePaymentsModal}>
+        <Modal.Footer style={{ 
+          background: '#f8fafc', 
+          borderTop: '1px solid #e2e8f0', 
+          padding: '16px 24px',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: '12px'
+        }}>
+          <Button 
+            variant="secondary" 
+            onClick={handleClosePaymentsModal}
+            style={{
+              borderRadius: '8px',
+              padding: '10px 20px',
+              fontWeight: '600',
+              background: '#e2e8f0',
+              color: '#475569',
+              border: 'none'
+            }}
+          >
             Close
           </Button>
         </Modal.Footer>

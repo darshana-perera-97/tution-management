@@ -3444,26 +3444,69 @@ const formatPhoneNumber = (phoneNumber) => {
 // Helper function to send WhatsApp message
 const sendWhatsAppMessage = async (phoneNumber, message) => {
   try {
-    // Check if WhatsApp is connected
-    if (!whatsappState.client || !whatsappState.connected) {
-      console.log('WhatsApp not connected. Message not sent:', message);
-      return { success: false, error: 'WhatsApp not connected' };
+    // Check if WhatsApp client exists
+    if (!whatsappState.client) {
+      console.log('❌ WhatsApp client not initialized. Message not sent.');
+      return { success: false, error: 'WhatsApp client not initialized. Please generate QR code first.' };
+    }
+
+    // Check if client is ready/connected by checking client state
+    let isReady = false;
+    try {
+      // Check if client has info (means it's authenticated)
+      if (whatsappState.client.info && whatsappState.client.info.wid) {
+        isReady = true;
+        // Update state if not already set
+        if (!whatsappState.connected) {
+          whatsappState.connected = true;
+          whatsappState.phoneNumber = whatsappState.client.info.wid.user;
+        }
+      } else if (whatsappState.connected) {
+        // If state says connected but no info, try to verify
+        isReady = true;
+      }
+    } catch (stateError) {
+      console.log('Error checking client state:', stateError.message);
+    }
+
+    if (!isReady && !whatsappState.connected) {
+      console.log('❌ WhatsApp not connected. Please scan QR code first.');
+      return { success: false, error: 'WhatsApp not connected. Please go to WhatsApp Link page and scan the QR code to connect.' };
     }
 
     // Format phone number
     const formattedNumber = formatPhoneNumber(phoneNumber);
     if (!formattedNumber) {
-      console.log('Invalid phone number:', phoneNumber);
-      return { success: false, error: 'Invalid phone number' };
+      console.log('❌ Invalid phone number:', phoneNumber);
+      return { success: false, error: `Invalid phone number format: ${phoneNumber}` };
     }
 
-    // Send message
+    console.log(`📤 Attempting to send WhatsApp message to ${formattedNumber}...`);
+
+    // Send message using the correct API
+    try {
+      // For whatsapp-web.js v1.34.6, use sendMessage with chat ID
     await whatsappState.client.sendMessage(formattedNumber, message);
-    console.log(`WhatsApp message sent to ${formattedNumber}: ${message.substring(0, 50)}...`);
+      console.log(`✅ WhatsApp message sent successfully to ${formattedNumber}`);
     return { success: true };
+    } catch (sendError) {
+      console.error('❌ Error sending message:', sendError.message);
+      
+      // Provide more specific error messages
+      if (sendError.message && sendError.message.includes('not registered')) {
+        return { success: false, error: `Phone number ${phoneNumber} is not registered on WhatsApp` };
+      } else if (sendError.message && sendError.message.includes('timeout')) {
+        return { success: false, error: 'Request timeout. Please try again.' };
+      } else if (sendError.message && sendError.message.includes('disconnected')) {
+        whatsappState.connected = false;
+        return { success: false, error: 'WhatsApp disconnected. Please reconnect by scanning QR code.' };
+      }
+      
+      return { success: false, error: sendError.message || 'Failed to send message' };
+    }
   } catch (error) {
-    console.error('Error sending WhatsApp message:', error);
-    return { success: false, error: error.message };
+    console.error('❌ Unexpected error sending WhatsApp message:', error);
+    return { success: false, error: error.message || 'Unknown error occurred while sending message' };
   }
 };
 

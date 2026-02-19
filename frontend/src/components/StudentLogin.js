@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { Container, Card, Form, Button, Alert, Modal } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
+import { 
+  HiOutlineUser, 
+  HiOutlineLockClosed,
+  HiOutlineKey,
+  HiOutlineAcademicCap
+} from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
 
@@ -178,22 +184,71 @@ const StudentLogin = () => {
     <>
       <div className="login-container">
         <Container className="login-wrapper">
-          <Card className="login-card">
-            <Card.Body className="p-5">
-              <div className="login-header mb-4">
-                <h2 className="login-title">Student Login</h2>
-                <p className="login-subtitle">Sign in to access your learning materials</p>
+          <Card className="login-card" style={{
+            border: 'none',
+            borderRadius: '24px',
+            boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
+            background: '#ffffff',
+            overflow: 'hidden'
+          }}>
+            <Card.Body style={{ padding: '48px' }}>
+              <div className="login-header mb-5" style={{ textAlign: 'center' }}>
+                <div style={{
+                  width: '80px',
+                  height: '80px',
+                  borderRadius: '20px',
+                  background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 24px',
+                  color: '#3b82f6'
+                }}>
+                  <HiOutlineAcademicCap size={40} />
+                </div>
+                <h2 className="login-title" style={{
+                  fontSize: '32px',
+                  fontWeight: '700',
+                  color: '#0f172a',
+                  marginBottom: '8px',
+                  letterSpacing: '-0.5px'
+                }}>Student Login</h2>
+                <p className="login-subtitle" style={{
+                  fontSize: '15px',
+                  color: '#64748b',
+                  margin: 0,
+                  fontWeight: '400'
+                }}>Sign in to access your learning materials</p>
               </div>
 
               {error && (
-                <Alert variant="danger" className="mb-4">
+                <Alert variant="danger" className="mb-4 alert-custom" onClose={() => setError('')} dismissible style={{
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  color: '#dc2626',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '16px 20px'
+                }}>
                   {error}
                 </Alert>
               )}
 
               <Form onSubmit={handleSubmit}>
                 <Form.Group className="mb-4">
-                  <Form.Label className="form-label">Student ID</Form.Label>
+                  <Form.Label className="form-label-custom" style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginBottom: '12px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: '#64748b',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                  }}>
+                    <HiOutlineUser size={14} />
+                    Student ID
+                  </Form.Label>
                   <Form.Control
                     type="text"
                     name="studentId"
@@ -202,11 +257,41 @@ const StudentLogin = () => {
                     onChange={handleChange}
                     required
                     className="form-control-custom"
+                    style={{
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '12px',
+                      padding: '14px 16px',
+                      fontSize: '15px',
+                      color: '#0f172a',
+                      background: '#ffffff',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#3b82f6';
+                      e.target.style.boxShadow = '0 0 0 4px rgba(59, 130, 246, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#e2e8f0';
+                      e.target.style.boxShadow = 'none';
+                    }}
                   />
                 </Form.Group>
 
                 <Form.Group className="mb-4">
-                  <Form.Label className="form-label">Password</Form.Label>
+                  <Form.Label className="form-label-custom" style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    marginBottom: '12px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: '#64748b',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                  }}>
+                    <HiOutlineLockClosed size={14} />
+                    Password
+                  </Form.Label>
                   <Form.Control
                     type="password"
                     name="password"
@@ -215,6 +300,23 @@ const StudentLogin = () => {
                     onChange={handleChange}
                     required
                     className="form-control-custom"
+                    style={{
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '12px',
+                      padding: '14px 16px',
+                      fontSize: '15px',
+                      color: '#0f172a',
+                      background: '#ffffff',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#3b82f6';
+                      e.target.style.boxShadow = '0 0 0 4px rgba(59, 130, 246, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#e2e8f0';
+                      e.target.style.boxShadow = 'none';
+                    }}
                   />
                 </Form.Group>
 
@@ -223,13 +325,31 @@ const StudentLogin = () => {
                     type="checkbox"
                     id="remember-me-student"
                     label="Remember me"
-                    className="remember-checkbox"
+                    style={{
+                      fontSize: '14px',
+                      color: '#64748b',
+                      fontWeight: '500'
+                    }}
                   />
                   <Button
                     variant="link"
-                    className="forgot-password-link p-0"
+                    className="p-0"
                     onClick={handleOpenChangePassword}
-                    style={{ textDecoration: 'none' }}
+                    style={{
+                      textDecoration: 'none',
+                      fontSize: '14px',
+                      color: '#3b82f6',
+                      fontWeight: '600',
+                      padding: 0,
+                      border: 'none',
+                      background: 'none'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.color = '#2563eb';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.color = '#3b82f6';
+                    }}
                   >
                     Change password?
                   </Button>
@@ -237,8 +357,30 @@ const StudentLogin = () => {
 
                 <Button
                   type="submit"
-                  className="login-button w-100"
+                  className="w-100"
                   disabled={loading}
+                  style={{
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                    border: 'none',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    fontSize: '15px',
+                    fontWeight: '700',
+                    color: '#ffffff',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                    height: '52px'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!loading) {
+                      e.target.style.transform = 'translateY(-2px)';
+                      e.target.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.4)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.transform = 'translateY(0)';
+                    e.target.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
+                  }}
                 >
                   {loading ? 'Signing in...' : 'Sign In'}
                 </Button>
@@ -248,111 +390,173 @@ const StudentLogin = () => {
         </Container>
       </div>
 
-      {/* Change Password Modal */}
-      <Modal show={showChangePassword} onHide={() => setShowChangePassword(false)}>
-        <Modal.Header closeButton>
-          <Modal.Title>Change Password</Modal.Title>
+      {/* Change Password Modal - Benchmark Style */}
+      <Modal show={showChangePassword} onHide={() => setShowChangePassword(false)} centered backdrop="static">
+        <Modal.Header closeButton style={{ padding: 0, border: 'none' }}>
+          <div className="student-form-header" style={{ width: '100%' }}>
+            <h2>Change Password</h2>
+            <p>Reset your password using OTP sent to WhatsApp</p>
+          </div>
         </Modal.Header>
-        <Modal.Body>
-          {changePasswordError && (
-            <Alert variant="danger" className="mb-3">
-              {changePasswordError}
-            </Alert>
-          )}
-          {changePasswordSuccess && (
-            <Alert variant="success" className="mb-3">
-              {changePasswordSuccess}
-            </Alert>
-          )}
+        <Modal.Body style={{ padding: 0 }}>
+          <div className="student-form-body">
+            {changePasswordError && (
+              <Alert variant="danger" className="alert-custom" onClose={() => setChangePasswordError('')} dismissible style={{
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: '#dc2626',
+                border: 'none',
+                borderRadius: '8px',
+                margin: '0 24px 24px 24px'
+              }}>
+                {changePasswordError}
+              </Alert>
+            )}
+            {changePasswordSuccess && (
+              <Alert variant="success" className="alert-custom" onClose={() => setChangePasswordSuccess('')} dismissible style={{
+                background: 'rgba(16, 185, 129, 0.1)',
+                color: '#059669',
+                border: 'none',
+                borderRadius: '8px',
+                margin: '0 24px 24px 24px'
+              }}>
+                {changePasswordSuccess}
+              </Alert>
+            )}
 
-          <Form onSubmit={handleChangePassword}>
-            <Form.Group className="mb-3">
-              <Form.Label>Student ID</Form.Label>
-              <Form.Control
-                type="text"
-                name="studentId"
-                value={changePasswordData.studentId}
-                onChange={handleChangePasswordInput}
-                placeholder="Enter your Student ID"
-                required
-                disabled={otpSent}
-              />
-            </Form.Group>
+            <Form onSubmit={handleChangePassword}>
+              <div className="student-form-grid">
+                <div className="student-form-column">
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineUser className="student-form-label-icon" />
+                      Student ID
+                    </label>
+                    <input
+                      type="text"
+                      name="studentId"
+                      value={changePasswordData.studentId}
+                      onChange={handleChangePasswordInput}
+                      placeholder="Enter your Student ID"
+                      required
+                      disabled={otpSent}
+                      className="student-form-input"
+                    />
+                  </div>
+                </div>
+              </div>
 
-            {!otpSent ? (
-              <Button
-                variant="primary"
-                onClick={handleGenerateOTP}
-                disabled={otpLoading || !changePasswordData.studentId}
-                className="w-100 mb-3"
-              >
-                {otpLoading ? 'Sending OTP...' : 'Send OTP to WhatsApp'}
-              </Button>
-            ) : (
-              <>
-                <Form.Group className="mb-3">
-                  <Form.Label>OTP</Form.Label>
-                  <Form.Control
-                    type="text"
-                    name="otp"
-                    value={changePasswordData.otp}
-                    onChange={handleChangePasswordInput}
-                    placeholder="Enter 6-digit OTP"
-                    maxLength="6"
-                    required
-                  />
-                  <Form.Text className="text-muted">
-                    OTP sent to your WhatsApp number. Valid for 5 minutes.
-                  </Form.Text>
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Label>New Password</Form.Label>
-                  <Form.Control
-                    type="password"
-                    name="newPassword"
-                    value={changePasswordData.newPassword}
-                    onChange={handleChangePasswordInput}
-                    placeholder="Enter new password (min 6 characters)"
-                    required
-                  />
-                </Form.Group>
-
-                <Form.Group className="mb-3">
-                  <Form.Label>Confirm Password</Form.Label>
-                  <Form.Control
-                    type="password"
-                    name="confirmPassword"
-                    value={changePasswordData.confirmPassword}
-                    onChange={handleChangePasswordInput}
-                    placeholder="Confirm new password"
-                    required
-                  />
-                </Form.Group>
-
-                <div className="d-flex gap-2">
+              {!otpSent ? (
+                <div className="student-form-actions" style={{ marginTop: '24px' }}>
                   <Button
-                    variant="secondary"
-                    onClick={() => {
-                      setOtpSent(false);
-                      setChangePasswordData(prev => ({ ...prev, otp: '', newPassword: '', confirmPassword: '' }));
-                    }}
-                    className="flex-fill"
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    type="submit"
                     variant="primary"
-                    disabled={changePasswordLoading}
-                    className="flex-fill"
+                    onClick={handleGenerateOTP}
+                    disabled={otpLoading || !changePasswordData.studentId}
+                    className="w-100"
+                    style={{
+                      background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                      border: 'none',
+                      borderRadius: '12px',
+                      padding: '14px',
+                      fontSize: '15px',
+                      fontWeight: '700',
+                      color: '#ffffff',
+                      boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                      height: '48px'
+                    }}
                   >
-                    {changePasswordLoading ? 'Changing...' : 'Change Password'}
+                    {otpLoading ? 'Sending OTP...' : 'Send OTP to WhatsApp'}
                   </Button>
                 </div>
-              </>
-            )}
-          </Form>
+              ) : (
+                <>
+                  <div className="student-form-grid">
+                    <div className="student-form-column">
+                      <div className="student-form-field">
+                        <label className="student-form-label">
+                          <HiOutlineKey className="student-form-label-icon" />
+                          OTP
+                        </label>
+                        <input
+                          type="text"
+                          name="otp"
+                          value={changePasswordData.otp}
+                          onChange={handleChangePasswordInput}
+                          placeholder="Enter 6-digit OTP"
+                          maxLength="6"
+                          required
+                          className="student-form-input"
+                        />
+                        <div style={{
+                          fontSize: '12px',
+                          color: '#94a3b8',
+                          marginTop: '8px'
+                        }}>
+                          OTP sent to your WhatsApp number. Valid for 5 minutes.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="student-form-grid">
+                    <div className="student-form-column">
+                      <div className="student-form-field">
+                        <label className="student-form-label">
+                          <HiOutlineLockClosed className="student-form-label-icon" />
+                          New Password
+                        </label>
+                        <input
+                          type="password"
+                          name="newPassword"
+                          value={changePasswordData.newPassword}
+                          onChange={handleChangePasswordInput}
+                          placeholder="Enter new password (min 6 characters)"
+                          required
+                          className="student-form-input"
+                        />
+                      </div>
+                    </div>
+                    <div className="student-form-column">
+                      <div className="student-form-field">
+                        <label className="student-form-label">
+                          <HiOutlineLockClosed className="student-form-label-icon" />
+                          Confirm Password
+                        </label>
+                        <input
+                          type="password"
+                          name="confirmPassword"
+                          value={changePasswordData.confirmPassword}
+                          onChange={handleChangePasswordInput}
+                          placeholder="Confirm new password"
+                          required
+                          className="student-form-input"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="student-form-actions">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOtpSent(false);
+                        setChangePasswordData(prev => ({ ...prev, otp: '', newPassword: '', confirmPassword: '' }));
+                      }}
+                      className="student-form-cancel-btn"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={changePasswordLoading}
+                      className="student-form-submit-btn"
+                    >
+                      {changePasswordLoading ? 'Changing...' : 'Change Password'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </Form>
+          </div>
         </Modal.Body>
       </Modal>
     </>

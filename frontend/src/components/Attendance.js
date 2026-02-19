@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback, startTransition } from 'react';
 import { Container, Button, Table, Modal, Form, Alert, Card, Row, Col } from 'react-bootstrap';
 import { Html5Qrcode } from 'html5-qrcode';
-import { HiOutlineArrowDownTray } from 'react-icons/hi2';
+import { 
+  HiOutlineArrowDownTray,
+  HiOutlineUser,
+  HiOutlineIdentification,
+  HiOutlineBookOpen,
+  HiOutlineAcademicCap,
+  HiOutlineClock,
+  HiOutlineUsers
+} from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
 import { usePagination } from '../hooks/usePagination';
@@ -831,57 +839,103 @@ const Attendance = ({ hideMarkButton = false }) => {
 
       {/* Attendance Records Table */}
       <div className="mb-4">
-        <h5 className="mb-3">
-          Attendance Records
-          {selectedCourseFilter && (
-            <span className="text-muted ms-2">
-              ({getAllAttendanceWithInfo().length} record{getAllAttendanceWithInfo().length !== 1 ? 's' : ''})
-            </span>
-          )}
-        </h5>
         <div className="operators-table-container">
-          {/* Desktop Table View */}
-          <Table striped bordered hover className="operators-table d-none d-lg-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Student ID</th>
-                <th>Student Name</th>
-                <th>Course</th>
-                <th>Subject</th>
-                <th>Date & Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedAttendance.length === 0 ? (
+          <div className="table-header-section">
+            <h3>
+              Attendance Records
+              <span className="text-muted ms-2" style={{ fontSize: '14px', fontWeight: '400' }}>
+                ({allAttendance.length} {allAttendance.length === 1 ? 'record' : 'records'})
+              </span>
+            </h3>
+          </div>
+          <div className="table-responsive">
+            <Table striped bordered hover className="operators-table d-none d-lg-table">
+              <thead>
                 <tr>
-                  <td colSpan="6" className="text-center text-muted py-4">
-                    No attendance records found.
-                  </td>
+                  <th>#</th>
+                  <th>Student ID</th>
+                  <th>Student Name</th>
+                  <th>Course</th>
+                  <th>Subject</th>
+                  <th>Date & Time</th>
                 </tr>
-              ) : (
-                paginatedAttendance.map((record, index) => (
-                  <tr 
-                    key={record.id} 
-                    onClick={() => handleAttendanceRecordClick(record)}
-                    style={{ cursor: 'pointer' }}
-                    className="attendance-row-hover"
-                  >
-                    <td>{startIndex + index + 1}</td>
-                    <td><code>{record.studentId}</code></td>
-                    <td>{record.studentName}</td>
-                    <td>{record.courseName}</td>
-                    <td>{record.courseSubject}</td>
-                    <td>
-                      {record.date 
-                        ? new Date(record.date).toLocaleString() 
-                        : new Date(record.createdAt).toLocaleString()}
+              </thead>
+              <tbody>
+                {paginatedAttendance.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                        <HiOutlineUsers style={{ fontSize: '48px', color: '#94a3b8', opacity: 0.5 }} />
+                        <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px' }}>
+                          No attendance records found.
+                        </p>
+                      </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </Table>
+                ) : (
+                  paginatedAttendance.map((record, index) => (
+                    <tr 
+                      key={record.id} 
+                      onClick={() => handleAttendanceRecordClick(record)}
+                      style={{ cursor: 'pointer' }}
+                      className="attendance-row-hover"
+                    >
+                      <td style={{ padding: '16px 32px' }}>{startIndex + index + 1}</td>
+                      <td style={{ padding: '16px 32px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <HiOutlineIdentification style={{ fontSize: '16px', color: '#64748b' }} />
+                          <code style={{ fontSize: '13px', color: '#475569' }}>{record.studentId}</code>
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px 32px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '50%',
+                            backgroundColor: '#e0e7ff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
+                          }}>
+                            <HiOutlineUser style={{ fontSize: '18px', color: '#6366f1' }} />
+                          </div>
+                          <span style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>
+                            {record.studentName}
+                          </span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px 32px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <HiOutlineBookOpen style={{ fontSize: '16px', color: '#64748b' }} />
+                          <span style={{ fontSize: '14px', color: '#475569' }}>{record.courseName}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px 32px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <HiOutlineAcademicCap style={{ fontSize: '16px', color: '#64748b' }} />
+                          <span style={{ fontSize: '14px', color: '#475569', fontWeight: '500' }}>
+                            {record.courseSubject}
+                          </span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px 32px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <HiOutlineClock style={{ fontSize: '16px', color: '#64748b' }} />
+                          <span style={{ fontSize: '14px', color: '#475569' }}>
+                            {record.date 
+                              ? new Date(record.date).toLocaleString() 
+                              : new Date(record.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </Table>
+          </div>
 
           {/* Mobile Card View */}
           <div className="d-lg-none">

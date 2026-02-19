@@ -2,6 +2,19 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Container, Button, Table, Modal, Form, Alert, Card, Row, Col } from 'react-bootstrap';
 import { QRCodeSVG } from 'qrcode.react';
 import { Html5Qrcode } from 'html5-qrcode';
+import {
+  HiOutlineCurrencyDollar,
+  HiOutlineArrowTrendingUp,
+  HiOutlineArrowTrendingDown,
+  HiOutlineUser,
+  HiOutlineIdentification,
+  HiOutlineBookOpen,
+  HiOutlineCalendar,
+  HiOutlineCheckCircle,
+  HiOutlineXCircle,
+  HiOutlineClock,
+  HiOutlineBanknotes
+} from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
 import { usePagination } from '../hooks/usePagination';
@@ -590,99 +603,164 @@ const Payments = () => {
 
       {/* Combined Payments Table - Money In & Out */}
       <div className="mb-4">
-        <h5 className="mb-3">All Payment Records (Money In & Out)</h5>
         <div className="operators-table-container">
-          {/* Desktop Table View */}
-          <Table striped bordered hover className="operators-table d-none d-lg-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Type</th>
-                <th>From/To</th>
-                <th>ID</th>
-                <th>Details</th>
-                <th>Month</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedPayments.length === 0 ? (
+          <div className="table-header-section">
+            <h3>
+              All Payment Records (Money In & Out)
+              <span className="text-muted ms-2" style={{ fontSize: '14px', fontWeight: '400' }}>
+                ({allPayments.length} {allPayments.length === 1 ? 'record' : 'records'})
+              </span>
+            </h3>
+          </div>
+          <div className="table-responsive">
+            <Table striped bordered hover className="operators-table d-none d-lg-table">
+              <thead>
                 <tr>
-                  <td colSpan="9" className="text-center text-muted py-4">
-                    No payment records found.
-                  </td>
+                  <th>#</th>
+                  <th>Type</th>
+                  <th>From/To</th>
+                  <th>ID</th>
+                  <th>Details</th>
+                  <th>Month</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Date</th>
                 </tr>
-              ) : (
-                paginatedPayments.map((payment, index) => (
-                  <tr 
-                    key={`${payment.type}-${payment.id}`}
-                    className={payment.type === 'Money Out' ? 'table-danger' : ''}
-                  >
-                    <td>{index + 1}</td>
-                    <td>
-                      <span className={`badge ${
-                        payment.type === 'Money In' ? 'bg-success' : 'bg-danger'
-                      }`}>
-                        {payment.type}
-                      </span>
-                    </td>
-                    <td>
-                      {payment.type === 'Money In' ? (
-                        <span className="text-success">
-                          <strong>From: {payment.fromTo}</strong>
-                        </span>
-                      ) : (
-                        <span className="text-danger">
-                          <strong>To: {payment.fromTo}</strong>
-                        </span>
-                      )}
-                    </td>
-                    <td><code>{payment.fromToId}</code></td>
-                    <td>
-                      {payment.type === 'Money In' ? (
-                        payment.courseName || <span className="text-muted">All Courses</span>
-                      ) : (
-                        <>
-                          {payment.teacherSubject}
-                          {payment.description && (
-                            <div className="text-muted small">{payment.description}</div>
-                          )}
-                        </>
-                      )}
-                    </td>
-                    <td>
-                      {payment.type === 'Money In' && payment.monthKey 
-                        ? formatMonthKey(payment.monthKey)
-                        : <span className="text-muted">-</span>}
-                    </td>
-                    <td>
-                      <span className={payment.type === 'Money In' ? 'text-success' : 'text-danger'}>
-                        <strong>
-                          {payment.type === 'Money In' ? '+' : '-'}Rs. {payment.amount.toFixed(2)}
-                        </strong>
-                      </span>
-                    </td>
-                    <td>
-                      {payment.type === 'Money In' ? (
-                        <span className={`badge ${payment.status === 'Paid' ? 'bg-success' : 'bg-warning'}`}>
-                          {payment.status}
-                        </span>
-                      ) : (
-                        <span className="badge bg-info">Paid</span>
-                      )}
-                    </td>
-                    <td>
-                      {payment.date 
-                        ? new Date(payment.date).toLocaleDateString() 
-                        : '-'}
+              </thead>
+              <tbody>
+                {paginatedPayments.length === 0 ? (
+                  <tr>
+                    <td colSpan="9" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                        <HiOutlineBanknotes style={{ fontSize: '48px', color: '#94a3b8', opacity: 0.5 }} />
+                        <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px' }}>
+                          No payment records found.
+                        </p>
+                      </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </Table>
+                ) : (
+                  paginatedPayments.map((payment, index) => (
+                    <tr 
+                      key={`${payment.type}-${payment.id}`}
+                      style={{
+                        backgroundColor: payment.type === 'Money Out' ? 'rgba(239, 68, 68, 0.05)' : 'transparent'
+                      }}
+                    >
+                      <td style={{ padding: '16px 32px' }}>{index + 1}</td>
+                      <td style={{ padding: '16px 32px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {payment.type === 'Money In' ? (
+                            <HiOutlineArrowTrendingUp style={{ fontSize: '16px', color: '#10b981' }} />
+                          ) : (
+                            <HiOutlineArrowTrendingDown style={{ fontSize: '16px', color: '#ef4444' }} />
+                          )}
+                          <span className={`badge ${
+                            payment.type === 'Money In' ? 'bg-success' : 'bg-danger'
+                          }`} style={{ fontSize: '12px', padding: '4px 8px' }}>
+                            {payment.type}
+                          </span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px 32px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <HiOutlineUser style={{ fontSize: '16px', color: '#64748b' }} />
+                          <span style={{ 
+                            fontSize: '14px', 
+                            color: payment.type === 'Money In' ? '#10b981' : '#ef4444',
+                            fontWeight: '500'
+                          }}>
+                            {payment.type === 'Money In' ? 'From: ' : 'To: '}{payment.fromTo}
+                          </span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px 32px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <HiOutlineIdentification style={{ fontSize: '16px', color: '#64748b' }} />
+                          <code style={{ fontSize: '13px', color: '#475569' }}>{payment.fromToId}</code>
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px 32px' }}>
+                        {payment.type === 'Money In' ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <HiOutlineBookOpen style={{ fontSize: '16px', color: '#64748b' }} />
+                            <span style={{ fontSize: '14px', color: '#475569' }}>
+                              {payment.courseName || <span className="text-muted">All Courses</span>}
+                            </span>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '14px', color: '#475569' }}>
+                            {payment.teacherSubject}
+                            {payment.description && (
+                              <div className="text-muted small" style={{ fontSize: '12px', marginTop: '4px' }}>
+                                {payment.description}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '16px 32px' }}>
+                        {payment.type === 'Money In' && payment.monthKey ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <HiOutlineCalendar style={{ fontSize: '16px', color: '#64748b' }} />
+                            <span style={{ fontSize: '14px', color: '#475569' }}>
+                              {formatMonthKey(payment.monthKey)}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted" style={{ fontSize: '14px' }}>-</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '16px 32px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <HiOutlineCurrencyDollar style={{ 
+                            fontSize: '16px', 
+                            color: payment.type === 'Money In' ? '#10b981' : '#ef4444'
+                          }} />
+                          <span style={{ 
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            color: payment.type === 'Money In' ? '#10b981' : '#ef4444'
+                          }}>
+                            {payment.type === 'Money In' ? '+' : '-'}Rs. {payment.amount.toFixed(2)}
+                          </span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px 32px' }}>
+                        {payment.type === 'Money In' ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {payment.status === 'Paid' ? (
+                              <HiOutlineCheckCircle style={{ fontSize: '16px', color: '#10b981' }} />
+                            ) : (
+                              <HiOutlineXCircle style={{ fontSize: '16px', color: '#f59e0b' }} />
+                            )}
+                            <span className={`badge ${payment.status === 'Paid' ? 'bg-success' : 'bg-warning'}`} style={{ fontSize: '12px', padding: '4px 8px' }}>
+                              {payment.status}
+                            </span>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <HiOutlineCheckCircle style={{ fontSize: '16px', color: '#3b82f6' }} />
+                            <span className="badge bg-info" style={{ fontSize: '12px', padding: '4px 8px' }}>Paid</span>
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '16px 32px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <HiOutlineClock style={{ fontSize: '16px', color: '#64748b' }} />
+                          <span style={{ fontSize: '14px', color: '#475569' }}>
+                            {payment.date 
+                              ? new Date(payment.date).toLocaleDateString() 
+                              : '-'}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </Table>
+          </div>
 
           {/* Mobile Card View */}
           <div className="d-lg-none">

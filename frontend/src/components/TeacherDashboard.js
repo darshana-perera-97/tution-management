@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Row, Col, Card, Table, Alert, Button, Nav, Tab, Form, Spinner } from 'react-bootstrap';
+import { Container, Row, Col, Card, Table, Alert, Button, Nav, Tab, Form, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { 
   HiOutlineBookOpen, 
   HiOutlineUserGroup, 
   HiOutlineCurrencyDollar,
-  HiOutlineClipboardDocumentCheck
+  HiOutlineClipboardDocumentCheck,
+  HiOutlineCog6Tooth
 } from 'react-icons/hi2';
 import TeacherSidebar from './TeacherSidebar';
 import TeacherTopNavbar from './TeacherTopNavbar';
@@ -824,6 +825,9 @@ const TeacherDashboard = () => {
         </div>
 
         <div className="operators-table-container">
+          <div className="table-header-section">
+            <h3>My Courses</h3>
+          </div>
           <Table striped bordered hover className="operators-table d-none d-lg-table">
             <thead>
               <tr>
@@ -855,14 +859,19 @@ const TeacherDashboard = () => {
                     <td>{course.teacherPaymentPercentage ? `${course.teacherPaymentPercentage}%` : '-'}</td>
                     <td>{course.enrolledStudents ? course.enrolledStudents.length : 0}</td>
                     <td>
+                      <OverlayTrigger
+                        placement="top"
+                        overlay={<Tooltip>Manage</Tooltip>}
+                      >
                       <Button
                         variant="primary"
                         size="sm"
                         onClick={() => handleViewCourse(course)}
-                        className="action-btn"
+                          className="action-btn-icon"
                       >
-                        Manage
+                          <HiOutlineCog6Tooth />
                       </Button>
+                      </OverlayTrigger>
                     </td>
                   </tr>
                 ))
@@ -894,14 +903,19 @@ const TeacherDashboard = () => {
                         </p>
                         <div className="student-card-actions">
                           <div className="student-actions-grid">
+                            <OverlayTrigger
+                              placement="top"
+                              overlay={<Tooltip>Manage</Tooltip>}
+                            >
                             <Button
                               variant="primary"
                               size="sm"
                               onClick={() => handleViewCourse(course)}
-                              className="action-btn"
+                                className="action-btn-icon"
                             >
-                              Manage
+                                <HiOutlineCog6Tooth />
                             </Button>
+                            </OverlayTrigger>
                           </div>
                         </div>
                       </div>
@@ -941,6 +955,9 @@ const TeacherDashboard = () => {
         </div>
 
         <div className="operators-table-container">
+          <div className="table-header-section">
+            <h3>Enrolled Students</h3>
+          </div>
           <Table striped bordered hover className="operators-table d-none d-lg-table">
             <thead>
               <tr>
@@ -1122,7 +1139,7 @@ const TeacherDashboard = () => {
                 )}
 
                 {!loading && (
-                  <Row className="g-3">
+                <Row className="g-3">
                   <Col xs={6} md={3}>
                     <Card className="dashboard-stat-card h-100">
                       <Card.Body>

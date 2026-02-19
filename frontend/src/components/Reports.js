@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Form, Table, Alert, Card, Row, Col, Spinner } from 'react-bootstrap';
+import { 
+  HiOutlineUsers, 
+  HiOutlineCheckCircle, 
+  HiOutlineXCircle, 
+  HiOutlineChartBar,
+  HiOutlineCurrencyDollar,
+  HiOutlineBanknotes,
+  HiOutlineArrowTrendingUp,
+  HiOutlineUserGroup,
+  HiOutlineUser,
+  HiOutlinePhone,
+  HiOutlineAcademicCap
+} from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
 import { usePagination } from '../hooks/usePagination';
@@ -379,21 +392,30 @@ const Reports = () => {
       </div>
 
       {error && (
-        <Alert variant="danger" className="mb-3" onClose={() => setError('')} dismissible>
-          <Alert.Heading>Error</Alert.Heading>
+        <Alert variant="danger" className="mb-3 alert-custom" onClose={() => setError('')} dismissible style={{
+          background: 'rgba(239, 68, 68, 0.1)',
+          color: '#dc2626',
+          border: 'none',
+          borderRadius: '8px'
+        }}>
           {error}
         </Alert>
       )}
 
       {/* Initial Loading */}
       {initialLoading && (
-        <Card className="mb-4">
-          <Card.Body>
+        <Card className="mb-4" style={{
+          border: '1px solid #e2e8f0',
+          borderRadius: '12px',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+          background: '#ffffff'
+        }}>
+          <Card.Body style={{ padding: '24px' }}>
             <div className="text-center py-5">
               <Spinner animation="border" role="status" variant="primary" style={{ width: '3rem', height: '3rem' }}>
                 <span className="visually-hidden">Loading...</span>
               </Spinner>
-              <p className="mt-3 text-muted">Loading data...</p>
+              <p className="mt-3" style={{ color: '#64748b' }}>Loading data...</p>
             </div>
           </Card.Body>
         </Card>
@@ -401,12 +423,17 @@ const Reports = () => {
 
       {/* Filters */}
       {!initialLoading && (
-      <Card className="mb-4">
-        <Card.Body>
+      <Card className="mb-4" style={{
+        border: '1px solid #e2e8f0',
+        borderRadius: '12px',
+        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+        background: '#ffffff'
+      }}>
+        <Card.Body style={{ padding: '24px' }}>
           <Row>
             <Col md={4}>
           <Form.Group className="mb-3">
-            <Form.Label><strong>Select Teacher</strong></Form.Label>
+            <Form.Label className="form-label-custom"><strong>Select Teacher</strong></Form.Label>
             <Form.Select
               value={selectedTeacherId}
               onChange={(e) => setSelectedTeacherId(e.target.value)}
@@ -424,7 +451,7 @@ const Reports = () => {
             {selectedTeacherId && (
               <Col md={4}>
                 <Form.Group className="mb-3">
-                  <Form.Label><strong>Select Course</strong></Form.Label>
+                  <Form.Label className="form-label-custom"><strong>Select Course</strong></Form.Label>
                   <Form.Select
                     value={selectedCourseId}
                     onChange={(e) => setSelectedCourseId(e.target.value)}
@@ -443,7 +470,7 @@ const Reports = () => {
             {selectedTeacherId && selectedCourseId && (
               <Col md={4}>
                 <Form.Group className="mb-3">
-                  <Form.Label><strong>Select Month</strong></Form.Label>
+                  <Form.Label className="form-label-custom"><strong>Select Month</strong></Form.Label>
                   <Form.Select
                     value={selectedMonthKey}
                     onChange={(e) => setSelectedMonthKey(e.target.value)}
@@ -466,13 +493,18 @@ const Reports = () => {
 
       {/* Report Data Loading */}
       {loading && (
-        <Card className="mb-4">
-          <Card.Body>
+        <Card className="mb-4" style={{
+          border: '1px solid #e2e8f0',
+          borderRadius: '12px',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+          background: '#ffffff'
+        }}>
+          <Card.Body style={{ padding: '24px' }}>
             <div className="text-center py-5">
               <Spinner animation="border" role="status" variant="primary" style={{ width: '3rem', height: '3rem' }}>
                 <span className="visually-hidden">Loading...</span>
               </Spinner>
-              <p className="mt-3 text-muted">Generating report...</p>
+              <p className="mt-3" style={{ color: '#64748b' }}>Generating report...</p>
             </div>
           </Card.Body>
         </Card>
@@ -481,154 +513,765 @@ const Reports = () => {
       {!loading && reportData && (
         <div>
           {/* Summary Card */}
-          <Card className="mb-4 border-primary">
-            <Card.Header className="bg-primary text-white">
-              <h5 className="mb-0">
+          <Card className="mb-4" style={{
+            border: '1px solid #e2e8f0',
+            borderRadius: '12px',
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+            background: '#ffffff'
+          }}>
+            <Card.Header style={{
+              background: '#f8fafc',
+              borderBottom: '1px solid #e2e8f0',
+              padding: '20px 24px',
+              borderRadius: '12px 12px 0 0'
+            }}>
+              <h5 className="mb-0" style={{ 
+                fontSize: '18px', 
+                fontWeight: '700', 
+                color: '#0f172a' 
+              }}>
                 Report: {reportData.course.name} - {reportData.month.name}
               </h5>
             </Card.Header>
-            <Card.Body>
+            <Card.Body style={{ padding: '24px' }}>
+              <h6 className="mb-4" style={{ 
+                fontSize: '14px', 
+                fontWeight: '700', 
+                color: '#64748b',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
+              }}>Summary Statistics</h6>
               <Row>
-                <Col md={6}>
-                  <h6 className="mb-3 text-start">Course Information</h6>
-                  <div className="text-start">
-                    <p className="mb-1"><strong>Course:</strong> {reportData.course.name}</p>
-                    <p className="mb-1"><strong>Subject:</strong> {reportData.course.subject}</p>
-                    <p className="mb-1"><strong>Grade:</strong> {reportData.course.grade}</p>
-                    <p className="mb-1"><strong>Teacher:</strong> {reportData.teacher.name}</p>
-                    <p className="mb-0"><strong>Course Fee:</strong> Rs. {reportData.course.fee.toFixed(2)}</p>
+                <Col xs={6} md={3}>
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                    transition: 'all 0.2s ease',
+                    height: '100%',
+                    cursor: 'default',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'flex-start',
+                      alignItems: 'flex-start',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#3b82f6'
+                      }}>
+                        <HiOutlineUsers size={24} />
+                      </div>
+                    </div>
+                    <div style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      marginBottom: '8px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      textAlign: 'left'
+                    }}>Total Students</div>
+                    <div style={{
+                      fontSize: '28px',
+                      fontWeight: '700',
+                      color: '#0f172a',
+                      textAlign: 'left'
+                    }}>{reportData.summary.totalStudents}</div>
                   </div>
                 </Col>
-                <Col md={6}>
-                  <h6 className="mb-3">Summary Statistics</h6>
-                  <Row>
-                    <Col xs={6}>
-                      <div className="mb-2">
-                        <small className="text-muted">Total Students</small>
-                        <h5>{reportData.summary.totalStudents}</h5>
+                <Col xs={6} md={3}>
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                    transition: 'all 0.2s ease',
+                    height: '100%',
+                    cursor: 'default',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'flex-start',
+                      alignItems: 'flex-start',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        background: 'rgba(16, 185, 129, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#059669'
+                      }}>
+                        <HiOutlineCheckCircle size={24} />
                       </div>
-                    </Col>
-                    <Col xs={6}>
-                      <div className="mb-2">
-                        <small className="text-muted">Paid Students</small>
-                        <h5 className="text-success">{reportData.summary.paidStudents}</h5>
+                    </div>
+                    <div style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      marginBottom: '8px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      textAlign: 'left'
+                    }}>Paid Students</div>
+                    <div style={{
+                      fontSize: '28px',
+                      fontWeight: '700',
+                      color: '#059669',
+                      textAlign: 'left'
+                    }}>{reportData.summary.paidStudents}</div>
+                  </div>
+                </Col>
+                <Col xs={6} md={3}>
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                    transition: 'all 0.2s ease',
+                    height: '100%',
+                    cursor: 'default',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'flex-start',
+                      alignItems: 'flex-start',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#dc2626'
+                      }}>
+                        <HiOutlineXCircle size={24} />
                       </div>
-                    </Col>
-                    <Col xs={6}>
-                      <div className="mb-2">
-                        <small className="text-muted">Unpaid Students</small>
-                        <h5 className="text-danger">{reportData.summary.unpaidStudents}</h5>
+                    </div>
+                    <div style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      marginBottom: '8px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      textAlign: 'left'
+                    }}>Unpaid Students</div>
+                    <div style={{
+                      fontSize: '28px',
+                      fontWeight: '700',
+                      color: '#dc2626',
+                      textAlign: 'left'
+                    }}>{reportData.summary.unpaidStudents}</div>
+                  </div>
+                </Col>
+                <Col xs={6} md={3}>
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                    transition: 'all 0.2s ease',
+                    height: '100%',
+                    cursor: 'default',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'flex-start',
+                      alignItems: 'flex-start',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        background: 'rgba(245, 158, 11, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#d97706'
+                      }}>
+                        <HiOutlineChartBar size={24} />
                       </div>
-                    </Col>
-                    <Col xs={6}>
-                      <div className="mb-2">
-                        <small className="text-muted">Attendance Rate</small>
-                        <h5>{reportData.summary.averageAttendanceRate}%</h5>
-                      </div>
-                    </Col>
-                  </Row>
+                    </div>
+                    <div style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      marginBottom: '8px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      textAlign: 'left'
+                    }}>Attendance Rate</div>
+                    <div style={{
+                      fontSize: '28px',
+                      fontWeight: '700',
+                      color: '#0f172a',
+                      textAlign: 'left'
+                    }}>{reportData.summary.averageAttendanceRate}%</div>
+                  </div>
                 </Col>
               </Row>
             </Card.Body>
           </Card>
 
           {/* Financial Summary */}
-          <Card className="mb-4">
-            <Card.Header>
-              <h6 className="mb-0">Financial Summary</h6>
+          <Card className="mb-4" style={{
+            border: '1px solid #e2e8f0',
+            borderRadius: '12px',
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+            background: '#ffffff'
+          }}>
+            <Card.Header style={{
+              background: '#f8fafc',
+              borderBottom: '1px solid #e2e8f0',
+              padding: '20px 24px',
+              borderRadius: '12px 12px 0 0'
+            }}>
+              <h6 className="mb-0" style={{ 
+                fontSize: '14px', 
+                fontWeight: '700', 
+                color: '#64748b',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
+              }}>Financial Summary</h6>
             </Card.Header>
-            <Card.Body>
+            <Card.Body style={{ padding: '24px' }}>
               <Row>
-                <Col md={3}>
-                  <div className="text-center p-3 bg-light rounded mb-2">
-                    <small className="text-muted d-block">Total Fee</small>
-                    <h5>Rs. {reportData.summary.totalFee.toFixed(2)}</h5>
+                <Col xs={6} md={3}>
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                    transition: 'all 0.2s ease',
+                    height: '100%',
+                    cursor: 'default',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'flex-start',
+                      alignItems: 'flex-start',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        background: 'rgba(59, 130, 246, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#3b82f6'
+                      }}>
+                        <HiOutlineCurrencyDollar size={24} />
+                      </div>
+                    </div>
+                    <div style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      marginBottom: '8px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      textAlign: 'left'
+                    }}>Total Fee</div>
+                    <div style={{
+                      fontSize: '24px',
+                      fontWeight: '700',
+                      color: '#0f172a',
+                      lineHeight: '1.2',
+                      textAlign: 'left'
+                    }}>Rs. {reportData.summary.totalFee.toFixed(2)}</div>
                   </div>
                 </Col>
-                <Col md={3}>
-                  <div className="text-center p-3 bg-light rounded mb-2">
-                    <small className="text-muted d-block">Paid Fee</small>
-                    <h5 className="text-success">Rs. {reportData.summary.paidFee.toFixed(2)}</h5>
+                <Col xs={6} md={3}>
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                    transition: 'all 0.2s ease',
+                    height: '100%',
+                    cursor: 'default',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'flex-start',
+                      alignItems: 'flex-start',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        background: 'rgba(16, 185, 129, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#059669'
+                      }}>
+                        <HiOutlineCheckCircle size={24} />
+                      </div>
+                    </div>
+                    <div style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      marginBottom: '8px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      textAlign: 'left'
+                    }}>Paid Fee</div>
+                    <div style={{
+                      fontSize: '24px',
+                      fontWeight: '700',
+                      color: '#059669',
+                      lineHeight: '1.2',
+                      textAlign: 'left'
+                    }}>Rs. {reportData.summary.paidFee.toFixed(2)}</div>
                   </div>
                 </Col>
-                <Col md={3}>
-                  <div className="text-center p-3 bg-light rounded mb-2">
-                    <small className="text-muted d-block">Pending Fee</small>
-                    <h5 className="text-danger">Rs. {reportData.summary.pendingFee.toFixed(2)}</h5>
+                <Col xs={6} md={3}>
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                    transition: 'all 0.2s ease',
+                    height: '100%',
+                    cursor: 'default',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'flex-start',
+                      alignItems: 'flex-start',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#dc2626'
+                      }}>
+                        <HiOutlineXCircle size={24} />
+                      </div>
+                    </div>
+                    <div style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      marginBottom: '8px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      textAlign: 'left'
+                    }}>Pending Fee</div>
+                    <div style={{
+                      fontSize: '24px',
+                      fontWeight: '700',
+                      color: '#dc2626',
+                      lineHeight: '1.2',
+                      textAlign: 'left'
+                    }}>Rs. {reportData.summary.pendingFee.toFixed(2)}</div>
                   </div>
                 </Col>
-                <Col md={3}>
-                  <div className="text-center p-3 bg-light rounded mb-2">
-                    <small className="text-muted d-block">Teacher Income</small>
-                    <h5>Rs. {reportData.summary.totalTeacherIncome.toFixed(2)}</h5>
-                    <small className="text-success">Paid: Rs. {reportData.summary.paidTeacherIncome.toFixed(2)}</small>
+                <Col xs={6} md={3}>
+                  <div style={{
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '16px',
+                    padding: '24px',
+                    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                    transition: 'all 0.2s ease',
+                    height: '100%',
+                    cursor: 'default',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'flex-start',
+                      alignItems: 'flex-start',
+                      marginBottom: '16px'
+                    }}>
+                      <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '12px',
+                        background: 'rgba(139, 92, 246, 0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#7c3aed'
+                      }}>
+                        <HiOutlineUserGroup size={24} />
+                      </div>
+                    </div>
+                    <div style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      marginBottom: '8px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      textAlign: 'left'
+                    }}>Teacher Income</div>
+                    <div style={{
+                      fontSize: '24px',
+                      fontWeight: '700',
+                      color: '#0f172a',
+                      lineHeight: '1.2',
+                      marginBottom: '8px',
+                      textAlign: 'left'
+                    }}>Rs. {reportData.summary.totalTeacherIncome.toFixed(2)}</div>
+                    <div style={{
+                      fontSize: '11px',
+                      color: '#059669',
+                      fontWeight: '600',
+                      padding: '4px 8px',
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      borderRadius: '6px',
+                      display: 'inline-block',
+                      textAlign: 'left'
+                    }}>
+                      Paid: Rs. {reportData.summary.paidTeacherIncome.toFixed(2)}
+                    </div>
                   </div>
                 </Col>
               </Row>
         </Card.Body>
       </Card>
 
-          {/* Students Table */}
-          <Card>
-            <Card.Header>
-              <h6 className="mb-0">Student Details</h6>
-            </Card.Header>
-            <Card.Body>
-              <div className="table-responsive">
-                <Table striped bordered hover>
+          {/* Students Table - Revamped */}
+                  <div className="operators-table-container">
+            <div className="table-header-section">
+              <h3>Student Details ({reportData.students.length} students)</h3>
+            </div>
+            <div className="table-responsive">
+              <Table className="operators-table">
                         <thead>
                           <tr>
-                      <th>#</th>
-                      <th>Student Name</th>
-                      <th>Contact</th>
-                            <th>Grade</th>
-                      <th>Payment Status</th>
-                      <th>Present</th>
-                      <th>Rate</th>
+                    <th style={{ width: '60px' }}>#</th>
+                    <th>Student Name</th>
+                    <th>Contact</th>
+                    <th style={{ width: '100px' }}>Grade</th>
+                    <th style={{ width: '140px' }}>Payment Status</th>
+                    <th style={{ width: '120px' }}>Attendance</th>
+                    <th style={{ width: '150px' }}>Rate</th>
                           </tr>
                         </thead>
                         <tbody>
-                    {reportData.students.length === 0 ? (
-                            <tr>
-                        <td colSpan="7" className="text-center text-muted py-4">
-                          No students found.
+                  {reportData.students.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="text-center py-5" style={{ color: '#64748b' }}>
+                        <div style={{ 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          alignItems: 'center', 
+                          gap: '12px' 
+                        }}>
+                          <HiOutlineUsers size={48} style={{ opacity: 0.3 }} />
+                          <p style={{ margin: 0, fontSize: '14px', fontWeight: '500' }}>
+                            No students found.
+                          </p>
+                        </div>
                               </td>
                             </tr>
                           ) : (
-                      reportData.students.map((student, index) => (
-                        <tr key={student.id}>
-                          <td>{index + 1}</td>
-                          <td><strong>{student.name}</strong></td>
-                          <td>{student.contact}</td>
-                          <td>{student.grade}</td>
-                          <td>
-                            {student.isPaid ? (
-                              <span className="badge bg-success">Paid</span>
-                            ) : (
-                              <span className="badge bg-danger">Unpaid</span>
-                            )}
+                    reportData.students.map((student, index) => (
+                      <tr key={student.id} style={{ transition: 'all 0.2s ease' }}>
+                        <td style={{ 
+                          padding: '16px 24px',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          color: '#64748b'
+                        }}>
+                          {index + 1}
                                 </td>
-                          <td className="text-success">{student.attendance.present}</td>
-                                <td>
-                            <span className={parseFloat(student.attendance.rate) >= 75 ? 'text-success' : 'text-warning'}>
-                              {student.attendance.rate}%
-                                  </span>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </Table>
-                              </div>
-                            </Card.Body>
-                          </Card>
+                        <td style={{ padding: '16px 24px' }}>
+                          <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '12px' 
+                          }}>
+                            <div style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '10px',
+                              background: 'rgba(59, 130, 246, 0.1)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#3b82f6',
+                              flexShrink: 0
+                            }}>
+                              <HiOutlineUser size={20} />
+                    </div>
+                            <div>
+                              <div style={{ 
+                                fontSize: '15px', 
+                                fontWeight: '700', 
+                                color: '#0f172a',
+                                marginBottom: '2px'
+                              }}>
+                                {student.name}
                         </div>
+                              </div>
+                                </div>
+                        </td>
+                        <td style={{ padding: '16px 24px' }}>
+                          <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '8px',
+                            fontSize: '14px',
+                            color: '#475569'
+                          }}>
+                            <HiOutlinePhone size={16} style={{ color: '#94a3b8' }} />
+                            <span>{student.contact}</span>
+                                </div>
+                        </td>
+                        <td style={{ padding: '16px 24px' }}>
+                          <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '8px',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            color: '#475569'
+                          }}>
+                            <HiOutlineAcademicCap size={16} style={{ color: '#94a3b8' }} />
+                            <span>{student.grade}</span>
+                                </div>
+                        </td>
+                        <td style={{ padding: '16px 24px' }}>
+                          {student.isPaid ? (
+                            <div style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              background: 'rgba(16, 185, 129, 0.1)',
+                              color: '#059669',
+                              border: '1px solid rgba(16, 185, 129, 0.2)'
+                            }}>
+                              <HiOutlineCheckCircle size={14} />
+                              <span>Paid</span>
+                                </div>
+                          ) : (
+                            <div style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              background: 'rgba(239, 68, 68, 0.1)',
+                              color: '#dc2626',
+                              border: '1px solid rgba(239, 68, 68, 0.2)'
+                            }}>
+                              <HiOutlineXCircle size={14} />
+                              <span>Unpaid</span>
+                                </div>
+                          )}
+                        </td>
+                        <td style={{ padding: '16px 24px' }}>
+                          <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '8px' 
+                          }}>
+                            <div style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '8px',
+                              background: 'rgba(16, 185, 129, 0.1)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#059669'
+                            }}>
+                              <HiOutlineCheckCircle size={16} />
+                                </div>
+                            <div>
+                              <div style={{ 
+                                fontSize: '16px', 
+                                fontWeight: '700', 
+                                color: '#059669',
+                                lineHeight: '1.2'
+                              }}>
+                                {student.attendance.present}
+                              </div>
+                              <div style={{ 
+                                fontSize: '11px', 
+                                color: '#94a3b8',
+                                fontWeight: '500'
+                              }}>
+                                / {student.attendance.total}
+                        </div>
+                            </div>
+                            </div>
+                        </td>
+                        <td style={{ padding: '16px 24px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '8px',
+                              justifyContent: 'space-between'
+                            }}>
+                              <span style={{
+                                fontSize: '14px',
+                                fontWeight: '700',
+                                color: parseFloat(student.attendance.rate) >= 75 ? '#059669' : 
+                                       parseFloat(student.attendance.rate) >= 50 ? '#d97706' : '#dc2626'
+                              }}>
+                                {student.attendance.rate}%
+                              </span>
+                            </div>
+                            <div style={{
+                              width: '100%',
+                              height: '6px',
+                              borderRadius: '3px',
+                              background: '#e2e8f0',
+                              overflow: 'hidden',
+                              position: 'relative'
+                            }}>
+                              <div style={{
+                                width: `${student.attendance.rate}%`,
+                                height: '100%',
+                                borderRadius: '3px',
+                                background: parseFloat(student.attendance.rate) >= 75 ? 
+                                           'linear-gradient(90deg, #10b981 0%, #059669 100%)' :
+                                           parseFloat(student.attendance.rate) >= 50 ?
+                                           'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)' :
+                                           'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)',
+                                transition: 'width 0.3s ease'
+                              }} />
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </Table>
+                  </div>
+                      </div>
+                      </div>
                       )}
                       
       {!loading && !reportData && selectedTeacherId && selectedCourseId && selectedMonthKey && (
-        <Card className="mb-4">
-                        <Card.Body>
-            <p className="text-muted text-center">No data available for the selected filters.</p>
+        <Card className="mb-4" style={{
+          border: '1px solid #e2e8f0',
+          borderRadius: '12px',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+          background: '#ffffff'
+        }}>
+          <Card.Body style={{ padding: '24px' }}>
+            <p style={{ color: '#64748b', textAlign: 'center', margin: 0 }}>
+              No data available for the selected filters.
+            </p>
             </Card.Body>
           </Card>
       )}

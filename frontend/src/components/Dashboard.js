@@ -8,6 +8,15 @@ import {
   HiOutlineCurrencyDollar,
   HiOutlineChatBubbleLeftRight
 } from 'react-icons/hi2';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from 'recharts';
 import Sidebar from './Sidebar';
 import TopNavbar from './TopNavbar';
 import Operators from './Operators';
@@ -321,8 +330,12 @@ const Dashboard = () => {
                   <p className="dashboard-subtitle">Welcome back, {admin.name || admin.email}</p>
                 </div>
 
+                {/* Cards and Chart in 2:1 ratio */}
+                <Row className="g-4">
+                  {/* 8 Cards Section - 8 columns (2/3) in 3x3 grid */}
+                  <Col xs={12} lg={8}>
                 <Row className="g-3">
-                  <Col xs={6} md={3}>
+                      <Col xs={12} sm={6} md={4}>
                     <Card className="dashboard-stat-card h-100">
                       <Card.Body>
                         <div className="stat-icon">
@@ -333,7 +346,7 @@ const Dashboard = () => {
                       </Card.Body>
                     </Card>
                   </Col>
-                  <Col xs={6} md={3}>
+                      <Col xs={12} sm={6} md={4}>
                     <Card className="dashboard-stat-card h-100">
                       <Card.Body>
                         <div className="stat-icon">
@@ -344,7 +357,7 @@ const Dashboard = () => {
                       </Card.Body>
                     </Card>
                   </Col>
-                  <Col xs={6} md={3}>
+                      <Col xs={12} sm={6} md={4}>
                     <Card className="dashboard-stat-card h-100">
                       <Card.Body>
                         <div className="stat-icon">
@@ -355,7 +368,7 @@ const Dashboard = () => {
                       </Card.Body>
                     </Card>
                   </Col>
-                  <Col xs={6} md={3}>
+                      <Col xs={12} sm={6} md={4}>
                     <Card className="dashboard-stat-card h-100">
                       <Card.Body>
                         <div className="stat-icon">
@@ -366,9 +379,7 @@ const Dashboard = () => {
                       </Card.Body>
                     </Card>
                   </Col>
-                </Row>
-                <Row className="mt-3">
-                  <Col md={3}>
+                      <Col xs={12} sm={6} md={4}>
                     <Card className="dashboard-stat-card h-100">
                       <Card.Body>
                         <div className="stat-icon">
@@ -381,7 +392,7 @@ const Dashboard = () => {
                       </Card.Body>
                     </Card>
                   </Col>
-                  <Col md={3}>
+                      <Col xs={12} sm={6} md={4}>
                     <Card className="dashboard-stat-card h-100">
                       <Card.Body>
                         <div className="stat-icon">
@@ -394,7 +405,7 @@ const Dashboard = () => {
                       </Card.Body>
                     </Card>
                   </Col>
-                  <Col md={3}>
+                      <Col xs={12} sm={6} md={4}>
                     <Card className="dashboard-stat-card h-100">
                       <Card.Body>
                         <div className="stat-icon">
@@ -407,7 +418,7 @@ const Dashboard = () => {
                       </Card.Body>
                     </Card>
                   </Col>
-                  <Col md={3}>
+                      <Col xs={12} sm={6} md={4}>
                     <Card className="dashboard-stat-card h-100">
                       <Card.Body>
                         <div className="stat-icon">
@@ -421,56 +432,112 @@ const Dashboard = () => {
                     </Card>
                   </Col>
                 </Row>
-                <Row className="mt-3">
-                  <Col xs={6} md={3}>
-                    <Card className="dashboard-stat-card h-100">
-                      <Card.Body>
-                        <div className="stat-icon">
-                          <HiOutlineChatBubbleLeftRight />
-                        </div>
-                        <h3 className="stat-number">
-                          {loading ? '...' : stats.chatbotStudentsToday}
-                        </h3>
-                        <p className="stat-label">Students Used AI Chatbot Today</p>
-                      </Card.Body>
-                    </Card>
                   </Col>
-                  <Col xs={6} md={3}>
-                    <Card className="dashboard-stat-card h-100">
-                      <Card.Body>
-                        <div className="stat-icon">
-                          <HiOutlineChatBubbleLeftRight />
+
+                  {/* Bar Chart Section - 4 columns (1/3) */}
+                  <Col xs={12} lg={4}>
+                    <Card style={{ 
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '16px',
+                      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                      background: '#ffffff',
+                      height: '100%'
+                    }}>
+                      <Card.Body style={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+                        <div className="d-flex justify-content-between align-items-center mb-3">
+                          <h5 style={{ 
+                            fontWeight: '700',
+                            color: '#0f172a',
+                            margin: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            fontSize: '16px'
+                          }}>
+                            <HiOutlineChatBubbleLeftRight style={{ color: '#2563eb', fontSize: '18px' }} />
+                            AI Chatbot Stats
+                          </h5>
                         </div>
-                        <h3 className="stat-number">
-                          {loading ? '...' : stats.chatbotMessagesToday}
-                        </h3>
-                        <p className="stat-label">Total Messages Sent Today</p>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                  <Col xs={6} md={3}>
-                    <Card className="dashboard-stat-card h-100">
-                      <Card.Body>
-                        <div className="stat-icon">
-                          <HiOutlineChatBubbleLeftRight />
+                        {loading ? (
+                          <div style={{ 
+                            flex: 1,
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            color: '#64748b'
+                          }}>
+                            Loading...
                         </div>
-                        <h3 className="stat-number">
-                          {loading ? '...' : stats.chatbotMessagesLastMonth}
-                        </h3>
-                        <p className="stat-label">Messages of Last Month</p>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                  <Col xs={6} md={3}>
-                    <Card className="dashboard-stat-card h-100">
-                      <Card.Body>
-                        <div className="stat-icon">
-                          <HiOutlineChatBubbleLeftRight />
+                        ) : (
+                          <div style={{ flex: 1, minHeight: '200px' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart 
+                                data={[
+                                  { 
+                                    name: 'Students', 
+                                    value: stats.chatbotStudentsToday,
+                                    label: 'Students Used AI Chatbot Today'
+                                  },
+                                  { 
+                                    name: 'Messages', 
+                                    value: stats.chatbotMessagesToday,
+                                    label: 'Total Messages Sent Today'
+                                  },
+                                  { 
+                                    name: 'Last Month', 
+                                    value: stats.chatbotMessagesLastMonth,
+                                    label: 'Messages of Last Month'
+                                  },
+                                  { 
+                                    name: 'Tokens (K)', 
+                                    value: Math.round(stats.chatbotTokensThisMonth / 1000),
+                                    label: `Used AI Tokens This Month (${stats.chatbotTokensThisMonth.toLocaleString()})`
+                                  }
+                                ]}
+                                margin={{ top: 0, right: 0, left: -20, bottom: 0 }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis 
+                                  dataKey="name" 
+                                  axisLine={false} 
+                                  tickLine={false} 
+                                  tick={{ fontSize: 10, fill: '#64748b' }} 
+                                  dy={10}
+                                  angle={-45}
+                                  textAnchor="end"
+                                  height={60}
+                                />
+                                <YAxis 
+                                  axisLine={false} 
+                                  tickLine={false} 
+                                  tick={{ fontSize: 10, fill: '#64748b' }}
+                                />
+                                <Tooltip 
+                                  cursor={{ fill: '#f8fafc' }}
+                                  contentStyle={{ 
+                                    borderRadius: '12px', 
+                                    border: 'none', 
+                                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                                    backgroundColor: '#ffffff',
+                                    fontSize: '12px'
+                                  }}
+                                  formatter={(value, name, props) => {
+                                    if (props.payload.name === 'Tokens (K)') {
+                                      return [`${(value * 1000).toLocaleString()} tokens`, props.payload.label];
+                                    }
+                                    return [value, props.payload.label];
+                                  }}
+                                />
+                                <Bar 
+                                  dataKey="value" 
+                                  fill="#2563eb" 
+                                  radius={[4, 4, 0, 0]} 
+                                  barSize={30}
+                                />
+                              </BarChart>
+                            </ResponsiveContainer>
                         </div>
-                        <h3 className="stat-number">
-                          {loading ? '...' : stats.chatbotTokensThisMonth.toLocaleString()}
-                        </h3>
-                        <p className="stat-label">Used AI Tokens This Month</p>
+                        )}
                       </Card.Body>
                     </Card>
                   </Col>

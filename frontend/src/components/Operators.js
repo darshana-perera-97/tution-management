@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Button, Table, Modal, Form, Alert, Card } from 'react-bootstrap';
+import { Container, Button, Table, Modal, Form, Alert, Card, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { 
+  HiOutlineTrash,
+  HiOutlineUser,
+  HiOutlineEnvelope,
+  HiOutlineCalendar,
+  HiOutlineClock,
+  HiOutlineUsers
+} from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
 import { usePagination } from '../hooks/usePagination';
@@ -152,48 +160,104 @@ const Operators = () => {
       )}
 
       <div className="operators-table-container">
-        {/* Desktop Table View */}
-        <Table striped bordered hover className="operators-table d-none d-lg-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Created At</th>
-              <th>Last Login</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedOperators.length === 0 ? (
+        <div className="table-header-section">
+          <h3>
+            Operators
+            <span className="text-muted ms-2" style={{ fontSize: '14px', fontWeight: '400' }}>
+              ({operators.length} {operators.length === 1 ? 'operator' : 'operators'})
+            </span>
+          </h3>
+        </div>
+        <div className="table-responsive">
+          <Table striped bordered hover className="operators-table d-none d-lg-table">
+            <thead>
               <tr>
-                <td colSpan="6" className="text-center text-muted py-4">
-                  No operators found. Click "Add Operator" to create one.
-                </td>
+                <th>#</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Created At</th>
+                <th>Last Login</th>
+                <th>Actions</th>
               </tr>
-            ) : (
-              paginatedOperators.map((operator, index) => (
-                <tr key={operator.id}>
-                  <td>{startIndex + index + 1}</td>
-                  <td>{operator.name}</td>
-                  <td>{operator.email}</td>
-                  <td>{operator.createdAt ? new Date(operator.createdAt).toLocaleDateString() : '-'}</td>
-                  <td>{operator.lastLogin ? new Date(operator.lastLogin).toLocaleDateString() : 'Never'}</td>
-                  <td>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => handleDelete(operator.id)}
-                      className="action-btn"
-                    >
-                      Delete
-                    </Button>
+            </thead>
+            <tbody>
+              {paginatedOperators.length === 0 ? (
+                <tr>
+                  <td colSpan="6" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                      <HiOutlineUsers style={{ fontSize: '48px', color: '#94a3b8', opacity: 0.5 }} />
+                      <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px' }}>
+                        No operators found. Click "Add Operator" to create one.
+                      </p>
+                    </div>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </Table>
+              ) : (
+                paginatedOperators.map((operator, index) => (
+                  <tr key={operator.id}>
+                    <td style={{ padding: '16px 32px' }}>{startIndex + index + 1}</td>
+                    <td style={{ padding: '16px 32px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          backgroundColor: '#e0e7ff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}>
+                          <HiOutlineUser style={{ fontSize: '18px', color: '#6366f1' }} />
+                        </div>
+                        <span style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b' }}>
+                          {operator.name}
+                        </span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px 32px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <HiOutlineEnvelope style={{ fontSize: '16px', color: '#64748b' }} />
+                        <span style={{ fontSize: '14px', color: '#475569' }}>{operator.email}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px 32px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <HiOutlineCalendar style={{ fontSize: '16px', color: '#64748b' }} />
+                        <span style={{ fontSize: '14px', color: '#475569' }}>
+                          {operator.createdAt ? new Date(operator.createdAt).toLocaleDateString() : '-'}
+                        </span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px 32px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <HiOutlineClock style={{ fontSize: '16px', color: '#64748b' }} />
+                        <span style={{ fontSize: '14px', color: '#475569' }}>
+                          {operator.lastLogin ? new Date(operator.lastLogin).toLocaleDateString() : 'Never'}
+                        </span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px 32px' }}>
+                      <OverlayTrigger
+                        placement="top"
+                        overlay={<Tooltip>Delete</Tooltip>}
+                      >
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleDelete(operator.id)}
+                          className="action-btn-icon"
+                        >
+                          <HiOutlineTrash />
+                        </Button>
+                      </OverlayTrigger>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </Table>
+        </div>
 
         {/* Mobile Card View */}
         <div className="d-lg-none">

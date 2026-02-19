@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Button, Table, Modal, Form, Alert, Card, Tab, Tabs, Row, Col } from 'react-bootstrap';
+import { Container, Button, Table, Modal, Form, Alert, Card, Tab, Tabs, Row, Col, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import { HiOutlineEye, HiOutlineTrash } from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
 
@@ -350,7 +351,7 @@ const AIChatbot = () => {
             </div>
           ) : (
             <div className="table-responsive">
-              <Table striped bordered hover>
+              <Table striped bordered hover className="operators-table">
                 <thead>
                   <tr>
                     <th>#</th>
@@ -382,20 +383,32 @@ const AIChatbot = () => {
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <div className="d-flex gap-2">
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={() => handleViewContent(content)}
+                          <OverlayTrigger
+                            placement="top"
+                            overlay={<Tooltip>View</Tooltip>}
                           >
-                            View
-                          </Button>
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            onClick={() => handleDeleteContent(content.id)}
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => handleViewContent(content)}
+                              className="action-btn-icon"
+                            >
+                              <HiOutlineEye />
+                            </Button>
+                          </OverlayTrigger>
+                          <OverlayTrigger
+                            placement="top"
+                            overlay={<Tooltip>Delete</Tooltip>}
                           >
-                            Delete
-                          </Button>
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => handleDeleteContent(content.id)}
+                              className="action-btn-icon"
+                            >
+                              <HiOutlineTrash />
+                            </Button>
+                          </OverlayTrigger>
                         </div>
                       </td>
                     </tr>
