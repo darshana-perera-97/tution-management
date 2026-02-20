@@ -8,7 +8,9 @@ import {
   HiOutlineBookOpen,
   HiOutlineAcademicCap,
   HiOutlineClock,
-  HiOutlineUsers
+  HiOutlineUsers,
+  HiOutlineCheckCircle,
+  HiOutlineQrCode
 } from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
@@ -50,6 +52,16 @@ const Attendance = ({ hideMarkButton = false }) => {
     const saved = localStorage.getItem('attendancePopupsEnabled');
     return saved !== null ? saved === 'true' : true;
   });
+
+  // Check if user is admin or operator
+  const isAdmin = localStorage.getItem('isAuthenticated');
+  const isOperator = localStorage.getItem('isOperatorAuthenticated');
+  const isAdminOrOperator = isAdmin || isOperator;
+  
+  // Check if user is a teacher
+  const isTeacher = localStorage.getItem('isTeacherAuthenticated');
+  const teacherData = isTeacher ? JSON.parse(localStorage.getItem('teacher') || '{}') : null;
+  const teacherId = teacherData?.id || null;
 
   // Safe function to stop scanner
   const safeStopScanner = async (scanner) => {
@@ -470,7 +482,13 @@ const Attendance = ({ hideMarkButton = false }) => {
       const response = await fetch(`${API_URL}/api/courses`);
       const data = await response.json();
       if (data.success) {
-        setCourses(data.courses);
+        // If teacher is logged in, filter courses to only show their courses
+        if (isTeacher && teacherId) {
+          const teacherCourses = data.courses.filter(course => course.teacherId === teacherId);
+          setCourses(teacherCourses);
+        } else {
+          setCourses(data.courses);
+        }
       }
     } catch (err) {
       console.error('Error fetching courses:', err);
@@ -558,6 +576,12 @@ const Attendance = ({ hideMarkButton = false }) => {
   const getAllAttendanceWithInfo = () => {
     let filtered = attendance;
     
+    // If teacher is logged in, filter attendance to only show their courses
+    if (isTeacher && teacherId) {
+      const teacherCourseIds = courses.map(c => c.id);
+      filtered = filtered.filter(record => teacherCourseIds.includes(record.courseId));
+    }
+    
     // Filter by course if selected
     if (selectedCourseFilter) {
       filtered = filtered.filter(record => record.courseId === selectedCourseFilter);
@@ -591,8 +615,14 @@ const Attendance = ({ hideMarkButton = false }) => {
     const monthsSet = new Set();
     let filteredByCourse = attendance;
     
+    // If teacher is logged in, filter attendance to only show their courses
+    if (isTeacher && teacherId) {
+      const teacherCourseIds = courses.map(c => c.id);
+      filteredByCourse = filteredByCourse.filter(record => teacherCourseIds.includes(record.courseId));
+    }
+    
     if (selectedCourseFilter) {
-      filteredByCourse = attendance.filter(record => record.courseId === selectedCourseFilter);
+      filteredByCourse = filteredByCourse.filter(record => record.courseId === selectedCourseFilter);
     }
     
     filteredByCourse.forEach(record => {
@@ -709,11 +739,6 @@ const Attendance = ({ hideMarkButton = false }) => {
     setSelectedAttendanceRecord(null);
   };
 
-  // Check if user is admin or operator
-  const isAdmin = localStorage.getItem('isAuthenticated');
-  const isOperator = localStorage.getItem('isOperatorAuthenticated');
-  const isAdminOrOperator = isAdmin || isOperator;
-
   return (
     <Container fluid>
       <div className="operators-header mb-4">
@@ -737,15 +762,41 @@ const Attendance = ({ hideMarkButton = false }) => {
                 </div>
                 <Button
                   variant="outline-danger"
-                  size="sm"
                   onClick={handleClearQueue}
                   disabled={attendanceQueue.length === 0}
+                  style={{
+                    borderRadius: '8px',
+                    padding: '10px 20px',
+                    height: '44px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: attendanceQueue.length === 0 ? 'transparent' : 'transparent',
+                    color: attendanceQueue.length === 0 ? '#94a3b8' : '#ef4444',
+                    border: `1px solid ${attendanceQueue.length === 0 ? '#cbd5e1' : '#ef4444'}`,
+                    transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap',
+                    cursor: attendanceQueue.length === 0 ? 'not-allowed' : 'pointer',
+                    opacity: attendanceQueue.length === 0 ? 0.5 : 1
+                  }}
+                  onMouseEnter={(e) => {
+                    if (attendanceQueue.length > 0) {
+                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (attendanceQueue.length > 0) {
+                      e.currentTarget.style.background = 'transparent';
+                    }
+                  }}
                 >
+                  <HiOutlineUsers style={{ fontSize: '18px' }} />
                   Clear Queue ({attendanceQueue.length})
                 </Button>
                 <Button
                   variant="outline-primary"
-                  size="sm"
                   onClick={() => {
                     const link = document.createElement('a');
                     link.href = '/app-release.apk';
@@ -754,19 +805,62 @@ const Attendance = ({ hideMarkButton = false }) => {
                     link.click();
                     document.body.removeChild(link);
                   }}
-                  style={{ whiteSpace: 'nowrap' }}
+                  style={{
+                    borderRadius: '8px',
+                    padding: '10px 20px',
+                    height: '44px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: 'transparent',
+                    color: '#3b82f6',
+                    border: '1px solid #3b82f6',
+                    transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#eff6ff';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}
                 >
-                  <HiOutlineArrowDownTray className="me-1" style={{ fontSize: '16px', verticalAlign: 'middle' }} />
+                  <HiOutlineArrowDownTray style={{ fontSize: '18px' }} />
                   Download APK
                 </Button>
               </>
             )}
             {!hideMarkButton && (
               <Button
-                className="add-operator-btn"
                 onClick={() => setShowMarkAttendanceModal(true)}
+                style={{
+                  borderRadius: '8px',
+                  padding: '10px 20px',
+                  height: '44px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: '#3b82f6',
+                  color: '#ffffff',
+                  border: 'none',
+                  boxShadow: '0 1px 2px rgba(59, 130, 246, 0.2)',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#2563eb';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(59, 130, 246, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#3b82f6';
+                  e.currentTarget.style.boxShadow = '0 1px 2px rgba(59, 130, 246, 0.2)';
+                }}
               >
-                + Mark Attendance
+                <HiOutlineCheckCircle style={{ fontSize: '18px' }} />
+                Mark Attendance
               </Button>
             )}
           </div>

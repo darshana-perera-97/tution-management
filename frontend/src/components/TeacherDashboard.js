@@ -961,11 +961,11 @@ const TeacherDashboard = () => {
           <Table striped bordered hover className="operators-table d-none d-lg-table">
             <thead>
               <tr>
-                <th>#</th>
-                <th>Full Name</th>
-                <th>Grade</th>
-                <th>Contact Number</th>
-                <th>Parent Name</th>
+                <th style={{ textAlign: 'left' }}>#</th>
+                <th style={{ textAlign: 'left' }}>Full Name</th>
+                <th style={{ textAlign: 'left' }}>Grade</th>
+                <th style={{ textAlign: 'left' }}>Contact Number</th>
+                <th style={{ textAlign: 'left' }}>Parent Name</th>
               </tr>
             </thead>
             <tbody>
@@ -978,11 +978,11 @@ const TeacherDashboard = () => {
               ) : (
                 paginatedStudents.map((student, index) => (
                   <tr key={student.id}>
-                    <td>{studentsStartIndex + index + 1}</td>
-                    <td>{student.fullName}</td>
-                    <td>{student.grade}</td>
-                    <td>{student.contactNumber}</td>
-                    <td>{student.parentName}</td>
+                    <td style={{ textAlign: 'left', padding: '16px 32px' }}>{studentsStartIndex + index + 1}</td>
+                    <td style={{ textAlign: 'left', padding: '16px 32px' }}>{student.fullName}</td>
+                    <td style={{ textAlign: 'left', padding: '16px 32px' }}>{student.grade}</td>
+                    <td style={{ textAlign: 'left', padding: '16px 32px' }}>{student.contactNumber}</td>
+                    <td style={{ textAlign: 'left', padding: '16px 32px' }}>{student.parentName}</td>
                   </tr>
                 ))
               )}

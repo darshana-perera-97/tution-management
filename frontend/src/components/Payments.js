@@ -13,7 +13,9 @@ import {
   HiOutlineCheckCircle,
   HiOutlineXCircle,
   HiOutlineClock,
-  HiOutlineBanknotes
+  HiOutlineBanknotes,
+  HiOutlineMagnifyingGlass,
+  HiOutlineQrCode
 } from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
@@ -501,72 +503,209 @@ const Payments = () => {
       )}
 
       {/* Student Lookup Section */}
-      <div className="mb-4 p-3 border rounded">
-        <h6 className="mb-3">Lookup Student Payments</h6>
-        <div className="d-flex gap-2 mb-2" style={{ flexWrap: 'nowrap' }}>
-          <Form.Control
-            type="text"
-            placeholder="Enter Student ID"
-            value={studentIdInput}
-            onChange={(e) => {
-              setStudentIdInput(e.target.value);
-              setError('');
-            }}
-            className="form-control-custom"
-            style={{ flex: '1', minWidth: '0' }}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                handleStudentLookup(studentIdInput);
-              }
-            }}
-          />
-          <Button
-            variant="primary"
-            onClick={() => handleStudentLookup(studentIdInput)}
-            style={{ whiteSpace: 'nowrap' }}
-          >
-            Lookup
-          </Button>
-          <Button
-            variant="info"
-            onClick={() => {
-              if (showQRScanner && scannerInstance) {
-                safeStopScanner(scannerInstance).then(() => {
-                  setScannerInstance(null);
-                });
-              }
-              setShowQRScanner(!showQRScanner);
-              setQrScanResult('');
-              setError('');
-            }}
-            style={{ whiteSpace: 'nowrap' }}
-          >
-            {showQRScanner ? 'Cancel Scan' : 'Scan QR Code'}
-          </Button>
-        </div>
+      <Card className="mb-4" style={{
+        border: '1px solid #e2e8f0',
+        borderRadius: '12px',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+        background: '#ffffff'
+      }}>
+        <Card.Body style={{ padding: '24px' }}>
+          <div style={{ marginBottom: '20px' }}>
+            <h5 style={{ 
+              fontSize: '18px', 
+              fontWeight: '700', 
+              color: '#1e293b',
+              marginBottom: '8px'
+            }}>
+              Lookup Student Payments
+            </h5>
+            <p style={{ 
+              fontSize: '14px', 
+              color: '#64748b',
+              margin: 0
+            }}>
+              Enter a Student ID or scan a QR code to view payment details
+            </p>
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            gap: '12px', 
+            flexWrap: 'wrap',
+            alignItems: 'stretch'
+          }}>
+            <div style={{ flex: '1', minWidth: '200px' }}>
+              <div style={{ position: 'relative' }}>
+                <HiOutlineIdentification style={{
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  fontSize: '18px',
+                  color: '#94a3b8',
+                  pointerEvents: 'none',
+                  zIndex: 1
+                }} />
+                <Form.Control
+                  type="text"
+                  placeholder="Enter Student ID"
+                  value={studentIdInput}
+                  onChange={(e) => {
+                    setStudentIdInput(e.target.value);
+                    setError('');
+                  }}
+                  className="form-control-custom"
+                  style={{ 
+                    paddingLeft: '40px',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0',
+                    fontSize: '14px',
+                    height: '44px'
+                  }}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleStudentLookup(studentIdInput);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            <Button
+              variant="primary"
+              onClick={() => handleStudentLookup(studentIdInput)}
+              style={{
+                whiteSpace: 'nowrap',
+                borderRadius: '8px',
+                padding: '10px 20px',
+                height: '44px',
+                fontSize: '14px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#3b82f6',
+                border: 'none',
+                boxShadow: '0 1px 2px rgba(59, 130, 246, 0.2)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#2563eb';
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(59, 130, 246, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#3b82f6';
+                e.currentTarget.style.boxShadow = '0 1px 2px rgba(59, 130, 246, 0.2)';
+              }}
+            >
+              <HiOutlineMagnifyingGlass style={{ fontSize: '18px' }} />
+              Lookup
+            </Button>
+            <Button
+              variant={showQRScanner ? "secondary" : "outline-primary"}
+              onClick={() => {
+                if (showQRScanner && scannerInstance) {
+                  safeStopScanner(scannerInstance).then(() => {
+                    setScannerInstance(null);
+                  });
+                }
+                setShowQRScanner(!showQRScanner);
+                setQrScanResult('');
+                setError('');
+              }}
+              style={{
+                whiteSpace: 'nowrap',
+                borderRadius: '8px',
+                padding: '10px 20px',
+                height: '44px',
+                fontSize: '14px',
+                fontWeight: '600',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: showQRScanner ? '#e2e8f0' : 'transparent',
+                color: showQRScanner ? '#475569' : '#3b82f6',
+                border: '1px solid #3b82f6',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                if (!showQRScanner) {
+                  e.currentTarget.style.background = '#eff6ff';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!showQRScanner) {
+                  e.currentTarget.style.background = 'transparent';
+                }
+              }}
+            >
+              <HiOutlineQrCode style={{ fontSize: '18px' }} />
+              {showQRScanner ? 'Cancel Scan' : 'Scan QR Code'}
+            </Button>
+          </div>
+        </Card.Body>
         
         {showQRScanner && (
-          <div className="mt-3 p-3 bg-light rounded">
-            <Form.Group className="mb-3">
-              <Form.Label>Camera QR Scanner</Form.Label>
-              <div 
-                id={`qr-reader-payments`}
-                ref={qrScannerRef}
-                style={{ width: '100%', maxWidth: '500px', margin: '0 auto' }}
-              ></div>
-              <Form.Text className="text-muted d-block mt-2">
+          <div style={{
+            marginTop: '24px',
+            padding: '20px',
+            background: '#f8fafc',
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0'
+          }}>
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '8px',
+                marginBottom: '8px'
+              }}>
+                <HiOutlineQrCode style={{ fontSize: '20px', color: '#3b82f6' }} />
+                <h6 style={{ 
+                  margin: 0, 
+                  fontSize: '16px', 
+                  fontWeight: '600',
+                  color: '#1e293b'
+                }}>
+                  Camera QR Scanner
+                </h6>
+              </div>
+              <p style={{ 
+                margin: 0, 
+                fontSize: '13px', 
+                color: '#64748b'
+              }}>
                 Point your camera at the student's QR code. The scanner will automatically detect and lookup the student.
-              </Form.Text>
-            </Form.Group>
+              </p>
+            </div>
+            <div 
+              id={`qr-reader-payments`}
+              ref={qrScannerRef}
+              style={{ 
+                width: '100%', 
+                maxWidth: '500px', 
+                margin: '0 auto 16px',
+                borderRadius: '8px',
+                overflow: 'hidden'
+              }}
+            ></div>
             {qrScanResult && (
-              <Alert variant="info" className="mb-2">
-                Scanned ID: <strong>{qrScanResult}</strong>
+              <Alert variant="info" style={{
+                marginBottom: '16px',
+                background: 'rgba(59, 130, 246, 0.1)',
+                color: '#1e40af',
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+                borderRadius: '8px',
+                padding: '12px 16px',
+                fontSize: '14px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <HiOutlineCheckCircle style={{ fontSize: '18px' }} />
+                  <span>Scanned ID: <strong>{qrScanResult}</strong></span>
+                </div>
               </Alert>
             )}
-            <div className="d-flex gap-2">
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <Button
                 variant="secondary"
-                size="sm"
                 onClick={() => {
                   if (scannerInstance) {
                     scannerInstance.stop().then(() => {
@@ -584,22 +723,57 @@ const Payments = () => {
                   setShowQRScanner(false);
                   setQrScanResult('');
                 }}
+                style={{
+                  borderRadius: '8px',
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  background: '#e2e8f0',
+                  color: '#475569',
+                  border: 'none',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#cbd5e1';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#e2e8f0';
+                }}
               >
                 Stop Scanner
               </Button>
               {qrScanResult && (
                 <Button
                   variant="success"
-                  size="sm"
                   onClick={() => handleStudentLookup(qrScanResult)}
+                  style={{
+                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    background: '#10b981',
+                    color: '#ffffff',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#059669';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#10b981';
+                  }}
                 >
+                  <HiOutlineMagnifyingGlass style={{ fontSize: '16px' }} />
                   Lookup Student
                 </Button>
               )}
             </div>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Combined Payments Table - Money In & Out */}
       <div className="mb-4">
@@ -617,20 +791,17 @@ const Payments = () => {
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Type</th>
                   <th>From/To</th>
-                  <th>ID</th>
                   <th>Details</th>
-                  <th>Month</th>
+                  <th>Description</th>
                   <th>Amount</th>
-                  <th>Status</th>
                   <th>Date</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedPayments.length === 0 ? (
                   <tr>
-                    <td colSpan="9" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                    <td colSpan="6" style={{ padding: '60px 20px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                         <HiOutlineBanknotes style={{ fontSize: '48px', color: '#94a3b8', opacity: 0.5 }} />
                         <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px' }}>
@@ -650,20 +821,6 @@ const Payments = () => {
                       <td style={{ padding: '16px 32px' }}>{index + 1}</td>
                       <td style={{ padding: '16px 32px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          {payment.type === 'Money In' ? (
-                            <HiOutlineArrowTrendingUp style={{ fontSize: '16px', color: '#10b981' }} />
-                          ) : (
-                            <HiOutlineArrowTrendingDown style={{ fontSize: '16px', color: '#ef4444' }} />
-                          )}
-                          <span className={`badge ${
-                            payment.type === 'Money In' ? 'bg-success' : 'bg-danger'
-                          }`} style={{ fontSize: '12px', padding: '4px 8px' }}>
-                            {payment.type}
-                          </span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '16px 32px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <HiOutlineUser style={{ fontSize: '16px', color: '#64748b' }} />
                           <span style={{ 
                             fontSize: '14px', 
@@ -674,13 +831,7 @@ const Payments = () => {
                           </span>
                         </div>
                       </td>
-                      <td style={{ padding: '16px 32px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <HiOutlineIdentification style={{ fontSize: '16px', color: '#64748b' }} />
-                          <code style={{ fontSize: '13px', color: '#475569' }}>{payment.fromToId}</code>
-                        </div>
-                      </td>
-                      <td style={{ padding: '16px 32px' }}>
+                      <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                         {payment.type === 'Money In' ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <HiOutlineBookOpen style={{ fontSize: '16px', color: '#64748b' }} />
@@ -689,26 +840,31 @@ const Payments = () => {
                             </span>
                           </div>
                         ) : (
-                          <div style={{ fontSize: '14px', color: '#475569' }}>
-                            {payment.teacherSubject}
-                            {payment.description && (
-                              <div className="text-muted small" style={{ fontSize: '12px', marginTop: '4px' }}>
-                                {payment.description}
-                              </div>
-                            )}
+                          <div style={{ fontSize: '14px', color: '#475569', textAlign: 'left' }}>
+                            {payment.teacherSubject || '-'}
                           </div>
                         )}
                       </td>
-                      <td style={{ padding: '16px 32px' }}>
-                        {payment.type === 'Money In' && payment.monthKey ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <HiOutlineCalendar style={{ fontSize: '16px', color: '#64748b' }} />
-                            <span style={{ fontSize: '14px', color: '#475569' }}>
-                              {formatMonthKey(payment.monthKey)}
-                            </span>
-                          </div>
+                      <td style={{ padding: '16px 32px', textAlign: 'left' }}>
+                        {payment.type === 'Money Out' ? (
+                          payment.description ? (
+                            <div style={{ fontSize: '14px', color: '#475569', textAlign: 'left' }}>
+                              {payment.description}
+                            </div>
+                          ) : (
+                            <span className="text-muted" style={{ fontSize: '14px' }}>-</span>
+                          )
                         ) : (
-                          <span className="text-muted" style={{ fontSize: '14px' }}>-</span>
+                          payment.monthKey ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left' }}>
+                              <HiOutlineCalendar style={{ fontSize: '16px', color: '#64748b' }} />
+                              <span style={{ fontSize: '14px', color: '#475569' }}>
+                                {formatMonthKey(payment.monthKey)}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-muted" style={{ fontSize: '14px' }}>-</span>
+                          )
                         )}
                       </td>
                       <td style={{ padding: '16px 32px' }}>
@@ -725,25 +881,6 @@ const Payments = () => {
                             {payment.type === 'Money In' ? '+' : '-'}Rs. {payment.amount.toFixed(2)}
                           </span>
                         </div>
-                      </td>
-                      <td style={{ padding: '16px 32px' }}>
-                        {payment.type === 'Money In' ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            {payment.status === 'Paid' ? (
-                              <HiOutlineCheckCircle style={{ fontSize: '16px', color: '#10b981' }} />
-                            ) : (
-                              <HiOutlineXCircle style={{ fontSize: '16px', color: '#f59e0b' }} />
-                            )}
-                            <span className={`badge ${payment.status === 'Paid' ? 'bg-success' : 'bg-warning'}`} style={{ fontSize: '12px', padding: '4px 8px' }}>
-                              {payment.status}
-                            </span>
-                          </div>
-                        ) : (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <HiOutlineCheckCircle style={{ fontSize: '16px', color: '#3b82f6' }} />
-                            <span className="badge bg-info" style={{ fontSize: '12px', padding: '4px 8px' }}>Paid</span>
-                          </div>
-                        )}
                       </td>
                       <td style={{ padding: '16px 32px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -849,76 +986,148 @@ const Payments = () => {
         </div>
       </div>
 
-      {/* Total Values Card */}
-      <Card className="mb-4">
-        <Card.Header>
-          <h5 className="mb-0">Payment Summary</h5>
-        </Card.Header>
-        <Card.Body>
-          <Row>
-            <Col md={4}>
-              <Card className="border-success">
-                <Card.Body className="text-center">
-                  <h6 className="text-muted mb-2">Total Money In</h6>
-                  <h3 className="text-success mb-0">
-                    Rs. {getAllPaymentsCombined()
-                      .filter(p => p.type === 'Money In')
-                      .reduce((sum, p) => sum + p.amount, 0)
-                      .toFixed(2)}
-                  </h3>
-                  <small className="text-muted">
+      {/* Payment Summary Section */}
+      <div className="mb-4">
+        <div style={{ marginBottom: '24px' }}>
+          <h3 className="dashboard-title" style={{ marginBottom: '8px' }}>Payment Summary</h3>
+          <p className="dashboard-subtitle">Overview of all financial transactions</p>
+        </div>
+        <Row className="g-3">
+          <Col md={4}>
+            <Card className="dashboard-stat-card" style={{
+              borderTop: '4px solid #10b981'
+            }}>
+              <Card.Body>
+                <div className="stat-icon" style={{
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  color: '#10b981'
+                }}>
+                  <HiOutlineArrowTrendingUp style={{ fontSize: '24px' }} />
+                </div>
+                <div className="stat-number" style={{ color: '#10b981' }}>
+                  Rs. {getAllPaymentsCombined()
+                    .filter(p => p.type === 'Money In')
+                    .reduce((sum, p) => sum + p.amount, 0)
+                    .toFixed(2)}
+                </div>
+                <p className="stat-label">Total Money In</p>
+                <div style={{
+                  marginTop: '8px',
+                  fontSize: '13px',
+                  color: '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <HiOutlineCheckCircle style={{ fontSize: '14px' }} />
+                  <span>
                     {getAllPaymentsCombined().filter(p => p.type === 'Money In').length} payment{getAllPaymentsCombined().filter(p => p.type === 'Money In').length !== 1 ? 's' : ''}
-                  </small>
-                </Card.Body>
-              </Card>
-            </Col>
-            <Col md={4}>
-              <Card className="border-danger">
-                <Card.Body className="text-center">
-                  <h6 className="text-muted mb-2">Total Money Out</h6>
-                  <h3 className="text-danger mb-0">
-                    Rs. {getAllPaymentsCombined()
-                      .filter(p => p.type === 'Money Out')
-                      .reduce((sum, p) => sum + p.amount, 0)
-                      .toFixed(2)}
-                  </h3>
-                  <small className="text-muted">
+                  </span>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col md={4}>
+            <Card className="dashboard-stat-card" style={{
+              borderTop: '4px solid #ef4444'
+            }}>
+              <Card.Body>
+                <div className="stat-icon" style={{
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  color: '#ef4444'
+                }}>
+                  <HiOutlineArrowTrendingDown style={{ fontSize: '24px' }} />
+                </div>
+                <div className="stat-number" style={{ color: '#ef4444' }}>
+                  Rs. {getAllPaymentsCombined()
+                    .filter(p => p.type === 'Money Out')
+                    .reduce((sum, p) => sum + p.amount, 0)
+                    .toFixed(2)}
+                </div>
+                <p className="stat-label">Total Money Out</p>
+                <div style={{
+                  marginTop: '8px',
+                  fontSize: '13px',
+                  color: '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <HiOutlineXCircle style={{ fontSize: '14px' }} />
+                  <span>
                     {getAllPaymentsCombined().filter(p => p.type === 'Money Out').length} payment{getAllPaymentsCombined().filter(p => p.type === 'Money Out').length !== 1 ? 's' : ''}
-                  </small>
-                </Card.Body>
-              </Card>
-            </Col>
-            <Col md={4}>
-              <Card className="border-primary">
-                <Card.Body className="text-center">
-                  <h6 className="text-muted mb-2">Net Total</h6>
-                  <h3 className={`mb-0 ${
-                    (getAllPaymentsCombined()
-                      .filter(p => p.type === 'Money In')
-                      .reduce((sum, p) => sum + p.amount, 0) -
-                    getAllPaymentsCombined()
-                      .filter(p => p.type === 'Money Out')
-                      .reduce((sum, p) => sum + p.amount, 0)) >= 0 
-                      ? 'text-success' 
-                      : 'text-danger'
-                  }`}>
-                    Rs. {(getAllPaymentsCombined()
-                      .filter(p => p.type === 'Money In')
-                      .reduce((sum, p) => sum + p.amount, 0) -
-                    getAllPaymentsCombined()
-                      .filter(p => p.type === 'Money Out')
-                      .reduce((sum, p) => sum + p.amount, 0))
-                      .toFixed(2)}
-                  </h3>
-                  <small className="text-muted">
+                  </span>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+          <Col md={4}>
+            <Card className="dashboard-stat-card" style={{
+              borderTop: `4px solid ${(getAllPaymentsCombined()
+                .filter(p => p.type === 'Money In')
+                .reduce((sum, p) => sum + p.amount, 0) -
+              getAllPaymentsCombined()
+                .filter(p => p.type === 'Money Out')
+                .reduce((sum, p) => sum + p.amount, 0)) >= 0 ? '#10b981' : '#ef4444'}`
+            }}>
+              <Card.Body>
+                <div className="stat-icon" style={{
+                  background: (getAllPaymentsCombined()
+                    .filter(p => p.type === 'Money In')
+                    .reduce((sum, p) => sum + p.amount, 0) -
+                  getAllPaymentsCombined()
+                    .filter(p => p.type === 'Money Out')
+                    .reduce((sum, p) => sum + p.amount, 0)) >= 0 
+                    ? 'rgba(16, 185, 129, 0.1)' 
+                    : 'rgba(239, 68, 68, 0.1)',
+                  color: (getAllPaymentsCombined()
+                    .filter(p => p.type === 'Money In')
+                    .reduce((sum, p) => sum + p.amount, 0) -
+                  getAllPaymentsCombined()
+                    .filter(p => p.type === 'Money Out')
+                    .reduce((sum, p) => sum + p.amount, 0)) >= 0 
+                    ? '#10b981' 
+                    : '#ef4444'
+                }}>
+                  <HiOutlineCurrencyDollar style={{ fontSize: '24px' }} />
+                </div>
+                <div className="stat-number" style={{
+                  color: (getAllPaymentsCombined()
+                    .filter(p => p.type === 'Money In')
+                    .reduce((sum, p) => sum + p.amount, 0) -
+                  getAllPaymentsCombined()
+                    .filter(p => p.type === 'Money Out')
+                    .reduce((sum, p) => sum + p.amount, 0)) >= 0 
+                    ? '#10b981' 
+                    : '#ef4444'
+                }}>
+                  Rs. {(getAllPaymentsCombined()
+                    .filter(p => p.type === 'Money In')
+                    .reduce((sum, p) => sum + p.amount, 0) -
+                  getAllPaymentsCombined()
+                    .filter(p => p.type === 'Money Out')
+                    .reduce((sum, p) => sum + p.amount, 0))
+                    .toFixed(2)}
+                </div>
+                <p className="stat-label">Net Total</p>
+                <div style={{
+                  marginTop: '8px',
+                  fontSize: '13px',
+                  color: '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <HiOutlineBanknotes style={{ fontSize: '14px' }} />
+                  <span>
                     {getAllPaymentsCombined().length} total transaction{getAllPaymentsCombined().length !== 1 ? 's' : ''}
-                  </small>
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
-        </Card.Body>
-      </Card>
+                  </span>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      </div>
 
       {/* Student Payment Details Modal */}
       <Modal show={showPaymentDetailsModal} onHide={() => setShowPaymentDetailsModal(false)} centered size="lg" backdrop="static">
