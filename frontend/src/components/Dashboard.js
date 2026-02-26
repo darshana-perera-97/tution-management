@@ -386,7 +386,7 @@ const Dashboard = () => {
                           <HiOutlineCurrencyDollar />
                         </div>
                         <h3 className="stat-number">
-                          {loading ? '...' : `Rs. ${stats.totalRevenue.toFixed(2)}`}
+                          {loading ? '...' : `Rs ${stats.totalRevenue.toFixed(2)}`}
                         </h3>
                         <p className="stat-label">Total Revenue</p>
                       </Card.Body>
@@ -399,7 +399,7 @@ const Dashboard = () => {
                           <HiOutlineCurrencyDollar />
                         </div>
                         <h3 className="stat-number">
-                          {loading ? '...' : `Rs. ${stats.totalIncome.toFixed(2)}`}
+                          {loading ? '...' : `Rs ${stats.totalIncome.toFixed(2)}`}
                         </h3>
                         <p className="stat-label">Total Income</p>
                       </Card.Body>
@@ -412,7 +412,7 @@ const Dashboard = () => {
                           <HiOutlineCurrencyDollar />
                         </div>
                         <h3 className="stat-number">
-                          {loading ? '...' : `Rs. ${stats.instituteIncome.toFixed(2)}`}
+                          {loading ? '...' : `Rs ${stats.instituteIncome.toFixed(2)}`}
                         </h3>
                         <p className="stat-label">Institute Income</p>
                       </Card.Body>
@@ -425,7 +425,7 @@ const Dashboard = () => {
                           <HiOutlineCurrencyDollar />
                         </div>
                         <h3 className="stat-number">
-                          {loading ? '...' : `Rs. ${stats.remainingTeacherPayments.toFixed(2)}`}
+                          {loading ? '...' : `Rs ${stats.remainingTeacherPayments.toFixed(2)}`}
                         </h3>
                         <p className="stat-label">Remaining Amount to be Paid for Teachers</p>
                       </Card.Body>

@@ -34,7 +34,7 @@ const Attendance = ({ hideMarkButton = false }) => {
   const [showStudentDetails, setShowStudentDetails] = useState(false);
   const [selectedAttendanceRecord, setSelectedAttendanceRecord] = useState(null);
   const [showAttendanceDetailsModal, setShowAttendanceDetailsModal] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [warnings, setWarnings] = useState([]);
@@ -185,10 +185,8 @@ const Attendance = ({ hideMarkButton = false }) => {
     fetchPayments();
     fetchAttendance();
     
-    // Set default month to current month
-    const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    setSelectedMonth(currentMonth);
+    // Don't set default month - let user see all records initially
+    // Only filter by month when a course is selected
     
     // Live syncing with minimum delay (5 seconds)
     const SYNC_INTERVAL = 5000; // 5 seconds minimum delay
@@ -234,6 +232,129 @@ const Attendance = ({ hideMarkButton = false }) => {
       setSelectedAttendanceRecord(null);
     };
   }, [popupsEnabled, processNextQueueItem]);
+
+  // Helper function to check if attendance can be marked based on schedule or extra class
+  const canMarkAttendanceBySchedule = useCallback(async (course) => {
+    const now = new Date();
+    const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+    
+    // Convert current time to minutes for comparison
+    const [currentHours, currentMinutes] = currentTime.split(':').map(Number);
+    const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+
+    // First, check if there's an extra class for today
+    try {
+      const extraClassesResponse = await fetch(`${API_URL}/api/extra-classes?courseId=${course.id}&date=${currentDate}`);
+      const extraClassesData = await extraClassesResponse.json();
+      
+      if (extraClassesData.success && extraClassesData.extraClasses && extraClassesData.extraClasses.length > 0) {
+        const todayExtraClass = extraClassesData.extraClasses[0]; // Get first extra class for today
+        if (todayExtraClass && todayExtraClass.time) {
+          const [extraClassHours, extraClassMinutes] = todayExtraClass.time.split(':').map(Number);
+          const extraClassTimeInMinutes = extraClassHours * 60 + extraClassMinutes;
+          
+          // Calculate time difference
+          let timeDiff = currentTimeInMinutes - extraClassTimeInMinutes;
+          
+          // Check if within 30 minutes window (before or after)
+          if (Math.abs(timeDiff) <= 30) {
+            return { allowed: true, message: null, isExtraClass: true };
+          } else {
+            const windowStart = new Date(now);
+            windowStart.setHours(extraClassHours, extraClassMinutes - 30, 0, 0);
+            const windowEnd = new Date(now);
+            windowEnd.setHours(extraClassHours, extraClassMinutes + 30, 0, 0);
+            
+            const windowStartStr = windowStart.toTimeString().slice(0, 5);
+            const windowEndStr = windowEnd.toTimeString().slice(0, 5);
+            
+            return { 
+              allowed: false, 
+              message: `Attendance can only be marked 30 minutes before or after the extra class time. Extra class is at ${todayExtraClass.time}. Marking window: ${windowStartStr} - ${windowEndStr}. Current time: ${currentTime}.`,
+              isExtraClass: true
+            };
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error checking extra classes:', err);
+      // Continue to check regular schedule if extra class check fails
+    }
+
+    // If course has no schedule, allow marking (backward compatibility)
+    if (!course || !course.schedule || !Array.isArray(course.schedule) || course.schedule.length === 0) {
+      return { allowed: true, message: null, isExtraClass: false };
+    }
+
+    const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' });
+
+    // Check if current day matches any schedule day
+    const todaySchedule = course.schedule.filter(s => s.day === currentDay);
+    
+    if (todaySchedule.length === 0) {
+      const scheduleDays = course.schedule.map(s => s.day).join(', ');
+      return { 
+        allowed: false, 
+        message: `Attendance can only be marked on scheduled days: ${scheduleDays}. Today is ${currentDay}.` 
+      };
+    }
+
+    // Check if current time is within 30 minutes before or after any scheduled start time
+    let isWithinTimeWindow = false;
+    let closestSchedule = null;
+    let minTimeDiff = Infinity;
+
+    for (const schedule of todaySchedule) {
+      if (!schedule.startTime) continue;
+      
+      const [scheduleHours, scheduleMinutes] = schedule.startTime.split(':').map(Number);
+      const scheduleTimeInMinutes = scheduleHours * 60 + scheduleMinutes;
+      
+      // Calculate time difference (handle day wrap-around)
+      let timeDiff = currentTimeInMinutes - scheduleTimeInMinutes;
+      
+      // Handle cases where current time might be after midnight but schedule is before
+      if (timeDiff < -720) { // More than 12 hours difference, likely next day
+        timeDiff += 1440; // Add 24 hours
+      } else if (timeDiff > 720) { // More than 12 hours difference, likely previous day
+        timeDiff -= 1440; // Subtract 24 hours
+      }
+      
+      // Check if within 30 minutes window (before or after)
+      if (Math.abs(timeDiff) <= 30) {
+        isWithinTimeWindow = true;
+        closestSchedule = schedule;
+        break;
+      }
+      
+      // Track closest schedule for error message
+      const absDiff = Math.abs(timeDiff);
+      if (absDiff < minTimeDiff) {
+        minTimeDiff = absDiff;
+        closestSchedule = schedule;
+      }
+    }
+
+    if (!isWithinTimeWindow && closestSchedule) {
+      const [scheduleHours, scheduleMinutes] = closestSchedule.startTime.split(':').map(Number);
+      const scheduleTime = `${String(scheduleHours).padStart(2, '0')}:${String(scheduleMinutes).padStart(2, '0')}`;
+      const windowStart = new Date(now);
+      windowStart.setHours(scheduleHours, scheduleMinutes - 30, 0, 0);
+      const windowEnd = new Date(now);
+      windowEnd.setHours(scheduleHours, scheduleMinutes + 30, 0, 0);
+      
+      const windowStartStr = windowStart.toTimeString().slice(0, 5);
+      const windowEndStr = windowEnd.toTimeString().slice(0, 5);
+      
+      return { 
+        allowed: false, 
+        message: `Attendance can only be marked 30 minutes before or after the scheduled time. Today's schedule is at ${scheduleTime}. Marking window: ${windowStartStr} - ${windowEndStr}. Current time: ${currentTime}.` 
+      };
+    }
+
+    return { allowed: true, message: null };
+  }, []);
 
   const checkStudentCourseStatus = useCallback((studentId, courseId) => {
     const student = students.find(s => s.id === studentId);
@@ -311,6 +432,16 @@ const Attendance = ({ hideMarkButton = false }) => {
     // Check student and course status
     const status = checkStudentCourseStatus(studentId.trim(), selectedCourse);
     
+    // Check if attendance can be marked based on schedule or extra class
+    if (status.course) {
+      const scheduleCheck = await canMarkAttendanceBySchedule(status.course);
+      if (!scheduleCheck.allowed) {
+        setError(scheduleCheck.message);
+        isProcessingRef.current = false;
+        return;
+      }
+    }
+    
     startTransition(() => {
       if (status.student) {
         setSelectedStudent(status.student);
@@ -376,7 +507,7 @@ const Attendance = ({ hideMarkButton = false }) => {
     } finally {
       setLoading(false);
     }
-  }, [selectedCourse, checkStudentCourseStatus]);
+  }, [selectedCourse, checkStudentCourseStatus, canMarkAttendanceBySchedule]);
 
   // Handle QR Scanner lifecycle
   useEffect(() => {
@@ -509,13 +640,25 @@ const Attendance = ({ hideMarkButton = false }) => {
 
   const fetchAttendance = async () => {
     try {
+      setLoading(true);
       const response = await fetch(`${API_URL}/api/attendance`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       if (data.success) {
-        setAttendance(data.attendance);
+        setAttendance(data.attendance || []);
+        setError(''); // Clear any previous errors
+      } else {
+        setError(data.message || 'Failed to fetch attendance data');
+        setAttendance([]);
       }
     } catch (err) {
       console.error('Error fetching attendance:', err);
+      setError('Unable to fetch attendance data. Please check your connection and try again.');
+      setAttendance([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -585,15 +728,15 @@ const Attendance = ({ hideMarkButton = false }) => {
     // Filter by course if selected
     if (selectedCourseFilter) {
       filtered = filtered.filter(record => record.courseId === selectedCourseFilter);
-    }
-    
-    // Filter by month if selected
-    if (selectedMonth) {
-      filtered = filtered.filter(record => {
-        const recordDate = new Date(record.date || record.createdAt);
-        const recordMonth = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}`;
-        return recordMonth === selectedMonth;
-      });
+      
+      // Filter by month only if a course is selected
+      if (selectedMonth) {
+        filtered = filtered.filter(record => {
+          const recordDate = new Date(record.date || record.createdAt);
+          const recordMonth = `${recordDate.getFullYear()}-${String(recordDate.getMonth() + 1).padStart(2, '0')}`;
+          return recordMonth === selectedMonth;
+        });
+      }
     }
     
     return filtered
@@ -889,10 +1032,10 @@ const Attendance = ({ hideMarkButton = false }) => {
                 value={selectedCourseFilter}
                 onChange={(e) => {
                   setSelectedCourseFilter(e.target.value);
-                  // Reset to current month when course changes
-                  const now = new Date();
-                  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-                  setSelectedMonth(currentMonth);
+                  // Clear month filter when course is cleared
+                  if (!e.target.value) {
+                    setSelectedMonth('');
+                  }
                 }}
                 className="form-control-custom"
               >
@@ -955,13 +1098,28 @@ const Attendance = ({ hideMarkButton = false }) => {
                 </tr>
               </thead>
               <tbody>
-                {paginatedAttendance.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan="6" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                        <div className="spinner-border text-primary" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
+                        <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px' }}>
+                          Loading attendance records...
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : paginatedAttendance.length === 0 ? (
                   <tr>
                     <td colSpan="6" style={{ padding: '60px 20px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                         <HiOutlineUsers style={{ fontSize: '48px', color: '#94a3b8', opacity: 0.5 }} />
                         <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px' }}>
-                          No attendance records found.
+                          {attendance.length === 0 
+                            ? 'No attendance records found. Mark attendance to see records here.'
+                            : 'No attendance records match the selected filters.'}
                         </p>
                       </div>
                     </td>
@@ -1033,9 +1191,20 @@ const Attendance = ({ hideMarkButton = false }) => {
 
           {/* Mobile Card View */}
           <div className="d-lg-none">
-            {paginatedAttendance.length === 0 ? (
+            {loading ? (
+              <div className="text-center py-5">
+                <div className="spinner-border text-primary" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+                <p className="mt-3 text-muted">Loading attendance records...</p>
+              </div>
+            ) : paginatedAttendance.length === 0 ? (
               <div className="text-center text-muted py-5">
-                <p>No attendance records found.</p>
+                <p>
+                  {attendance.length === 0 
+                    ? 'No attendance records found. Mark attendance to see records here.'
+                    : 'No attendance records match the selected filters.'}
+                </p>
               </div>
             ) : (
               <div className="student-cards-container">

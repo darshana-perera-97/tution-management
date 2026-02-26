@@ -103,7 +103,13 @@ const Students = () => {
       const response = await fetch(`${API_URL}/api/students`);
       const data = await response.json();
       if (data.success) {
-        setStudents(data.students);
+        // Sort students by createdAt in descending order (newest first)
+        const sortedStudents = [...data.students].sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA; // Descending order (newest first)
+        });
+        setStudents(sortedStudents);
       }
     } catch (err) {
       console.error('Error fetching students:', err);
@@ -1125,7 +1131,7 @@ const Students = () => {
                             <div>
                               <strong style={{ color: '#0f172a', fontSize: '14px' }}>{course.courseName}</strong>
                               <span style={{ color: '#64748b', fontSize: '13px', marginLeft: '8px' }}>
-                                ({course.subject}) - Rs. {parseFloat(course.courseFee || 0).toFixed(2)}
+                                ({course.subject}) - Rs {parseFloat(course.courseFee || 0).toFixed(2)}
                               </span>
                             </div>
                           </label>
@@ -1453,7 +1459,7 @@ const Students = () => {
                                     fontWeight: '600', 
                                     color: '#3b82f6' 
                                   }}>
-                                    Rs. {parseFloat(course.courseFee).toFixed(2)}
+                                    Rs {parseFloat(course.courseFee).toFixed(2)}
                                   </span>
                                 ) : '-'}
                               </td>
@@ -1492,7 +1498,7 @@ const Students = () => {
                           fontWeight: '700',
                           color: '#0f172a'
                         }}>
-                    Rs. {getStudentCourses(selectedStudent.id).reduce((sum, course) => 
+                    Rs {getStudentCourses(selectedStudent.id).reduce((sum, course) => 
                       sum + (parseFloat(course.courseFee) || 0), 0
                     ).toFixed(2)}
                   </div>
@@ -1601,7 +1607,7 @@ const Students = () => {
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                         <strong>{course.courseName}</strong>
                                         <span style={{ color: '#64748b' }}>({course.subject})</span>
-                                        <span style={{ fontWeight: '600', color: '#3b82f6' }}>Rs. {course.fee.toFixed(2)}</span>
+                                        <span style={{ fontWeight: '600', color: '#3b82f6' }}>Rs {course.fee.toFixed(2)}</span>
                                   {course.isPaid && (
                                           <span style={{
                                             padding: '2px 8px',
@@ -1629,16 +1635,16 @@ const Students = () => {
                             </div>
                           </td>
                               <td>
-                                <strong style={{ color: '#0f172a' }}>Rs. {payment.totalFee.toFixed(2)}</strong>
+                                <strong style={{ color: '#0f172a' }}>Rs {payment.totalFee.toFixed(2)}</strong>
                               </td>
-                          <td>
+                              <td>
                                 <span style={{ fontWeight: '600', color: '#059669' }}>
-                                  Rs. {payment.paidAmount.toFixed(2)}
+                                  Rs {payment.paidAmount.toFixed(2)}
                             </span>
                           </td>
-                          <td>
+                              <td>
                                 <span style={{ fontWeight: '600', color: '#dc2626' }}>
-                                  Rs. {payment.pendingAmount.toFixed(2)}
+                                  Rs {payment.pendingAmount.toFixed(2)}
                             </span>
                           </td>
                           <td>
@@ -1692,7 +1698,7 @@ const Students = () => {
                           fontWeight: '700',
                           color: '#0f172a'
                         }}>
-                        Rs. {calculateMonthlyPayments(selectedStudent).reduce((sum, payment) => 
+                        Rs {calculateMonthlyPayments(selectedStudent).reduce((sum, payment) => 
                           sum + payment.totalFee, 0
                         ).toFixed(2)}
                         </div>
@@ -1713,7 +1719,7 @@ const Students = () => {
                           fontWeight: '700',
                           color: '#059669'
                         }}>
-                          Rs. {calculateMonthlyPayments(selectedStudent)
+                          Rs {calculateMonthlyPayments(selectedStudent)
                             .reduce((sum, payment) => sum + payment.paidAmount, 0)
                             .toFixed(2)}
                         </div>
@@ -1734,7 +1740,7 @@ const Students = () => {
                           fontWeight: '700',
                           color: '#dc2626'
                         }}>
-                          Rs. {calculateMonthlyPayments(selectedStudent)
+                          Rs {calculateMonthlyPayments(selectedStudent)
                             .reduce((sum, payment) => sum + payment.pendingAmount, 0)
                             .toFixed(2)}
                       </div>

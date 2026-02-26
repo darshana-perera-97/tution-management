@@ -19,7 +19,8 @@ import {
   HiOutlineIdentification,
   HiOutlinePaperAirplane,
   HiOutlineDocumentText,
-  HiOutlineUsers
+  HiOutlineUsers,
+  HiOutlineSparkles
 } from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
@@ -48,6 +49,11 @@ const Courses = () => {
   const [showBulkMessageModal, setShowBulkMessageModal] = useState(false);
   const [bulkMessage, setBulkMessage] = useState('');
   const [bulkMessageLoading, setBulkMessageLoading] = useState(false);
+  const [showExtraClassModal, setShowExtraClassModal] = useState(false);
+  const [extraClassData, setExtraClassData] = useState({ date: '', time: '' });
+  const [extraClassLoading, setExtraClassLoading] = useState(false);
+  const [extraClasses, setExtraClasses] = useState([]);
+  const [loadingExtraClasses, setLoadingExtraClasses] = useState(false);
 
   // Safe function to stop scanner
   const safeStopScanner = async (scanner) => {
@@ -110,7 +116,8 @@ const Courses = () => {
     grade: '',
     subject: '',
     courseFee: '',
-    teacherPaymentPercentage: ''
+    teacherPaymentPercentage: '',
+    schedule: [] // Array of { day: '', startTime: '', endTime: '' }
   });
 
   useEffect(() => {
@@ -322,6 +329,35 @@ const Courses = () => {
     setSuccess('');
   };
 
+  const handleScheduleChange = (index, field, value) => {
+    setFormData(prev => {
+      const currentSchedule = prev.schedule || [];
+      const newSchedule = [...currentSchedule];
+      if (!newSchedule[index]) {
+        newSchedule[index] = { day: '', startTime: '', endTime: '' };
+      }
+      newSchedule[index][field] = value;
+      return {
+        ...prev,
+        schedule: newSchedule
+      };
+    });
+  };
+
+  const addScheduleRow = () => {
+    setFormData(prev => ({
+      ...prev,
+      schedule: [...(prev.schedule || []), { day: '', startTime: '', endTime: '' }]
+    }));
+  };
+
+  const removeScheduleRow = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      schedule: (prev.schedule || []).filter((_, i) => i !== index)
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -341,7 +377,7 @@ const Courses = () => {
 
       if (data.success) {
         setSuccess('Course created successfully!');
-        setFormData({ courseName: '', teacherId: '', grade: '', subject: '', courseFee: '', teacherPaymentPercentage: '' });
+        setFormData({ courseName: '', teacherId: '', grade: '', subject: '', courseFee: '', teacherPaymentPercentage: '', schedule: [] });
         setShowModal(false);
         fetchCourses();
         setTimeout(() => setSuccess(''), 3000);
@@ -381,7 +417,7 @@ const Courses = () => {
 
   const handleClose = () => {
     setShowModal(false);
-    setFormData({ courseName: '', teacherId: '', grade: '', subject: '', courseFee: '', teacherPaymentPercentage: '' });
+    setFormData({ courseName: '', teacherId: '', grade: '', subject: '', courseFee: '', teacherPaymentPercentage: '', schedule: [] });
     setError('');
     setSuccess('');
   };
@@ -432,6 +468,104 @@ const Courses = () => {
     setBulkMessage('');
     setError('');
     setSuccess('');
+  };
+
+  const handleAddExtraClass = async (course) => {
+    setSelectedCourse(course);
+    setExtraClassData({ date: '', time: '' });
+    setShowExtraClassModal(true);
+    setError('');
+    setSuccess('');
+    setExtraClasses([]);
+    
+    // Fetch existing extra classes for this course
+    try {
+      setLoadingExtraClasses(true);
+      const response = await fetch(`${API_URL}/api/extra-classes?courseId=${course.id}`);
+      const data = await response.json();
+      if (data.success) {
+        // Sort by date (newest first)
+        const sorted = (data.extraClasses || []).sort((a, b) => {
+          const dateA = new Date(a.date + 'T' + (a.time || '00:00'));
+          const dateB = new Date(b.date + 'T' + (b.time || '00:00'));
+          return dateB - dateA;
+        });
+        setExtraClasses(sorted);
+      }
+    } catch (err) {
+      console.error('Error fetching extra classes:', err);
+    } finally {
+      setLoadingExtraClasses(false);
+    }
+  };
+
+  const handleCloseExtraClassModal = () => {
+    setShowExtraClassModal(false);
+    setSelectedCourse(null);
+    setExtraClassData({ date: '', time: '' });
+    setError('');
+    setSuccess('');
+  };
+
+  const handleExtraClassChange = (e) => {
+    setExtraClassData({
+      ...extraClassData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSubmitExtraClass = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!extraClassData.date || !extraClassData.time) {
+      setError('Please fill in both date and time');
+      return;
+    }
+
+    setExtraClassLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/courses/${selectedCourse.id}/extra-class`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          date: extraClassData.date,
+          time: extraClassData.time
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess('Extra class added successfully! WhatsApp notifications sent to all enrolled students.');
+        setExtraClassData({ date: '', time: '' });
+        // Refresh extra classes list
+        const refreshResponse = await fetch(`${API_URL}/api/extra-classes?courseId=${selectedCourse.id}`);
+        const refreshData = await refreshResponse.json();
+        if (refreshData.success) {
+          const sorted = (refreshData.extraClasses || []).sort((a, b) => {
+            const dateA = new Date(a.date + 'T' + (a.time || '00:00'));
+            const dateB = new Date(b.date + 'T' + (b.time || '00:00'));
+            return dateB - dateA;
+          });
+          setExtraClasses(sorted);
+        }
+        setTimeout(() => {
+          setSuccess('');
+        }, 3000);
+      } else {
+        setError(data.message || 'Failed to add extra class');
+      }
+    } catch (err) {
+      console.error('Error adding extra class:', err);
+      setError('Unable to connect to server. Please try again later.');
+    } finally {
+      setExtraClassLoading(false);
+    }
   };
 
   const handleSendBulkMessage = async (e) => {
@@ -707,7 +841,7 @@ const Courses = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <HiOutlineCurrencyDollar style={{ fontSize: '16px', color: '#64748b' }} />
                         <span style={{ fontSize: '14px', color: '#475569' }}>
-                          {course.courseFee ? `Rs. ${parseFloat(course.courseFee).toFixed(2)}` : '-'}
+                          {course.courseFee ? `Rs ${parseFloat(course.courseFee).toFixed(2)}` : '-'}
                         </span>
                       </div>
                     </td>
@@ -751,6 +885,21 @@ const Courses = () => {
                               className="action-btn-icon"
                             >
                               <HiOutlineChatBubbleLeftRight />
+                            </Button>
+                          </OverlayTrigger>
+                        )}
+                        {isAdminOrOperator && (
+                          <OverlayTrigger
+                            placement="top"
+                            overlay={<Tooltip>Add Extra Class</Tooltip>}
+                          >
+                            <Button
+                              variant="warning"
+                              size="sm"
+                              onClick={() => handleAddExtraClass(course)}
+                              className="action-btn-icon"
+                            >
+                              <HiOutlineSparkles />
                             </Button>
                           </OverlayTrigger>
                         )}
@@ -830,6 +979,21 @@ const Courses = () => {
                               className="action-btn-icon"
                           >
                               <HiOutlineChatBubbleLeftRight />
+                          </Button>
+                          </OverlayTrigger>
+                        )}
+                        {isAdminOrOperator && (
+                          <OverlayTrigger
+                            placement="top"
+                            overlay={<Tooltip>Add Extra Class</Tooltip>}
+                          >
+                          <Button
+                            variant="warning"
+                            size="sm"
+                            onClick={() => handleAddExtraClass(course)}
+                              className="action-btn-icon"
+                          >
+                              <HiOutlineSparkles />
                           </Button>
                           </OverlayTrigger>
                         )}
@@ -1037,6 +1201,109 @@ const Courses = () => {
                 </div>
               </div>
 
+              {/* Schedule Section */}
+              <div style={{ gridColumn: '1 / -1', marginTop: '16px', paddingTop: '24px', borderTop: '1px solid #e2e8f0', paddingLeft: '24px', paddingRight: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <h4 style={{ fontSize: '16px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+                    Course Schedule
+                  </h4>
+                  <Button
+                    type="button"
+                    variant="outline-primary"
+                    size="sm"
+                    onClick={addScheduleRow}
+                    style={{ fontSize: '12px', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <HiOutlinePlus style={{ fontSize: '14px' }} />
+                    Add Another Day
+                  </Button>
+                </div>
+                
+                {!formData.schedule || formData.schedule.length === 0 ? (
+                  <div style={{ 
+                    padding: '24px', 
+                    textAlign: 'center', 
+                    border: '1px dashed #cbd5e1',
+                    borderRadius: '8px',
+                    color: '#64748b',
+                    fontSize: '13px',
+                    background: '#f8fafc'
+                  }}>
+                    No schedule added. Click "Add Another Day" to add a schedule entry.
+                  </div>
+                ) : (
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+                    <Table style={{ margin: 0 }}>
+                      <thead style={{ background: '#f8fafc' }}>
+                        <tr>
+                          <th style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Day</th>
+                          <th style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Start Time</th>
+                          <th style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>End Time</th>
+                          <th style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0', width: '80px' }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(formData.schedule || []).map((row, index) => (
+                          <tr key={index} style={{ borderBottom: index < (formData.schedule || []).length - 1 ? '1px solid #e2e8f0' : 'none' }}>
+                            <td style={{ padding: '12px 16px' }}>
+                              <select
+                                value={row.day || ''}
+                                onChange={(e) => handleScheduleChange(index, 'day', e.target.value)}
+                                className="student-form-select"
+                                style={{ width: '100%', fontSize: '13px' }}
+                              >
+                                <option value="">Select Day</option>
+                                <option value="Sunday">Sunday</option>
+                                <option value="Monday">Monday</option>
+                                <option value="Tuesday">Tuesday</option>
+                                <option value="Wednesday">Wednesday</option>
+                                <option value="Thursday">Thursday</option>
+                                <option value="Friday">Friday</option>
+                                <option value="Saturday">Saturday</option>
+                              </select>
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <input
+                                type="time"
+                                value={row.startTime || ''}
+                                onChange={(e) => handleScheduleChange(index, 'startTime', e.target.value)}
+                                className="student-form-input"
+                                style={{ width: '100%', fontSize: '13px' }}
+                              />
+                            </td>
+                            <td style={{ padding: '12px 16px' }}>
+                              <input
+                                type="time"
+                                value={row.endTime || ''}
+                                onChange={(e) => handleScheduleChange(index, 'endTime', e.target.value)}
+                                className="student-form-input"
+                                style={{ width: '100%', fontSize: '13px' }}
+                              />
+                            </td>
+                            <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                              <Button
+                                type="button"
+                                variant="outline-danger"
+                                size="sm"
+                                onClick={() => removeScheduleRow(index)}
+                                style={{ 
+                                  padding: '4px 8px',
+                                  border: 'none',
+                                  background: 'transparent',
+                                  color: '#ef4444'
+                                }}
+                              >
+                                <HiOutlineXMark style={{ fontSize: '18px' }} />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+
               {error && (
                 <Alert variant="danger" style={{ 
                   marginTop: '24px',
@@ -1133,7 +1400,7 @@ const Courses = () => {
                       Course Fee
                     </label>
                     <div className="student-details-value">
-                  {selectedCourse.courseFee ? `Rs. ${parseFloat(selectedCourse.courseFee).toFixed(2)}` : '-'}
+                  {selectedCourse.courseFee ? `Rs ${parseFloat(selectedCourse.courseFee).toFixed(2)}` : '-'}
               </div>
                   </div>
 
@@ -1154,7 +1421,7 @@ const Courses = () => {
                     </label>
                     <div className="student-details-value">
                   {selectedCourse.courseFee && selectedCourse.teacherPaymentPercentage 
-                    ? `Rs. ${((parseFloat(selectedCourse.courseFee) * parseFloat(selectedCourse.teacherPaymentPercentage)) / 100).toFixed(2)}` 
+                    ? `Rs ${((parseFloat(selectedCourse.courseFee) * parseFloat(selectedCourse.teacherPaymentPercentage)) / 100).toFixed(2)}` 
                     : '-'}
               </div>
                   </div>
@@ -1168,9 +1435,59 @@ const Courses = () => {
                   {selectedCourse.createdAt 
                     ? new Date(selectedCourse.createdAt).toLocaleString() 
                     : '-'}
-                    </div>
+              </div>
                   </div>
                 </div>
+              </div>
+
+              {/* Schedule Information - Always Show */}
+              <div style={{ marginTop: '16px', paddingTop: '24px', paddingLeft: '24px', paddingRight: '24px', borderTop: '1px solid #e2e8f0' }}>
+                <h4 style={{ marginBottom: '20px', fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>
+                  <HiOutlineClock className="student-form-label-icon" style={{ marginRight: '8px' }} />
+                  Course Schedule (Conducting Time)
+                </h4>
+                
+                {selectedCourse.schedule && Array.isArray(selectedCourse.schedule) && selectedCourse.schedule.length > 0 ? (
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+                    <Table style={{ margin: 0 }}>
+                      <thead style={{ background: '#f8fafc' }}>
+                        <tr>
+                          <th style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Day</th>
+                          <th style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Start Time</th>
+                          <th style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>End Time</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedCourse.schedule.map((row, index) => (
+                          <tr key={index} style={{ borderBottom: index < selectedCourse.schedule.length - 1 ? '1px solid #e2e8f0' : 'none' }}>
+                            <td style={{ padding: '12px 16px', fontSize: '14px', color: '#0f172a', fontWeight: '600' }}>
+                              {row.day || '-'}
+                            </td>
+                            <td style={{ padding: '12px 16px', fontSize: '14px', color: '#475569' }}>
+                              {row.startTime || '-'}
+                            </td>
+                            <td style={{ padding: '12px 16px', fontSize: '14px', color: '#475569' }}>
+                              {row.endTime || '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div style={{ 
+                    padding: '24px', 
+                    textAlign: 'center', 
+                    border: '1px dashed #cbd5e1',
+                    borderRadius: '8px',
+                    color: '#64748b',
+                    fontSize: '14px',
+                    background: '#f8fafc'
+                  }}>
+                    <HiOutlineClock style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.5 }} />
+                    <p style={{ margin: 0 }}>No schedule set for this course.</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1611,6 +1928,201 @@ const Courses = () => {
                       <>
                         <HiOutlinePaperAirplane style={{ fontSize: '16px' }} />
                         Send Message
+                      </>
+                    )}
+                  </button>
+                </div>
+              </Form>
+            </div>
+          )}
+        </Modal.Body>
+      </Modal>
+
+      {/* Add Extra Class Modal - Benchmark Style */}
+      <Modal show={showExtraClassModal} onHide={handleCloseExtraClassModal} centered size="lg" backdrop="static">
+        <Modal.Header closeButton style={{ padding: 0, border: 'none' }}>
+          <div className="student-form-header" style={{ width: '100%' }}>
+            <h2>Add Extra Class</h2>
+            <p>{selectedCourse?.courseName} • {selectedCourse?.subject || 'N/A'} • {selectedCourse?.enrolledStudents?.length || 0} student(s)</p>
+          </div>
+        </Modal.Header>
+        <Modal.Body style={{ padding: 0 }}>
+          {selectedCourse && (
+            <div className="student-form-body">
+              {error && (
+                <Alert variant="danger" style={{ 
+                  margin: '24px 24px 0 24px',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  color: '#dc2626',
+                  border: 'none',
+                  borderRadius: '8px'
+                }} onClose={() => setError('')} dismissible>
+                  {error}
+                </Alert>
+              )}
+
+              {success && (
+                <Alert variant="success" style={{ 
+                  margin: '24px 24px 0 24px',
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  color: '#059669',
+                  border: 'none',
+                  borderRadius: '8px'
+                }} onClose={() => setSuccess('')} dismissible>
+                  {success}
+                </Alert>
+              )}
+
+              <Form onSubmit={handleSubmitExtraClass} style={{ padding: '24px' }}>
+                <div className="student-form-grid">
+                  <div className="student-form-column">
+                    <div className="student-form-field">
+                      <label className="student-form-label">
+                        <HiOutlineCalendar className="student-form-label-icon" />
+                        Date
+                      </label>
+                      <input
+                        type="date"
+                        name="date"
+                        value={extraClassData.date}
+                        onChange={handleExtraClassChange}
+                        required
+                        min={new Date().toISOString().split('T')[0]}
+                        className="student-form-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="student-form-column">
+                    <div className="student-form-field">
+                      <label className="student-form-label">
+                        <HiOutlineClock className="student-form-label-icon" />
+                        Time
+                      </label>
+                      <input
+                        type="time"
+                        name="time"
+                        value={extraClassData.time}
+                        onChange={handleExtraClassChange}
+                        required
+                        className="student-form-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ 
+                  marginTop: '16px', 
+                  padding: '12px', 
+                  background: '#f8fafc', 
+                  borderRadius: '8px',
+                  border: '1px solid #e2e8f0'
+                }}>
+                  <p style={{ 
+                    fontSize: '12px', 
+                    color: '#94a3b8', 
+                    marginTop: '8px',
+                    marginBottom: 0
+                  }}>
+                    A WhatsApp notification will be sent to all enrolled students about this extra class.
+                  </p>
+                </div>
+
+                {/* Existing Extra Classes */}
+                <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid #e2e8f0' }}>
+                  <h4 style={{ marginBottom: '16px', fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>
+                    <HiOutlineSparkles className="student-form-label-icon" style={{ marginRight: '8px' }} />
+                    Existing Extra Classes
+                  </h4>
+                  
+                  {loadingExtraClasses ? (
+                    <div style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}>
+                      Loading extra classes...
+                    </div>
+                  ) : extraClasses.length === 0 ? (
+                    <div style={{ 
+                      padding: '24px', 
+                      textAlign: 'center', 
+                      border: '1px dashed #cbd5e1',
+                      borderRadius: '8px',
+                      color: '#64748b',
+                      fontSize: '14px',
+                      background: '#f8fafc'
+                    }}>
+                      <HiOutlineSparkles style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.5 }} />
+                      <p style={{ margin: 0 }}>No extra classes scheduled yet.</p>
+                    </div>
+                  ) : (
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+                      <Table style={{ margin: 0 }}>
+                        <thead style={{ background: '#f8fafc' }}>
+                          <tr>
+                            <th style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Date</th>
+                            <th style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Time</th>
+                            <th style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Created</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {extraClasses.map((extraClass, index) => {
+                            const classDate = new Date(extraClass.date);
+                            const isPast = classDate < new Date() || (classDate.toDateString() === new Date().toDateString() && extraClass.time < new Date().toTimeString().slice(0, 5));
+                            
+                            return (
+                              <tr key={extraClass.id} style={{ 
+                                borderBottom: index < extraClasses.length - 1 ? '1px solid #e2e8f0' : 'none',
+                                opacity: isPast ? 0.6 : 1
+                              }}>
+                                <td style={{ padding: '12px 16px', fontSize: '14px', color: '#0f172a', fontWeight: '600' }}>
+                                  {classDate.toLocaleDateString('en-US', { 
+                                    weekday: 'short',
+                                    year: 'numeric', 
+                                    month: 'short', 
+                                    day: 'numeric' 
+                                  })}
+                                </td>
+                                <td style={{ padding: '12px 16px', fontSize: '14px', color: '#475569' }}>
+                                  {extraClass.time || '-'}
+                                </td>
+                                <td style={{ padding: '12px 16px', fontSize: '13px', color: '#64748b' }}>
+                                  {extraClass.createdAt 
+                                    ? new Date(extraClass.createdAt).toLocaleDateString('en-US', { 
+                                        month: 'short', 
+                                        day: 'numeric',
+                                        year: 'numeric'
+                                      })
+                                    : '-'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+
+                <div className="student-form-actions" style={{ marginTop: '32px' }}>
+                  <button 
+                    type="button"
+                    onClick={handleCloseExtraClassModal}
+                    className="student-form-cancel-btn"
+                    disabled={extraClassLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="student-form-submit-btn"
+                    disabled={extraClassLoading || !extraClassData.date || !extraClassData.time}
+                  >
+                    {extraClassLoading ? (
+                      <>
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <HiOutlineSparkles style={{ fontSize: '16px' }} />
+                        Add Extra Class
                       </>
                     )}
                   </button>

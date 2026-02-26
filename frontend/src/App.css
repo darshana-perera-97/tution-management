@@ -3,6 +3,127 @@
   box-sizing: border-box;
 }
 
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Student Dashboard Styles */
+.student-dashboard {
+  min-height: 100vh;
+}
+
+.student-dashboard > div:not(:first-child) {
+  margin-top: 40px;
+}
+
+@media (max-width: 576px) {
+  .student-dashboard > div:not(:first-child) {
+    margin-top: 20px;
+  }
+}
+
+/* Hide Scrollbar */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Animated Gradient Input */
+@keyframes gradientRotate {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.gradient-input-container::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 28px;
+  background: linear-gradient(
+    45deg,
+    #6366f1,
+    #8b5cf6,
+    #ec4899,
+    #f59e0b,
+    #10b981,
+    #3b82f6,
+    #6366f1
+  );
+  background-size: 300% 300%;
+  animation: gradientRotate 3s ease infinite;
+  z-index: -1;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.gradient-input-container:focus-within::before {
+  opacity: 1;
+  animation-duration: 2s;
+}
+
+.gradient-input-container::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  z-index: -1;
+}
+
 /* Attendance Row Hover Effect */
 .attendance-row-hover:hover {
   background-color: #f0f4f8 !important;
@@ -78,6 +199,7 @@ code {
 .login-wrapper {
   max-width: 450px;
   width: 100%;
+  margin-top: 40px;
 }
 
 .login-card {
@@ -1230,6 +1352,10 @@ code {
 @media (max-width: 576px) {
   .login-container {
     padding: 16px;
+  }
+
+  .login-wrapper {
+    margin-top: 20px;
   }
 
   .login-card .card-body {

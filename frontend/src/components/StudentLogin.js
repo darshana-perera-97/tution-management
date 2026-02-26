@@ -184,71 +184,22 @@ const StudentLogin = () => {
     <>
       <div className="login-container">
         <Container className="login-wrapper">
-          <Card className="login-card" style={{
-            border: 'none',
-            borderRadius: '24px',
-            boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
-            background: '#ffffff',
-            overflow: 'hidden'
-          }}>
-            <Card.Body style={{ padding: '48px' }}>
-              <div className="login-header mb-5" style={{ textAlign: 'center' }}>
-                <div style={{
-                  width: '80px',
-                  height: '80px',
-                  borderRadius: '20px',
-                  background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 24px',
-                  color: '#3b82f6'
-                }}>
-                  <HiOutlineAcademicCap size={40} />
-                </div>
-                <h2 className="login-title" style={{
-                  fontSize: '32px',
-                  fontWeight: '700',
-                  color: '#0f172a',
-                  marginBottom: '8px',
-                  letterSpacing: '-0.5px'
-                }}>Student Login</h2>
-                <p className="login-subtitle" style={{
-                  fontSize: '15px',
-                  color: '#64748b',
-                  margin: 0,
-                  fontWeight: '400'
-                }}>Sign in to access your learning materials</p>
+          <Card className="login-card">
+            <Card.Body className="p-5">
+              <div className="login-header mb-4">
+                <h2 className="login-title">Student Login</h2>
+                <p className="login-subtitle">Sign in to access your learning materials</p>
               </div>
 
               {error && (
-                <Alert variant="danger" className="mb-4 alert-custom" onClose={() => setError('')} dismissible style={{
-                  background: 'rgba(239, 68, 68, 0.1)',
-                  color: '#dc2626',
-                  border: 'none',
-                  borderRadius: '12px',
-                  padding: '16px 20px'
-                }}>
+                <Alert variant="danger" className="mb-4">
                   {error}
                 </Alert>
               )}
 
               <Form onSubmit={handleSubmit}>
                 <Form.Group className="mb-4">
-                  <Form.Label className="form-label-custom" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    marginBottom: '12px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    color: '#64748b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>
-                    <HiOutlineUser size={14} />
-                    Student ID
-                  </Form.Label>
+                  <Form.Label className="form-label">Student ID</Form.Label>
                   <Form.Control
                     type="text"
                     name="studentId"
@@ -257,41 +208,11 @@ const StudentLogin = () => {
                     onChange={handleChange}
                     required
                     className="form-control-custom"
-                    style={{
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '12px',
-                      padding: '14px 16px',
-                      fontSize: '15px',
-                      color: '#0f172a',
-                      background: '#ffffff',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = '#3b82f6';
-                      e.target.style.boxShadow = '0 0 0 4px rgba(59, 130, 246, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = '#e2e8f0';
-                      e.target.style.boxShadow = 'none';
-                    }}
                   />
                 </Form.Group>
 
                 <Form.Group className="mb-4">
-                  <Form.Label className="form-label-custom" style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    marginBottom: '12px',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                    color: '#64748b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>
-                    <HiOutlineLockClosed size={14} />
-                    Password
-                  </Form.Label>
+                  <Form.Label className="form-label">Password</Form.Label>
                   <Form.Control
                     type="password"
                     name="password"
@@ -300,23 +221,6 @@ const StudentLogin = () => {
                     onChange={handleChange}
                     required
                     className="form-control-custom"
-                    style={{
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '12px',
-                      padding: '14px 16px',
-                      fontSize: '15px',
-                      color: '#0f172a',
-                      background: '#ffffff',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = '#3b82f6';
-                      e.target.style.boxShadow = '0 0 0 4px rgba(59, 130, 246, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = '#e2e8f0';
-                      e.target.style.boxShadow = 'none';
-                    }}
                   />
                 </Form.Group>
 
@@ -325,62 +229,24 @@ const StudentLogin = () => {
                     type="checkbox"
                     id="remember-me-student"
                     label="Remember me"
-                    style={{
-                      fontSize: '14px',
-                      color: '#64748b',
-                      fontWeight: '500'
-                    }}
+                    className="remember-checkbox"
                   />
-                  <Button
-                    variant="link"
-                    className="p-0"
-                    onClick={handleOpenChangePassword}
-                    style={{
-                      textDecoration: 'none',
-                      fontSize: '14px',
-                      color: '#3b82f6',
-                      fontWeight: '600',
-                      padding: 0,
-                      border: 'none',
-                      background: 'none'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.color = '#2563eb';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.color = '#3b82f6';
+                  <a 
+                    href="#change-password"
+                    className="forgot-password-link"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleOpenChangePassword();
                     }}
                   >
                     Change password?
-                  </Button>
+                  </a>
                 </div>
 
                 <Button
                   type="submit"
-                  className="w-100"
+                  className="login-button w-100"
                   disabled={loading}
-                  style={{
-                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                    border: 'none',
-                    borderRadius: '12px',
-                    padding: '16px',
-                    fontSize: '15px',
-                    fontWeight: '700',
-                    color: '#ffffff',
-                    transition: 'all 0.2s ease',
-                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
-                    height: '52px'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!loading) {
-                      e.target.style.transform = 'translateY(-2px)';
-                      e.target.style.boxShadow = '0 6px 20px rgba(59, 130, 246, 0.4)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
-                  }}
                 >
                   {loading ? 'Signing in...' : 'Sign In'}
                 </Button>
@@ -451,18 +317,7 @@ const StudentLogin = () => {
                     variant="primary"
                     onClick={handleGenerateOTP}
                     disabled={otpLoading || !changePasswordData.studentId}
-                    className="w-100"
-                    style={{
-                      background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                      border: 'none',
-                      borderRadius: '12px',
-                      padding: '14px',
-                      fontSize: '15px',
-                      fontWeight: '700',
-                      color: '#ffffff',
-                      boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
-                      height: '48px'
-                    }}
+                    className="login-button w-100"
                   >
                     {otpLoading ? 'Sending OTP...' : 'Send OTP to WhatsApp'}
                   </Button>

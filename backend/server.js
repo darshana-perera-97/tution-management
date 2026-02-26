@@ -78,6 +78,8 @@ const enrollmentsPath = path.join(__dirname, 'data', 'enrollments.json');
 const studentChatbotQuotasPath = path.join(__dirname, 'data', 'studentChatbotQuotas.json');
 // Path to chatbot token usage data file
 const chatbotTokenUsagePath = path.join(__dirname, 'data', 'chatbotTokenUsage.json');
+// Path to extra classes data file
+const extraClassesPath = path.join(__dirname, 'data', 'extraclasses.json');
 
 // Helper function to read admin data
 const readAdminData = () => {
@@ -930,7 +932,7 @@ app.post('/api/students', (req, res) => {
               // Send WhatsApp notification to parent for course enrollment
               const parentNumber = newStudent.contactNumber || newStudent.whatsappNumber;
               if (parentNumber) {
-                const enrollmentMessage = `🎓 Course Enrollment Confirmation\n\nDear ${newStudent.parentName},\n\nYour child ${newStudent.fullName} has been successfully enrolled in:\n- Course: ${course.courseName} (${course.subject})\n- Grade: ${course.grade}\n- Course Fee: Rs. ${parseFloat(course.courseFee || 0).toFixed(2)}\n\nWe look forward to having ${newStudent.fullName} in this course!\n\nBest regards,\nTuition Management System`;
+                const enrollmentMessage = `🎓 Course Enrollment Confirmation\n\nDear ${newStudent.parentName},\n\nYour child ${newStudent.fullName} has been successfully enrolled in:\n- Course: ${course.courseName} (${course.subject})\n- Grade: ${course.grade}\n- Course Fee: Rs ${parseFloat(course.courseFee || 0).toFixed(2)}\n\nWe look forward to having ${newStudent.fullName} in this course!\n\nBest regards,\nTuition Management System`;
                 sendWhatsAppMessage(parentNumber, enrollmentMessage).catch(err => {
                   console.error('Failed to send enrollment notification:', err);
                 });
@@ -1367,7 +1369,7 @@ app.get('/api/students/:studentId/notifications', (req, res) => {
         id: payment.id,
         type: 'payment',
         title: 'Payment Received',
-        message: `Payment of Rs. ${payment.amount.toFixed(2)} received for ${monthName} ${year}${course ? ` - ${course.courseName}` : ''}`,
+        message: `Payment of Rs ${payment.amount.toFixed(2)} received for ${monthName} ${year}${course ? ` - ${course.courseName}` : ''}`,
         date: payment.paymentDate,
         courseId: payment.courseId
       });
@@ -1449,6 +1451,7 @@ app.get('/api/courses', (req, res) => {
       grade: course.grade,
       courseFee: course.courseFee,
       teacherPaymentPercentage: course.teacherPaymentPercentage,
+      schedule: course.schedule || [],
       enrolledStudents: course.enrolledStudents || [],
       createdAt: course.createdAt
     }));
@@ -1468,7 +1471,7 @@ app.get('/api/courses', (req, res) => {
 // Create new course
 app.post('/api/courses', (req, res) => {
   try {
-    const { courseName, teacherId, grade, subject, courseFee, teacherPaymentPercentage } = req.body;
+    const { courseName, teacherId, grade, subject, courseFee, teacherPaymentPercentage, schedule } = req.body;
 
     if (!courseName || !teacherId || !grade || !subject || !courseFee || !teacherPaymentPercentage) {
       return res.status(400).json({
@@ -1495,6 +1498,38 @@ app.post('/api/courses', (req, res) => {
       });
     }
 
+    // Validate schedule if provided
+    if (schedule !== undefined) {
+      if (!Array.isArray(schedule)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Schedule must be an array'
+        });
+      }
+      // Validate each schedule entry
+      for (const entry of schedule) {
+        if (entry.day && !['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].includes(entry.day)) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid day: ${entry.day}. Must be one of: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday`
+          });
+        }
+        // Validate time format (HH:MM)
+        if (entry.startTime && !/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(entry.startTime)) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid start time format: ${entry.startTime}. Must be in HH:MM format`
+          });
+        }
+        if (entry.endTime && !/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(entry.endTime)) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid end time format: ${entry.endTime}. Must be in HH:MM format`
+          });
+        }
+      }
+    }
+
     const coursesData = readCoursesData();
     
     // Check if course with same name and grade already exists
@@ -1518,6 +1553,7 @@ app.post('/api/courses', (req, res) => {
       grade,
       courseFee: fee.toString(),
       teacherPaymentPercentage: percentage.toString(),
+      schedule: Array.isArray(schedule) ? schedule : [],
       enrolledStudents: [],
       createdAt: new Date().toISOString()
     };
@@ -1536,6 +1572,8 @@ app.post('/api/courses', (req, res) => {
           grade: newCourse.grade,
           courseFee: newCourse.courseFee,
           teacherPaymentPercentage: newCourse.teacherPaymentPercentage,
+          schedule: newCourse.schedule,
+          enrolledStudents: newCourse.enrolledStudents,
           createdAt: newCourse.createdAt
         }
       });
@@ -1581,18 +1619,11 @@ const writeEnrollmentsData = (data) => {
   }
 };
 
-// Update course (for enrolled students)
+// Update course (for enrolled students and other fields)
 app.put('/api/courses/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const { enrolledStudents } = req.body;
-
-    if (!Array.isArray(enrolledStudents)) {
-      return res.status(400).json({
-        success: false,
-        message: 'enrolledStudents must be an array'
-      });
-    }
+    const { enrolledStudents, schedule, courseName, subject, teacherId, grade, courseFee, teacherPaymentPercentage } = req.body;
 
     const coursesData = readCoursesData();
     const studentsData = readStudentsData();
@@ -1612,18 +1643,95 @@ app.put('/api/courses/:id', (req, res) => {
     const course = coursesData.courses[courseIndex];
     const previousEnrolledStudents = course.enrolledStudents || [];
     
-    // Find newly added students
-    const newlyAdded = enrolledStudents.filter(
-      studentId => !previousEnrolledStudents.includes(studentId)
-    );
+    // Update course fields if provided
+    if (courseName !== undefined) {
+      coursesData.courses[courseIndex].courseName = courseName;
+    }
+    if (subject !== undefined) {
+      coursesData.courses[courseIndex].subject = subject;
+    }
+    if (teacherId !== undefined) {
+      coursesData.courses[courseIndex].teacherId = teacherId;
+    }
+    if (grade !== undefined) {
+      coursesData.courses[courseIndex].grade = grade;
+    }
+    if (courseFee !== undefined) {
+      const fee = parseFloat(courseFee);
+      if (isNaN(fee) || fee < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Course fee must be a valid positive number'
+        });
+      }
+      coursesData.courses[courseIndex].courseFee = fee.toString();
+    }
+    if (teacherPaymentPercentage !== undefined) {
+      const percentage = parseFloat(teacherPaymentPercentage);
+      if (isNaN(percentage) || percentage < 0 || percentage > 100) {
+        return res.status(400).json({
+          success: false,
+          message: 'Teacher payment percentage must be between 0 and 100'
+        });
+      }
+      coursesData.courses[courseIndex].teacherPaymentPercentage = percentage.toString();
+    }
+    if (schedule !== undefined) {
+      // Validate schedule format
+      if (!Array.isArray(schedule)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Schedule must be an array'
+        });
+      }
+      // Validate each schedule entry
+      for (const entry of schedule) {
+        if (entry.day && !['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].includes(entry.day)) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid day: ${entry.day}. Must be one of: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday`
+          });
+        }
+        // Validate time format (HH:MM)
+        if (entry.startTime && !/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(entry.startTime)) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid start time format: ${entry.startTime}. Must be in HH:MM format`
+          });
+        }
+        if (entry.endTime && !/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(entry.endTime)) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid end time format: ${entry.endTime}. Must be in HH:MM format`
+          });
+        }
+      }
+      coursesData.courses[courseIndex].schedule = schedule;
+    }
     
-    // Find removed students
-    const removed = previousEnrolledStudents.filter(
-      studentId => !enrolledStudents.includes(studentId)
-    );
+    // Handle enrolled students update (only if provided)
+    let newlyAdded = [];
+    let removed = [];
+    if (enrolledStudents !== undefined) {
+      if (!Array.isArray(enrolledStudents)) {
+        return res.status(400).json({
+          success: false,
+          message: 'enrolledStudents must be an array'
+        });
+      }
+      
+      // Find newly added students
+      newlyAdded = enrolledStudents.filter(
+        studentId => !previousEnrolledStudents.includes(studentId)
+      );
+      
+      // Find removed students
+      removed = previousEnrolledStudents.filter(
+        studentId => !enrolledStudents.includes(studentId)
+      );
 
-    // Record enrollments for newly added students
-    newlyAdded.forEach(studentId => {
+      // Record enrollments for newly added students
+      newlyAdded.forEach(studentId => {
       const enrollment = {
         id: Date.now().toString() + '-' + studentId + '-' + id,
         studentId,
@@ -1639,7 +1747,7 @@ app.put('/api/courses/:id', (req, res) => {
       if (student) {
         const notificationNumbers = getStudentNotificationNumbers(student);
         if (notificationNumbers.length > 0) {
-          const enrollmentMessage = `🎓 Course Enrollment Confirmation\n\nDear ${student.parentName},\n\nYour child ${student.fullName} has been successfully enrolled in:\n- Course: ${course.courseName} (${course.subject})\n- Grade: ${course.grade}\n- Course Fee: Rs. ${parseFloat(course.courseFee).toFixed(2)}\n\nWe look forward to having ${student.fullName} in this course!\n\nBest regards,\nTuition Management System`;
+          const enrollmentMessage = `🎓 Course Enrollment Confirmation\n\nDear ${student.parentName},\n\nYour child ${student.fullName} has been successfully enrolled in:\n- Course: ${course.courseName} (${course.subject})\n- Grade: ${course.grade}\n- Course Fee: Rs ${parseFloat(course.courseFee).toFixed(2)}\n\nWe look forward to having ${student.fullName} in this course!\n\nBest regards,\nTuition Management System`;
           sendWhatsAppToMultiple(notificationNumbers, enrollmentMessage).catch(err => {
             console.error('Failed to send enrollment notification:', err);
           });
@@ -1647,8 +1755,8 @@ app.put('/api/courses/:id', (req, res) => {
       }
     });
 
-    // Record unenrollments for removed students
-    removed.forEach(studentId => {
+      // Record unenrollments for removed students
+      removed.forEach(studentId => {
       const enrollment = {
         id: Date.now().toString() + '-' + studentId + '-' + id,
         studentId,
@@ -1660,11 +1768,12 @@ app.put('/api/courses/:id', (req, res) => {
       enrollmentsData.enrollments.push(enrollment);
     });
 
-    // Save enrollment records
-    writeEnrollmentsData(enrollmentsData);
+      // Save enrollment records
+      writeEnrollmentsData(enrollmentsData);
 
-    // Update enrolled students
-    coursesData.courses[courseIndex].enrolledStudents = enrolledStudents;
+      // Update enrolled students
+      coursesData.courses[courseIndex].enrolledStudents = enrolledStudents;
+    }
     
     if (writeCoursesData(coursesData)) {
       res.json({
@@ -1772,6 +1881,137 @@ app.post('/api/courses/:courseId/bulk-message', async (req, res) => {
     });
   } catch (error) {
     console.error('Send bulk message error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get extra classes (optionally filtered by courseId and date)
+app.get('/api/extra-classes', (req, res) => {
+  try {
+    const { courseId, date } = req.query;
+    const extraClassesData = readExtraClassesData();
+    
+    let filteredClasses = extraClassesData.extraClasses || [];
+    
+    if (courseId) {
+      filteredClasses = filteredClasses.filter(ec => ec.courseId === courseId);
+    }
+    
+    if (date) {
+      filteredClasses = filteredClasses.filter(ec => ec.date === date);
+    }
+    
+    res.json({
+      success: true,
+      extraClasses: filteredClasses
+    });
+  } catch (error) {
+    console.error('Get extra classes error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Add extra class for a course
+app.post('/api/courses/:courseId/extra-class', async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { date, time } = req.body;
+
+    if (!date || !time) {
+      return res.status(400).json({
+        success: false,
+        message: 'Date and time are required'
+      });
+    }
+
+    // Validate date format
+    const dateObj = new Date(date);
+    if (isNaN(dateObj.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid date format'
+      });
+    }
+
+    // Validate time format (HH:MM)
+    if (!/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(time)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid time format. Must be in HH:MM format'
+      });
+    }
+
+    const coursesData = readCoursesData();
+    const studentsData = readStudentsData();
+    const extraClassesData = readExtraClassesData();
+    
+    const course = coursesData.courses.find(c => c.id === courseId);
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found'
+      });
+    }
+
+    // Create extra class entry
+    const extraClass = {
+      id: Date.now().toString(),
+      courseId: courseId,
+      courseName: course.courseName,
+      subject: course.subject,
+      date: date,
+      time: time,
+      createdAt: new Date().toISOString()
+    };
+
+    extraClassesData.extraClasses.push(extraClass);
+
+    // Save extra class
+    if (!writeExtraClassesData(extraClassesData)) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to save extra class data'
+      });
+    }
+
+    // Send WhatsApp notification to all enrolled students
+    const enrolledStudentIds = course.enrolledStudents || [];
+    if (enrolledStudentIds.length > 0) {
+      const formattedDate = dateObj.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+
+      for (const studentId of enrolledStudentIds) {
+        const student = studentsData.students.find(s => s.id === studentId);
+        if (student) {
+          const notificationNumbers = getStudentNotificationNumbers(student);
+          if (notificationNumbers.length > 0) {
+            const extraClassMessage = `📚 Extra Class Announcement\n\nDear ${student.parentName},\n\nAn extra class has been scheduled for your child ${student.fullName}:\n\n- Course: ${course.courseName} (${course.subject})\n- Date: ${formattedDate}\n- Time: ${time}\n\nPlease ensure your child attends this extra class.\n\nThank you!\n\nBest regards,\nTuition Management System`;
+            
+            sendWhatsAppToMultiple(notificationNumbers, extraClassMessage).catch(err => {
+              console.error(`Failed to send extra class notification to ${student.fullName}:`, err);
+            });
+          }
+        }
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Extra class added successfully and notifications sent',
+      extraClass: extraClass
+    });
+  } catch (error) {
+    console.error('Add extra class error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -1902,7 +2142,7 @@ app.post('/api/payments', (req, res) => {
           const [year, month] = monthKey.split('-');
           const monthName = monthNames[parseInt(month) - 1];
           
-          const paymentMessage = `💰 Payment Received\n\nDear ${student.parentName},\n\nPayment for your child ${student.fullName} has been successfully recorded:\n- Amount: Rs. ${parseFloat(amount).toFixed(2)}\n- Month: ${monthName} ${year}${course ? `\n- Course: ${course.courseName} (${course.subject})` : ''}\n- Payment Date: ${formattedDate}\n\nThank you for your payment!\n\nBest regards,\nTuition Management System`;
+          const paymentMessage = `💰 Payment Received\n\nDear ${student.parentName},\n\nPayment for your child ${student.fullName} has been successfully recorded:\n- Amount: Rs ${parseFloat(amount).toFixed(2)}\n- Month: ${monthName} ${year}${course ? `\n- Course: ${course.courseName} (${course.subject})` : ''}\n- Payment Date: ${formattedDate}\n\nThank you for your payment!\n\nBest regards,\nTuition Management System`;
           sendWhatsAppToMultiple(notificationNumbers, paymentMessage).catch(err => {
             console.error('Failed to send payment notification:', err);
           });
@@ -1926,7 +2166,7 @@ app.post('/api/payments', (req, res) => {
         const teacherPercentage = course.teacherPaymentPercentage ? parseFloat(course.teacherPaymentPercentage) : 0;
         const teacherShare = teacherPercentage > 0 ? (parseFloat(amount) * teacherPercentage) / 100 : 0;
         
-        const teacherPaymentMessage = `💰 Payment Notification\n\nDear ${teacher.name},\n\nPayment has been received for your course:\n- Student: ${student ? student.fullName : 'N/A'}\n- Course: ${course.courseName} (${course.subject})\n- Amount: Rs. ${parseFloat(amount).toFixed(2)}\n- Month: ${monthName} ${year}\n- Payment Date: ${formattedDate}${teacherShare > 0 ? `\n- Your Share (${teacherPercentage}%): Rs. ${teacherShare.toFixed(2)}` : ''}\n\nThank you!\n\nBest regards,\nTuition Management System`;
+        const teacherPaymentMessage = `💰 Payment Notification\n\nDear ${teacher.name},\n\nPayment has been received for your course:\n- Student: ${student ? student.fullName : 'N/A'}\n- Course: ${course.courseName} (${course.subject})\n- Amount: Rs ${parseFloat(amount).toFixed(2)}\n- Month: ${monthName} ${year}\n- Payment Date: ${formattedDate}${teacherShare > 0 ? `\n- Your Share (${teacherPercentage}%): Rs ${teacherShare.toFixed(2)}` : ''}\n\nThank you!\n\nBest regards,\nTuition Management System`;
         
         sendWhatsAppMessage(teacher.whatsappNumber, teacherPaymentMessage).catch(err => {
           console.error('Failed to send payment notification to teacher:', err);
@@ -2018,7 +2258,7 @@ app.post('/api/payments/send-reminders', async (req, res) => {
     for (const { student, course } of studentsWithPendingPayments) {
       const notificationNumbers = getStudentNotificationNumbers(student);
       if (notificationNumbers.length > 0) {
-        const reminderMessage = `⏰ Payment Reminder\n\nDear ${student.parentName},\n\nThis is a friendly reminder that payment for your child ${student.fullName} for ${monthName} ${currentYear} is pending.\n\nCourse Details:\n- Course: ${course.courseName} (${course.subject})\n- Amount: Rs. ${parseFloat(course.courseFee).toFixed(2)}\n- Due: ${monthName} ${currentYear}\n\nPlease make your payment at your earliest convenience.\n\nThank you!\n\nBest regards,\nTuition Management System`;
+        const reminderMessage = `⏰ Payment Reminder\n\nDear ${student.parentName},\n\nThis is a friendly reminder that payment for your child ${student.fullName} for ${monthName} ${currentYear} is pending.\n\nCourse Details:\n- Course: ${course.courseName} (${course.subject})\n- Amount: Rs ${parseFloat(course.courseFee).toFixed(2)}\n- Due: ${monthName} ${currentYear}\n\nPlease make your payment at your earliest convenience.\n\nThank you!\n\nBest regards,\nTuition Management System`;
         
         const results = await sendWhatsAppToMultiple(notificationNumbers, reminderMessage);
         const result = results.length > 0 ? results[0] : { success: false };
@@ -2282,6 +2522,33 @@ const writeAttendanceData = (data) => {
     return true;
   } catch (error) {
     console.error('Error writing attendance data:', error);
+    return false;
+  }
+};
+
+// Helper function to read extra classes data
+const readExtraClassesData = () => {
+  try {
+    const data = fs.readFileSync(extraClassesPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    // If file doesn't exist or is invalid, return default structure
+    return { extraClasses: [] };
+  }
+};
+
+// Helper function to write extra classes data
+const writeExtraClassesData = (data) => {
+  try {
+    // Ensure data directory exists
+    const dataDir = path.dirname(extraClassesPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(extraClassesPath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error writing extra classes data:', error);
     return false;
   }
 };
@@ -2666,6 +2933,125 @@ app.delete('/api/courses/:courseId/lms/:contentId', (req, res) => {
   }
 });
 
+// Helper function to check if attendance can be marked based on schedule or extra class
+const canMarkAttendance = (course, courseId = null) => {
+  const now = new Date();
+  const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+  const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+  
+  // Convert current time to minutes for comparison
+  const [currentHours, currentMinutes] = currentTime.split(':').map(Number);
+  const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+
+  // First, check if there's an extra class for today
+  if (courseId) {
+    const extraClassesData = readExtraClassesData();
+    const todayExtraClass = extraClassesData.extraClasses.find(
+      ec => ec.courseId === courseId && ec.date === currentDate
+    );
+
+    if (todayExtraClass && todayExtraClass.time) {
+      const [extraClassHours, extraClassMinutes] = todayExtraClass.time.split(':').map(Number);
+      const extraClassTimeInMinutes = extraClassHours * 60 + extraClassMinutes;
+      
+      // Calculate time difference
+      let timeDiff = currentTimeInMinutes - extraClassTimeInMinutes;
+      
+      // Check if within 30 minutes window (before or after)
+      if (Math.abs(timeDiff) <= 30) {
+        return { allowed: true, message: null, isExtraClass: true };
+      } else {
+        const windowStart = new Date(now);
+        windowStart.setHours(extraClassHours, extraClassMinutes - 30, 0, 0);
+        const windowEnd = new Date(now);
+        windowEnd.setHours(extraClassHours, extraClassMinutes + 30, 0, 0);
+        
+        const windowStartStr = windowStart.toTimeString().slice(0, 5);
+        const windowEndStr = windowEnd.toTimeString().slice(0, 5);
+        
+        return { 
+          allowed: false, 
+          message: `Attendance can only be marked 30 minutes before or after the extra class time. Extra class is at ${todayExtraClass.time}. Marking window: ${windowStartStr} - ${windowEndStr}. Current time: ${currentTime}.`,
+          isExtraClass: true
+        };
+      }
+    }
+  }
+
+  // If course has no schedule, allow marking (backward compatibility)
+  if (!course.schedule || !Array.isArray(course.schedule) || course.schedule.length === 0) {
+    return { allowed: true, message: null, isExtraClass: false };
+  }
+
+  const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' });
+  
+  // Check if current day matches any schedule day
+  const todaySchedule = course.schedule.filter(s => s.day === currentDay);
+  
+  if (todaySchedule.length === 0) {
+    const scheduleDays = course.schedule.map(s => s.day).join(', ');
+    return { 
+      allowed: false, 
+      message: `Attendance can only be marked on scheduled days: ${scheduleDays}. Today is ${currentDay}.` 
+    };
+  }
+
+  // Check if current time is within 30 minutes before or after any scheduled start time
+  let isWithinTimeWindow = false;
+  let closestSchedule = null;
+  let minTimeDiff = Infinity;
+
+  for (const schedule of todaySchedule) {
+    if (!schedule.startTime) continue;
+    
+    const [scheduleHours, scheduleMinutes] = schedule.startTime.split(':').map(Number);
+    const scheduleTimeInMinutes = scheduleHours * 60 + scheduleMinutes;
+    
+    // Calculate time difference (handle day wrap-around)
+    let timeDiff = currentTimeInMinutes - scheduleTimeInMinutes;
+    
+    // Handle cases where current time might be after midnight but schedule is before
+    if (timeDiff < -720) { // More than 12 hours difference, likely next day
+      timeDiff += 1440; // Add 24 hours
+    } else if (timeDiff > 720) { // More than 12 hours difference, likely previous day
+      timeDiff -= 1440; // Subtract 24 hours
+    }
+    
+    // Check if within 30 minutes window (before or after)
+    if (Math.abs(timeDiff) <= 30) {
+      isWithinTimeWindow = true;
+      closestSchedule = schedule;
+      break;
+    }
+    
+    // Track closest schedule for error message
+    const absDiff = Math.abs(timeDiff);
+    if (absDiff < minTimeDiff) {
+      minTimeDiff = absDiff;
+      closestSchedule = schedule;
+    }
+  }
+
+  if (!isWithinTimeWindow && closestSchedule) {
+    const [scheduleHours, scheduleMinutes] = closestSchedule.startTime.split(':').map(Number);
+    const scheduleTime = `${String(scheduleHours).padStart(2, '0')}:${String(scheduleMinutes).padStart(2, '0')}`;
+    const windowStart = new Date(now);
+    windowStart.setHours(scheduleHours, scheduleMinutes - 30, 0, 0);
+    const windowEnd = new Date(now);
+    windowEnd.setHours(scheduleHours, scheduleMinutes + 30, 0, 0);
+    
+    const windowStartStr = windowStart.toTimeString().slice(0, 5);
+    const windowEndStr = windowEnd.toTimeString().slice(0, 5);
+    
+    return { 
+      allowed: false, 
+      message: `Attendance can only be marked 30 minutes before or after the scheduled time. Today's schedule is at ${scheduleTime}. Marking window: ${windowStartStr} - ${windowEndStr}. Current time: ${currentTime}.` 
+    };
+  }
+
+  return { allowed: true, message: null };
+};
+
 // Mark attendance
 app.post('/api/attendance', (req, res) => {
   try {
@@ -2685,6 +3071,22 @@ app.post('/api/attendance', (req, res) => {
     const coursesData = readCoursesData();
     const student = studentsData.students.find(s => s.id === studentId);
     const course = coursesData.courses.find(c => c.id === courseId);
+    
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Course not found'
+      });
+    }
+
+    // Check if attendance can be marked based on schedule or extra class
+    const scheduleCheck = canMarkAttendance(course, courseId);
+    if (!scheduleCheck.allowed) {
+      return res.status(400).json({
+        success: false,
+        message: scheduleCheck.message
+      });
+    }
     
     const newAttendance = {
       id: Date.now().toString(),

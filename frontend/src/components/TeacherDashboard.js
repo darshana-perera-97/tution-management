@@ -515,7 +515,7 @@ const TeacherDashboard = () => {
                           <div className="detail-row mb-3">
                             <strong className="detail-label">Course Fee:</strong>
                             <span className="detail-value">
-                              {selectedCourse.courseFee ? `Rs. ${parseFloat(selectedCourse.courseFee).toFixed(2)}` : '-'}
+                              {selectedCourse.courseFee ? `Rs ${parseFloat(selectedCourse.courseFee).toFixed(2)}` : '-'}
                             </span>
                           </div>
                         </Col>
@@ -530,7 +530,7 @@ const TeacherDashboard = () => {
                             <strong className="detail-label">Teacher Payment Amount:</strong>
                             <span className="detail-value">
                               {selectedCourse.courseFee && selectedCourse.teacherPaymentPercentage 
-                                ? `Rs. ${((parseFloat(selectedCourse.courseFee) * parseFloat(selectedCourse.teacherPaymentPercentage)) / 100).toFixed(2)}` 
+                                ? `Rs ${((parseFloat(selectedCourse.courseFee) * parseFloat(selectedCourse.teacherPaymentPercentage)) / 100).toFixed(2)}` 
                                 : '-'}
                             </span>
                           </div>
@@ -855,7 +855,7 @@ const TeacherDashboard = () => {
                     <td>{course.courseName}</td>
                     <td>{course.subject || '-'}</td>
                     <td>{course.grade}</td>
-                    <td>{course.courseFee ? `Rs. ${parseFloat(course.courseFee).toFixed(2)}` : '-'}</td>
+                    <td>{course.courseFee ? `Rs ${parseFloat(course.courseFee).toFixed(2)}` : '-'}</td>
                     <td>{course.teacherPaymentPercentage ? `${course.teacherPaymentPercentage}%` : '-'}</td>
                     <td>{course.enrolledStudents ? course.enrolledStudents.length : 0}</td>
                     <td>
@@ -895,7 +895,7 @@ const TeacherDashboard = () => {
                           <strong>Subject:</strong> {course.subject || '-'} | <strong>Grade:</strong> {course.grade}
                         </p>
                         <p className="text-muted small mb-1">
-                          <strong>Fee:</strong> {course.courseFee ? `Rs. ${parseFloat(course.courseFee).toFixed(2)}` : '-'}
+                          <strong>Fee:</strong> {course.courseFee ? `Rs ${parseFloat(course.courseFee).toFixed(2)}` : '-'}
                         </p>
                         <p className="text-muted small mb-2">
                           <strong>Payment %:</strong> {course.teacherPaymentPercentage ? `${course.teacherPaymentPercentage}%` : '-'} | 
@@ -1052,7 +1052,7 @@ const TeacherDashboard = () => {
                 <div className="stat-icon">
                   <HiOutlineCurrencyDollar />
                 </div>
-                <h3 className="stat-number">{loading ? '...' : `Rs. ${stats.totalIncome.toFixed(2)}`}</h3>
+                <h3 className="stat-number">{loading ? '...' : `Rs ${stats.totalIncome.toFixed(2)}`}</h3>
                 <p className="stat-label">Total Expected Income</p>
               </Card.Body>
             </Card>
@@ -1063,7 +1063,7 @@ const TeacherDashboard = () => {
                 <div className="stat-icon text-danger">
                   <HiOutlineCurrencyDollar />
                 </div>
-                <h3 className="stat-number text-danger">{loading ? '...' : `Rs. ${stats.pendingIncome.toFixed(2)}`}</h3>
+                <h3 className="stat-number text-danger">{loading ? '...' : `Rs ${stats.pendingIncome.toFixed(2)}`}</h3>
                 <p className="stat-label">Pending Income</p>
               </Card.Body>
             </Card>
@@ -1074,7 +1074,7 @@ const TeacherDashboard = () => {
                 <div className="stat-icon text-info">
                   <HiOutlineCurrencyDollar />
                 </div>
-                <h3 className="stat-number text-info">{loading ? '...' : `Rs. ${stats.advancePayments.toFixed(2)}`}</h3>
+                <h3 className="stat-number text-info">{loading ? '...' : `Rs ${stats.advancePayments.toFixed(2)}`}</h3>
                 <p className="stat-label">Advance Payments</p>
               </Card.Body>
             </Card>
@@ -1168,12 +1168,12 @@ const TeacherDashboard = () => {
                         <div className="stat-icon text-success">
                           <HiOutlineCurrencyDollar />
                         </div>
-                        <h3 className="stat-number text-success">{loading ? '...' : `Rs. ${stats.amountToBePaid.toFixed(2)}`}</h3>
+                        <h3 className="stat-number text-success">{loading ? '...' : `Rs ${stats.amountToBePaid.toFixed(2)}`}</h3>
                         <p className="stat-label">Amount to be Paid</p>
                         {!loading && (
                           <div className="mt-2">
                             <small className="text-muted d-block">
-                              Rs. {stats.paidIncome.toFixed(2)} Amount taken by teacher
+                              Rs {stats.paidIncome.toFixed(2)} Amount taken by teacher
                             </small>
                           </div>
                         )}
@@ -1186,7 +1186,7 @@ const TeacherDashboard = () => {
                         <div className="stat-icon text-info">
                           <HiOutlineCurrencyDollar />
                         </div>
-                        <h3 className="stat-number text-info">{loading ? '...' : `Rs. ${stats.advancePayments.toFixed(2)}`}</h3>
+                        <h3 className="stat-number text-info">{loading ? '...' : `Rs ${stats.advancePayments.toFixed(2)}`}</h3>
                         <p className="stat-label">Advance Payments</p>
                       </Card.Body>
                     </Card>

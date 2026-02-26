@@ -878,7 +878,7 @@ const Payments = () => {
                             fontWeight: '600',
                             color: payment.type === 'Money In' ? '#10b981' : '#ef4444'
                           }}>
-                            {payment.type === 'Money In' ? '+' : '-'}Rs. {payment.amount.toFixed(2)}
+                            {payment.type === 'Money In' ? '+' : '-'}Rs {payment.amount.toFixed(2)}
                           </span>
                         </div>
                       </td>
@@ -944,7 +944,7 @@ const Payments = () => {
                         <div>
                           <span className={payment.type === 'Money In' ? 'text-success' : 'text-danger'}>
                             <strong>
-                              {payment.type === 'Money In' ? '+' : '-'}Rs. {payment.amount.toFixed(2)}
+                              {payment.type === 'Money In' ? '+' : '-'}Rs {payment.amount.toFixed(2)}
                             </strong>
                           </span>
                         </div>
@@ -1005,7 +1005,7 @@ const Payments = () => {
                   <HiOutlineArrowTrendingUp style={{ fontSize: '24px' }} />
                 </div>
                 <div className="stat-number" style={{ color: '#10b981' }}>
-                  Rs. {getAllPaymentsCombined()
+                  Rs {getAllPaymentsCombined()
                     .filter(p => p.type === 'Money In')
                     .reduce((sum, p) => sum + p.amount, 0)
                     .toFixed(2)}
@@ -1039,7 +1039,7 @@ const Payments = () => {
                   <HiOutlineArrowTrendingDown style={{ fontSize: '24px' }} />
                 </div>
                 <div className="stat-number" style={{ color: '#ef4444' }}>
-                  Rs. {getAllPaymentsCombined()
+                  Rs {getAllPaymentsCombined()
                     .filter(p => p.type === 'Money Out')
                     .reduce((sum, p) => sum + p.amount, 0)
                     .toFixed(2)}
@@ -1101,7 +1101,7 @@ const Payments = () => {
                     ? '#10b981' 
                     : '#ef4444'
                 }}>
-                  Rs. {(getAllPaymentsCombined()
+                  Rs {(getAllPaymentsCombined()
                     .filter(p => p.type === 'Money In')
                     .reduce((sum, p) => sum + p.amount, 0) -
                   getAllPaymentsCombined()
@@ -1168,7 +1168,7 @@ const Payments = () => {
                                 <div key={idx} className={`mb-2 p-2 rounded ${course.isPaid ? 'bg-light' : 'bg-warning bg-opacity-10'}`}>
                                   <div className="d-flex justify-content-between align-items-center">
                                     <span>
-                                      <strong>{course.courseName}</strong> ({course.subject}) - Rs. {course.fee.toFixed(2)}
+                                      <strong>{course.courseName}</strong> ({course.subject}) - Rs {course.fee.toFixed(2)}
                                       {course.isPaid && (
                                         <span className="badge bg-success ms-2">Paid</span>
                                       )}
@@ -1193,15 +1193,15 @@ const Payments = () => {
                               ))}
                             </div>
                           </td>
-                          <td><strong>Rs. {payment.totalFee.toFixed(2)}</strong></td>
+                          <td><strong>Rs {payment.totalFee.toFixed(2)}</strong></td>
                           <td>
                             <span className="text-success">
-                              <strong>Rs. {payment.paidAmount.toFixed(2)}</strong>
+                              <strong>Rs {payment.paidAmount.toFixed(2)}</strong>
                             </span>
                           </td>
                           <td>
                             <span className="text-danger">
-                              <strong>Rs. {payment.pendingAmount.toFixed(2)}</strong>
+                              <strong>Rs {payment.pendingAmount.toFixed(2)}</strong>
                             </span>
                           </td>
                           <td>
@@ -1221,14 +1221,14 @@ const Payments = () => {
                     <div className="d-flex justify-content-between">
                       <div>
                         <strong>Total Amount: </strong>
-                        Rs. {calculateMonthlyPayments(selectedStudent).reduce((sum, payment) => 
+                        Rs {calculateMonthlyPayments(selectedStudent).reduce((sum, payment) => 
                           sum + payment.totalFee, 0
                         ).toFixed(2)}
                       </div>
                       <div>
                         <strong>Total Paid: </strong>
                         <span className="text-success">
-                          Rs. {calculateMonthlyPayments(selectedStudent)
+                          Rs {calculateMonthlyPayments(selectedStudent)
                             .reduce((sum, payment) => sum + payment.paidAmount, 0)
                             .toFixed(2)}
                         </span>
@@ -1236,7 +1236,7 @@ const Payments = () => {
                       <div>
                         <strong>To Be Paid: </strong>
                         <span className="text-danger">
-                          Rs. {calculateMonthlyPayments(selectedStudent)
+                          Rs {calculateMonthlyPayments(selectedStudent)
                             .reduce((sum, payment) => sum + payment.pendingAmount, 0)
                             .toFixed(2)}
                         </span>

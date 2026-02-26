@@ -234,7 +234,7 @@ const StudentDashboard = () => {
     return (
       <div className="student-dashboard" style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)' }}>
         <StudentTopNavbar student={student} />
-        <div style={{ marginLeft: 0, padding: '24px' }}>
+        <div style={{ marginLeft: 0, padding: '24px', marginTop: '40px' }}>
           <Container fluid style={{ maxWidth: '1400px', margin: '0 auto' }}>
             {/* Header */}
             <div className="d-flex justify-content-between align-items-center mb-4" style={{ 
@@ -670,7 +670,7 @@ const StudentDashboard = () => {
   return (
     <div className="student-dashboard" style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)' }}>
       <StudentTopNavbar student={student} />
-      <div style={{ marginLeft: 0, padding: '24px' }}>
+      <div style={{ marginLeft: 0, padding: '24px', marginTop: '40px' }}>
         <Container fluid style={{ maxWidth: '1400px', margin: '0 auto' }}>
           {/* Header */}
           <div style={{ 
@@ -793,7 +793,7 @@ const StudentDashboard = () => {
                             fontSize: '13px',
                             fontWeight: '500'
                           }}>
-                            💰 Rs. {parseFloat(course.courseFee).toFixed(2)}
+                            💰 Rs {parseFloat(course.courseFee).toFixed(2)}
                           </p>
                         </div>
                       </div>

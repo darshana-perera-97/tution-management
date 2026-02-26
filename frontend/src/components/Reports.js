@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Form, Table, Alert, Card, Row, Col, Spinner } from 'react-bootstrap';
+import React, { useState, useEffect, useRef } from 'react';
+import { Container, Form, Table, Alert, Card, Row, Col, Spinner, Button } from 'react-bootstrap';
 import { 
   HiOutlineUsers, 
   HiOutlineCheckCircle, 
@@ -11,8 +11,11 @@ import {
   HiOutlineUserGroup,
   HiOutlineUser,
   HiOutlinePhone,
-  HiOutlineAcademicCap
+  HiOutlineAcademicCap,
+  HiOutlineArrowDownTray
 } from 'react-icons/hi2';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import '../App.css';
 import API_URL from '../config';
 import { usePagination } from '../hooks/usePagination';
@@ -31,6 +34,8 @@ const Reports = () => {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState('');
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
+  const reportRef = useRef(null);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -222,7 +227,7 @@ const Reports = () => {
       .sort((a, b) => b.monthKey.localeCompare(a.monthKey));
   };
 
-  const generateReport = () => {
+  const generateReport = async () => {
     if (!selectedTeacherId || !selectedCourseId || !selectedMonthKey) {
       setReportData(null);
       return;
@@ -259,6 +264,42 @@ const Reports = () => {
         const attDate = new Date(att.date);
         return attDate >= monthStart && attDate <= monthEnd;
       });
+
+      // Fetch extra classes for this course and month
+      let extraClasses = [];
+      try {
+        const extraClassesResponse = await fetch(`${API_URL}/api/extra-classes?courseId=${selectedCourseId}`);
+        const extraClassesData = await extraClassesResponse.json();
+        if (extraClassesData.success) {
+          // Filter extra classes for the selected month
+          extraClasses = (extraClassesData.extraClasses || []).filter(ec => {
+            const ecDate = new Date(ec.date);
+            return ecDate >= monthStart && ecDate <= monthEnd;
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching extra classes:', err);
+      }
+
+      // Calculate expected classes from regular schedule
+      let expectedRegularClasses = 0;
+      if (course.schedule && Array.isArray(course.schedule) && course.schedule.length > 0) {
+        const scheduleDays = course.schedule.map(s => s.day);
+        const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        
+        // Count how many times each scheduled day occurs in the month
+        let currentDate = new Date(monthStart);
+        while (currentDate <= monthEnd) {
+          const dayName = daysOfWeek[currentDate.getDay()];
+          if (scheduleDays.includes(dayName)) {
+            expectedRegularClasses++;
+          }
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      }
+
+      // Total expected classes = regular classes + extra classes
+      const totalExpectedClasses = expectedRegularClasses + extraClasses.length;
 
       // Calculate attendance statistics per student
       const studentAttendanceMap = {};
@@ -300,7 +341,20 @@ const Reports = () => {
       const totalAttendanceDays = monthAttendance.length;
       const totalPresentDays = monthAttendance.filter(a => a.status === 'Present').length;
       const totalAbsentDays = totalAttendanceDays - totalPresentDays;
-      const averageAttendanceRate = totalStudents > 0 
+      
+      // Calculate average attendance rate based on expected classes
+      // For each student: (attended classes / expected classes) * 100
+      let totalAttendanceRate = 0;
+      enrolledStudents.forEach(student => {
+        const attStats = studentAttendanceMap[student.id] || { present: 0, absent: 0, total: 0 };
+        if (totalExpectedClasses > 0) {
+          const studentRate = (attStats.total / totalExpectedClasses) * 100;
+          totalAttendanceRate += studentRate;
+        }
+      });
+      const averageAttendanceRate = totalStudents > 0 && totalExpectedClasses > 0
+        ? (totalAttendanceRate / totalStudents).toFixed(1)
+        : totalStudents > 0 && totalAttendanceDays > 0
         ? ((Object.keys(studentAttendanceMap).length / totalStudents) * 100).toFixed(1)
         : '0.0';
 
@@ -308,9 +362,16 @@ const Reports = () => {
       const studentDetails = enrolledStudents.map(student => {
         const isPaid = paidStudentIds.has(student.id);
         const attStats = studentAttendanceMap[student.id] || { present: 0, absent: 0, total: 0 };
-        const attendanceRate = attStats.total > 0 
-          ? ((attStats.present / attStats.total) * 100).toFixed(1)
-          : '0.0';
+        
+        // Calculate attendance rate based on expected classes (regular + extra)
+        let attendanceRate = '0.0';
+        if (totalExpectedClasses > 0) {
+          // Rate = (attended classes / expected classes) * 100
+          attendanceRate = ((attStats.total / totalExpectedClasses) * 100).toFixed(1);
+        } else if (attStats.total > 0) {
+          // Fallback: if no expected classes but student has attendance, use present/total
+          attendanceRate = ((attStats.present / attStats.total) * 100).toFixed(1);
+        }
 
         return {
           id: student.id,
@@ -322,6 +383,7 @@ const Reports = () => {
             present: attStats.present,
             absent: attStats.absent,
             total: attStats.total,
+            expected: totalExpectedClasses,
             rate: attendanceRate
           }
         };
@@ -359,6 +421,9 @@ const Reports = () => {
           totalAttendanceDays,
           totalPresentDays,
           totalAbsentDays,
+          expectedRegularClasses,
+          extraClassesCount: extraClasses.length,
+          totalExpectedClasses,
           averageAttendanceRate
         },
         students: studentDetails
@@ -371,6 +436,64 @@ const Reports = () => {
       setReportData(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!reportData || !reportRef.current) return;
+
+    setDownloadingPDF(true);
+    try {
+      // Dynamically import html2canvas and jspdf
+      const html2canvas = (await import('html2canvas')).default;
+      const jsPDF = (await import('jspdf')).default;
+
+      const element = reportRef.current;
+      
+      // Capture the report content
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Calculate PDF dimensions
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 297; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+
+      // Create PDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Add additional pages if content is longer than one page
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // Generate filename
+      const filename = `Report_${reportData.course.name.replace(/\s+/g, '_')}_${reportData.month.name.replace(/\s+/g, '_')}.pdf`;
+      
+      // Download PDF
+      pdf.save(filename);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      setError('Failed to generate PDF. Please try again.');
+    } finally {
+      setDownloadingPDF(false);
     }
   };
 
@@ -511,7 +634,7 @@ const Reports = () => {
       )}
 
       {!loading && reportData && (
-        <div>
+        <div ref={reportRef}>
           {/* Summary Card */}
           <Card className="mb-4" style={{
             border: '1px solid #e2e8f0',
@@ -523,7 +646,10 @@ const Reports = () => {
               background: '#f8fafc',
               borderBottom: '1px solid #e2e8f0',
               padding: '20px 24px',
-              borderRadius: '12px 12px 0 0'
+              borderRadius: '12px 12px 0 0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
             }}>
               <h5 className="mb-0" style={{ 
                 fontSize: '18px', 
@@ -532,6 +658,26 @@ const Reports = () => {
               }}>
                 Report: {reportData.course.name} - {reportData.month.name}
               </h5>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleDownloadPDF}
+                disabled={downloadingPDF}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  borderRadius: '8px',
+                  padding: '8px 16px',
+                  fontWeight: '600',
+                  border: 'none',
+                  background: downloadingPDF ? '#94a3b8' : '#3b82f6',
+                  color: '#ffffff'
+                }}
+              >
+                <HiOutlineArrowDownTray style={{ fontSize: '16px' }} />
+                {downloadingPDF ? 'Generating...' : 'Download PDF'}
+              </Button>
             </Card.Header>
             <Card.Body style={{ padding: '24px' }}>
               <h6 className="mb-4" style={{ 
@@ -767,6 +913,62 @@ const Reports = () => {
                   </div>
                 </Col>
               </Row>
+              
+              {/* Expected Classes Information */}
+              {(reportData.summary.expectedRegularClasses > 0 || reportData.summary.extraClassesCount > 0) && (
+                <div style={{
+                  marginTop: '24px',
+                  padding: '16px',
+                  background: '#f8fafc',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0'
+                }}>
+                  <h6 style={{ 
+                    fontSize: '13px', 
+                    fontWeight: '700', 
+                    color: '#475569',
+                    marginBottom: '12px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                  }}>Expected Classes Breakdown</h6>
+                  <Row>
+                    <Col xs={4}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>Regular Classes</div>
+                        <div style={{ fontSize: '20px', fontWeight: '700', color: '#3b82f6' }}>
+                          {reportData.summary.expectedRegularClasses || 0}
+                        </div>
+                      </div>
+                    </Col>
+                    <Col xs={4}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>Extra Classes</div>
+                        <div style={{ fontSize: '20px', fontWeight: '700', color: '#f59e0b' }}>
+                          {reportData.summary.extraClassesCount || 0}
+                        </div>
+                      </div>
+                    </Col>
+                    <Col xs={4}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>Total Expected</div>
+                        <div style={{ fontSize: '20px', fontWeight: '700', color: '#0f172a' }}>
+                          {reportData.summary.totalExpectedClasses || 0}
+                        </div>
+                      </div>
+                    </Col>
+                  </Row>
+                  <div style={{ 
+                    marginTop: '12px', 
+                    paddingTop: '12px', 
+                    borderTop: '1px solid #e2e8f0',
+                    fontSize: '12px',
+                    color: '#64748b',
+                    textAlign: 'center'
+                  }}>
+                    Attendance rate is calculated as: (Attended Classes / Total Expected Classes) × 100%
+                  </div>
+                </div>
+              )}
             </Card.Body>
           </Card>
 
@@ -847,7 +1049,7 @@ const Reports = () => {
                       color: '#0f172a',
                       lineHeight: '1.2',
                       textAlign: 'left'
-                    }}>Rs. {reportData.summary.totalFee.toFixed(2)}</div>
+                    }}>Rs {reportData.summary.totalFee.toFixed(2)}</div>
                   </div>
                 </Col>
                 <Col xs={6} md={3}>
@@ -904,7 +1106,7 @@ const Reports = () => {
                       color: '#059669',
                       lineHeight: '1.2',
                       textAlign: 'left'
-                    }}>Rs. {reportData.summary.paidFee.toFixed(2)}</div>
+                    }}>Rs {reportData.summary.paidFee.toFixed(2)}</div>
                   </div>
                 </Col>
                 <Col xs={6} md={3}>
@@ -961,7 +1163,7 @@ const Reports = () => {
                       color: '#dc2626',
                       lineHeight: '1.2',
                       textAlign: 'left'
-                    }}>Rs. {reportData.summary.pendingFee.toFixed(2)}</div>
+                    }}>Rs {reportData.summary.pendingFee.toFixed(2)}</div>
                   </div>
                 </Col>
                 <Col xs={6} md={3}>
@@ -1019,7 +1221,7 @@ const Reports = () => {
                       lineHeight: '1.2',
                       marginBottom: '8px',
                       textAlign: 'left'
-                    }}>Rs. {reportData.summary.totalTeacherIncome.toFixed(2)}</div>
+                    }}>Rs {reportData.summary.totalTeacherIncome.toFixed(2)}</div>
                     <div style={{
                       fontSize: '11px',
                       color: '#059669',
@@ -1030,7 +1232,7 @@ const Reports = () => {
                       display: 'inline-block',
                       textAlign: 'left'
                     }}>
-                      Paid: Rs. {reportData.summary.paidTeacherIncome.toFixed(2)}
+                      Paid: Rs {reportData.summary.paidTeacherIncome.toFixed(2)}
                     </div>
                   </div>
                 </Col>
@@ -1052,7 +1254,7 @@ const Reports = () => {
                     <th>Contact</th>
                     <th style={{ width: '100px' }}>Grade</th>
                     <th style={{ width: '140px' }}>Payment Status</th>
-                    <th style={{ width: '120px' }}>Attendance</th>
+                    <th style={{ width: '180px' }}>Attendance</th>
                     <th style={{ width: '150px' }}>Rate</th>
                           </tr>
                         </thead>
@@ -1176,78 +1378,142 @@ const Reports = () => {
                           )}
                         </td>
                         <td style={{ padding: '16px 24px' }}>
-                          <div style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '8px' 
-                          }}>
-                            <div style={{
-                              width: '32px',
-                              height: '32px',
-                              borderRadius: '8px',
-                              background: 'rgba(16, 185, 129, 0.1)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#059669'
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {/* Main attendance display */}
+                            <div style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '8px' 
                             }}>
-                              <HiOutlineCheckCircle size={16} />
-                                </div>
-                            <div>
-                              <div style={{ 
-                                fontSize: '16px', 
-                                fontWeight: '700', 
+                              <div style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '8px',
+                                background: 'rgba(16, 185, 129, 0.1)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
                                 color: '#059669',
-                                lineHeight: '1.2'
+                                flexShrink: 0
                               }}>
-                                {student.attendance.present}
+                                <HiOutlineCheckCircle size={14} />
                               </div>
-                              <div style={{ 
-                                fontSize: '11px', 
-                                color: '#94a3b8',
-                                fontWeight: '500'
+                              <div style={{ flex: 1 }}>
+                                <div style={{ 
+                                  fontSize: '15px', 
+                                  fontWeight: '700', 
+                                  color: '#0f172a',
+                                  lineHeight: '1.3'
+                                }}>
+                                  {student.attendance.present} / {student.attendance.total}
+                                </div>
+                                {student.attendance.expected !== undefined && student.attendance.expected > 0 && (
+                                  <div style={{ 
+                                    fontSize: '11px', 
+                                    color: '#64748b',
+                                    fontWeight: '500',
+                                    marginTop: '2px'
+                                  }}>
+                                    Expected: {student.attendance.expected}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Absent count if applicable */}
+                            {student.attendance.absent > 0 && (
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '4px 8px',
+                                background: 'rgba(239, 68, 68, 0.05)',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                color: '#dc2626',
+                                fontWeight: '600'
                               }}>
-                                / {student.attendance.total}
-                        </div>
-                            </div>
-                            </div>
+                                <HiOutlineXCircle size={12} />
+                                {student.attendance.absent} Absent
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td style={{ padding: '16px 24px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {/* Rate percentage with badge */}
                             <div style={{ 
                               display: 'flex', 
                               alignItems: 'center', 
                               gap: '8px',
                               justifyContent: 'space-between'
                             }}>
-                              <span style={{
-                                fontSize: '14px',
-                                fontWeight: '700',
-                                color: parseFloat(student.attendance.rate) >= 75 ? '#059669' : 
-                                       parseFloat(student.attendance.rate) >= 50 ? '#d97706' : '#dc2626'
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
                               }}>
-                                {student.attendance.rate}%
-                              </span>
+                                <span style={{
+                                  fontSize: '16px',
+                                  fontWeight: '700',
+                                  color: parseFloat(student.attendance.rate) >= 75 ? '#059669' : 
+                                         parseFloat(student.attendance.rate) >= 50 ? '#d97706' : '#dc2626'
+                                }}>
+                                  {student.attendance.rate}%
+                                </span>
+                                {student.attendance.expected !== undefined && student.attendance.expected > 0 && (
+                                  <span style={{
+                                    fontSize: '10px',
+                                    color: '#64748b',
+                                    fontWeight: '500',
+                                    padding: '2px 6px',
+                                    background: '#f1f5f9',
+                                    borderRadius: '4px'
+                                  }}>
+                                    of {student.attendance.expected}
+                                  </span>
+                                )}
+                              </div>
                             </div>
+                            
+                            {/* Progress bar */}
                             <div style={{
                               width: '100%',
-                              height: '6px',
-                              borderRadius: '3px',
+                              height: '8px',
+                              borderRadius: '4px',
                               background: '#e2e8f0',
                               overflow: 'hidden',
                               position: 'relative'
                             }}>
                               <div style={{
-                                width: `${student.attendance.rate}%`,
+                                width: `${Math.min(parseFloat(student.attendance.rate), 100)}%`,
                                 height: '100%',
-                                borderRadius: '3px',
+                                borderRadius: '4px',
                                 background: parseFloat(student.attendance.rate) >= 75 ? 
                                            'linear-gradient(90deg, #10b981 0%, #059669 100%)' :
                                            parseFloat(student.attendance.rate) >= 50 ?
                                            'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)' :
                                            'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)',
-                                transition: 'width 0.3s ease'
+                                transition: 'width 0.3s ease',
+                                boxShadow: parseFloat(student.attendance.rate) >= 75 ? 
+                                          '0 2px 4px rgba(16, 185, 129, 0.3)' :
+                                          parseFloat(student.attendance.rate) >= 50 ?
+                                          '0 2px 4px rgba(245, 158, 11, 0.3)' :
+                                          '0 2px 4px rgba(239, 68, 68, 0.3)'
                               }} />
+                            </div>
+                            
+                            {/* Status indicator */}
+                            <div style={{
+                              fontSize: '10px',
+                              fontWeight: '600',
+                              color: parseFloat(student.attendance.rate) >= 75 ? '#059669' : 
+                                     parseFloat(student.attendance.rate) >= 50 ? '#d97706' : '#dc2626',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px'
+                            }}>
+                              {parseFloat(student.attendance.rate) >= 75 ? 'Excellent' : 
+                               parseFloat(student.attendance.rate) >= 50 ? 'Good' : 'Needs Improvement'}
                             </div>
                           </div>
                         </td>

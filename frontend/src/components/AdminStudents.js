@@ -28,15 +28,33 @@ const AdminStudents = () => {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
   const [showCoursesModal, setShowCoursesModal] = useState(false);
   const [showPaymentsModal, setShowPaymentsModal] = useState(false);
   const [showIDCardModal, setShowIDCardModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedStudentId, setSelectedStudentId] = useState(null);
+  const [newStudentId, setNewStudentId] = useState(null);
   const qrCodeRef = useRef(null);
   const idCardRef = useRef(null);
+  
+  // Add Student Form States
+  const [formData, setFormData] = useState({
+    fullName: '',
+    dob: '',
+    parentName: '',
+    contactNumber: '',
+    studentWhatsAppNumber: '',
+    parentWhatsAppNumber: '',
+    address: '',
+    grade: ''
+  });
+  const [selectedCourses, setSelectedCourses] = useState([]);
+  const [studentImage, setStudentImage] = useState(null);
+  const [studentImagePreview, setStudentImagePreview] = useState(null);
 
   // Search states
   const [searchName, setSearchName] = useState('');
@@ -154,7 +172,13 @@ const AdminStudents = () => {
       const response = await fetch(`${API_URL}/api/students`);
       const data = await response.json();
       if (data.success) {
-        setStudents(data.students);
+        // Sort students by createdAt in descending order (newest first)
+        const sortedStudents = [...data.students].sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA; // Descending order (newest first)
+        });
+        setStudents(sortedStudents);
       } else {
         setError(data.message || 'Failed to fetch students');
       }
@@ -164,6 +188,143 @@ const AdminStudents = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper functions for student form
+  const normalizeGrade = (grade) => {
+    if (!grade) return '';
+    return grade.toString().replace(/^Grade\s+/i, '').trim();
+  };
+
+  const gradesMatch = (grade1, grade2) => {
+    return normalizeGrade(grade1) === normalizeGrade(grade2);
+  };
+
+  const getAvailableCourses = () => {
+    if (!formData.grade) return [];
+    return courses.filter(course => gradesMatch(course.grade, formData.grade));
+  };
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+    // Clear selected courses when grade changes
+    if (e.target.name === 'grade') {
+      setSelectedCourses([]);
+    }
+    setError('');
+    setSuccess('');
+  };
+
+  const handleCourseToggle = (courseId) => {
+    setSelectedCourses(prev => 
+      prev.includes(courseId)
+        ? prev.filter(id => id !== courseId)
+        : [...prev, courseId]
+    );
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setError('Image size should be less than 5MB');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file');
+        return;
+      }
+      setStudentImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setStudentImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+      setError('');
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setLoading(true);
+
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('fullName', formData.fullName);
+      formDataToSend.append('dob', formData.dob);
+      formDataToSend.append('parentName', formData.parentName);
+      formDataToSend.append('contactNumber', formData.contactNumber);
+      formDataToSend.append('studentWhatsAppNumber', formData.studentWhatsAppNumber || '');
+      formDataToSend.append('parentWhatsAppNumber', formData.parentWhatsAppNumber || '');
+      formDataToSend.append('address', formData.address);
+      formDataToSend.append('grade', formData.grade);
+      formDataToSend.append('selectedCourses', JSON.stringify(selectedCourses));
+      
+      if (studentImage) {
+        formDataToSend.append('image', studentImage);
+      }
+
+      const response = await fetch(`${API_URL}/api/students`, {
+        method: 'POST',
+        body: formDataToSend,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess('Student added successfully!');
+        setFormData({
+          fullName: '',
+          dob: '',
+          parentName: '',
+          contactNumber: '',
+          studentWhatsAppNumber: '',
+          parentWhatsAppNumber: '',
+          address: '',
+          grade: ''
+        });
+        setSelectedCourses([]);
+        setStudentImage(null);
+        setStudentImagePreview(null);
+        setShowAddStudentModal(false);
+        setNewStudentId(data.student.id);
+        setShowQRModal(true);
+        fetchStudents();
+        fetchCourses(); // Refresh courses to get updated enrollment data
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(data.message || 'Failed to add student');
+      }
+    } catch (err) {
+      console.error('Error adding student:', err);
+      setError('Unable to connect to server. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCloseAddStudentModal = () => {
+    setShowAddStudentModal(false);
+    setFormData({
+      fullName: '',
+      dob: '',
+      parentName: '',
+      contactNumber: '',
+      studentWhatsAppNumber: '',
+      parentWhatsAppNumber: '',
+      address: '',
+      grade: ''
+    });
+    setSelectedCourses([]);
+    setStudentImage(null);
+    setStudentImagePreview(null);
+    setError('');
+    setSuccess('');
   };
 
   const fetchCourses = async () => {
@@ -208,6 +369,7 @@ const AdminStudents = () => {
   const handleCloseQRModal = () => {
     setShowQRModal(false);
     setSelectedStudentId(null);
+    setNewStudentId(null);
   };
 
   const handleViewCourses = (student) => {
@@ -379,7 +541,8 @@ const AdminStudents = () => {
   };
 
   const downloadQRCode = () => {
-    if (qrCodeRef.current && selectedStudentId) {
+    const studentId = selectedStudentId || newStudentId;
+    if (qrCodeRef.current && studentId) {
       const svg = qrCodeRef.current.querySelector('svg');
       if (svg) {
         try {
@@ -407,7 +570,7 @@ const AdminStudents = () => {
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `student-qr-${selectedStudentId}.png`;
+                link.download = `student-qr-${studentId}.png`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -421,7 +584,7 @@ const AdminStudents = () => {
             // Fallback: download as SVG
             const link = document.createElement('a');
             link.href = svgUrl;
-            link.download = `student-qr-${selectedStudentId}.svg`;
+            link.download = `student-qr-${studentId}.svg`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -509,15 +672,30 @@ const AdminStudents = () => {
   return (
     <Container fluid>
       <div className="operators-header mb-4">
-        <div>
-          <h2 className="dashboard-title">Students</h2>
-          <p className="dashboard-subtitle">View all students in the system</p>
+        <div className="d-flex justify-content-between align-items-center">
+          <div>
+            <h2 className="dashboard-title">Students</h2>
+            <p className="dashboard-subtitle">Manage system students</p>
+          </div>
+          <Button
+            className="add-operator-btn"
+            onClick={() => setShowAddStudentModal(true)}
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            + Add Student
+          </Button>
         </div>
       </div>
 
       {error && (
         <Alert variant="danger" className="mb-3" onClose={() => setError('')} dismissible>
           {error}
+        </Alert>
+      )}
+
+      {success && (
+        <Alert variant="success" className="mb-3" onClose={() => setSuccess('')} dismissible>
+          {success}
         </Alert>
       )}
 
@@ -1012,12 +1190,12 @@ const AdminStudents = () => {
           <Modal.Title>Student QR Code</Modal.Title>
         </Modal.Header>
         <Modal.Body className="text-center">
-          {selectedStudentId && (
+          {(selectedStudentId || newStudentId) && (
             <div>
-              <p className="mb-3"><strong>{selectedStudentId}</strong></p>
+              <p className="mb-3"><strong>{selectedStudentId || newStudentId}</strong></p>
               <div ref={qrCodeRef} className="d-flex justify-content-center mb-3" style={{ padding: '20px', backgroundColor: 'white' }}>
                 <QRCodeSVG
-                  value={selectedStudentId}
+                  value={selectedStudentId || newStudentId}
                   size={256}
                   level="H"
                   includeMargin={true}
@@ -1035,6 +1213,284 @@ const AdminStudents = () => {
             Download QR Code
           </Button>
         </Modal.Footer>
+      </Modal>
+
+      {/* Add Student Modal - Benchmark Style */}
+      <Modal show={showAddStudentModal} onHide={handleCloseAddStudentModal} centered size="lg" backdrop="static">
+        <Modal.Header closeButton style={{ padding: 0, border: 'none' }}>
+          <div className="student-form-header" style={{ width: '100%' }}>
+            <h2>Create New Student Profile</h2>
+            <p>Add a new student to the system</p>
+          </div>
+        </Modal.Header>
+        <Modal.Body style={{ padding: 0 }}>
+          <Form onSubmit={handleSubmit} className="student-form-body">
+            <div className="student-form-grid">
+              {/* Left Column */}
+              <div className="student-form-column">
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlineUser className="student-form-label-icon" />
+                    Student Full Name
+                  </label>
+                  <input
+                    type="text"
+                    name="fullName"
+                    placeholder="e.g. John Doe"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    required
+                    className="student-form-input"
+                  />
+                </div>
+
+                <div className="student-form-grid-2">
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineCalendar className="student-form-label-icon" />
+                      Date of Birth
+                    </label>
+                    <input
+                      type="date"
+                      name="dob"
+                      value={formData.dob}
+                      onChange={handleChange}
+                      required
+                      className="student-form-input"
+                    />
+                  </div>
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineAcademicCap className="student-form-label-icon" />
+                      Grade
+                    </label>
+                    <input
+                      type="text"
+                      name="grade"
+                      placeholder="e.g. Grade 1"
+                      value={formData.grade}
+                      onChange={handleChange}
+                      required
+                      className="student-form-input"
+                    />
+                  </div>
+                </div>
+
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlineUser className="student-form-label-icon" />
+                    Parent Name
+                  </label>
+                  <input
+                    type="text"
+                    name="parentName"
+                    placeholder="Enter parent name"
+                    value={formData.parentName}
+                    onChange={handleChange}
+                    required
+                    className="student-form-input"
+                  />
+                </div>
+
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlinePhone className="student-form-label-icon" />
+                    Contact Number
+                  </label>
+                  <input
+                    type="tel"
+                    name="contactNumber"
+                    placeholder="+94 77 XXX XXXX"
+                    value={formData.contactNumber}
+                    onChange={handleChange}
+                    required
+                    className="student-form-input"
+                  />
+                </div>
+
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlineHome className="student-form-label-icon" />
+                    Address
+                  </label>
+                  <textarea
+                    name="address"
+                    placeholder="Enter address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    required
+                    rows={3}
+                    className="student-form-input"
+                    style={{ resize: 'vertical', minHeight: '80px' }}
+                  />
+                </div>
+              </div>
+
+              {/* Right Column */}
+              <div className="student-form-column">
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlinePhone className="student-form-label-icon" />
+                    Student WhatsApp (Optional)
+                  </label>
+                  <input
+                    type="tel"
+                    name="studentWhatsAppNumber"
+                    placeholder="+94 77 XXX XXXX"
+                    value={formData.studentWhatsAppNumber}
+                    onChange={handleChange}
+                    className="student-form-input"
+                  />
+                </div>
+
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlinePhone className="student-form-label-icon" />
+                    Parent WhatsApp (Optional)
+                  </label>
+                  <input
+                    type="tel"
+                    name="parentWhatsAppNumber"
+                    placeholder="+94 77 XXX XXXX"
+                    value={formData.parentWhatsAppNumber}
+                    onChange={handleChange}
+                    className="student-form-input"
+                  />
+                </div>
+
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlinePhoto className="student-form-label-icon" />
+                    Student Photo (Optional)
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="student-form-input"
+                  />
+                  {studentImagePreview && (
+                    <div style={{ marginTop: '12px' }}>
+                      <img 
+                        src={studentImagePreview} 
+                        alt="Preview" 
+                        style={{ 
+                          maxWidth: '200px', 
+                          maxHeight: '200px', 
+                          objectFit: 'cover', 
+                          borderRadius: '12px',
+                          border: '1px solid #e2e8f0'
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {formData.grade && (
+              <div className="student-form-field" style={{ gridColumn: '1 / -1', marginTop: '16px' }}>
+                <label className="student-form-label">
+                  <HiOutlineBookOpen className="student-form-label-icon" />
+                  Select Courses (Optional)
+                </label>
+                <div style={{ 
+                  border: '1px solid #e2e8f0', 
+                  borderRadius: '12px', 
+                  padding: '16px', 
+                  maxHeight: '300px', 
+                  overflowY: 'auto',
+                  background: '#f8fafc'
+                }}>
+                  {getAvailableCourses().length > 0 ? (
+                    <>
+                      {getAvailableCourses().map((course) => (
+                        <div key={course.id} style={{ marginBottom: '12px' }}>
+                          <label style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            cursor: 'pointer',
+                            padding: '8px',
+                            borderRadius: '8px',
+                            transition: 'background 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedCourses.includes(course.id)}
+                              onChange={() => handleCourseToggle(course.id)}
+                              style={{ marginRight: '12px', cursor: 'pointer' }}
+                            />
+                            <div>
+                              <strong style={{ color: '#0f172a', fontSize: '14px' }}>{course.courseName}</strong>
+                              <span style={{ color: '#64748b', fontSize: '13px', marginLeft: '8px' }}>
+                                ({course.subject}) - Rs {parseFloat(course.courseFee || 0).toFixed(2)}
+                              </span>
+                            </div>
+                          </label>
+                        </div>
+                      ))}
+                      {selectedCourses.length > 0 && (
+                        <div style={{ 
+                          marginTop: '16px', 
+                          padding: '12px', 
+                          background: 'rgba(59, 130, 246, 0.1)', 
+                          borderRadius: '8px',
+                          border: '1px solid rgba(59, 130, 246, 0.2)'
+                        }}>
+                          <small style={{ color: '#2563eb', fontWeight: '600' }}>
+                            Selected: {selectedCourses.length} course{selectedCourses.length !== 1 ? 's' : ''}
+                          </small>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p style={{ color: '#64748b', margin: 0, fontSize: '14px' }}>
+                      No courses available for grade "{formData.grade}". 
+                      Please create courses for this grade first.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <Alert variant="danger" style={{ 
+                marginTop: '24px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: '#dc2626',
+                border: 'none',
+                borderRadius: '8px'
+              }}>
+                {error}
+              </Alert>
+            )}
+
+            <div className="student-form-actions">
+              <button 
+                type="button"
+                onClick={handleCloseAddStudentModal}
+                className="student-form-cancel-btn"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="student-form-submit-btn"
+                disabled={loading}
+              >
+                {loading ? 'Creating...' : (
+                  <>
+                    <span>+</span>
+                    Create Student
+                  </>
+                )}
+              </button>
+            </div>
+          </Form>
+        </Modal.Body>
       </Modal>
 
       {/* View Courses Modal - Benchmark Style */}
@@ -1078,7 +1534,7 @@ const AdminStudents = () => {
                                     fontWeight: '600', 
                                     color: '#3b82f6' 
                                   }}>
-                                    Rs. {parseFloat(course.courseFee).toFixed(2)}
+                                    Rs {parseFloat(course.courseFee).toFixed(2)}
                                   </span>
                                 ) : '-'}
                               </td>
@@ -1117,7 +1573,7 @@ const AdminStudents = () => {
                           fontWeight: '700',
                           color: '#0f172a'
                         }}>
-                    Rs. {getStudentCourses(selectedStudent.id).reduce((sum, course) =>
+                    Rs {getStudentCourses(selectedStudent.id).reduce((sum, course) =>
                       sum + (parseFloat(course.courseFee) || 0), 0
                     ).toFixed(2)}
                   </div>
@@ -1226,7 +1682,7 @@ const AdminStudents = () => {
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                         <strong>{course.courseName}</strong>
                                         <span style={{ color: '#64748b' }}>({course.subject})</span>
-                                        <span style={{ fontWeight: '600', color: '#3b82f6' }}>Rs. {course.fee.toFixed(2)}</span>
+                                        <span style={{ fontWeight: '600', color: '#3b82f6' }}>Rs {course.fee.toFixed(2)}</span>
                                   {course.isPaid && (
                                           <span style={{
                                             padding: '2px 8px',
@@ -1254,16 +1710,16 @@ const AdminStudents = () => {
                             </div>
                           </td>
                               <td>
-                                <strong style={{ color: '#0f172a' }}>Rs. {payment.totalFee.toFixed(2)}</strong>
+                                <strong style={{ color: '#0f172a' }}>Rs {payment.totalFee.toFixed(2)}</strong>
                               </td>
                               <td>
                                 <span style={{ fontWeight: '600', color: '#059669' }}>
-                                  Rs. {payment.paidAmount.toFixed(2)}
+                                  Rs {payment.paidAmount.toFixed(2)}
                             </span>
                           </td>
                               <td>
                                 <span style={{ fontWeight: '600', color: '#dc2626' }}>
-                                  Rs. {payment.pendingAmount.toFixed(2)}
+                                  Rs {payment.pendingAmount.toFixed(2)}
                             </span>
                           </td>
                           <td>
@@ -1317,7 +1773,7 @@ const AdminStudents = () => {
                           fontWeight: '700',
                           color: '#0f172a'
                         }}>
-                        Rs. {calculateMonthlyPayments(selectedStudent).reduce((sum, payment) =>
+                        Rs {calculateMonthlyPayments(selectedStudent).reduce((sum, payment) =>
                           sum + payment.totalFee, 0
                         ).toFixed(2)}
                         </div>
@@ -1338,7 +1794,7 @@ const AdminStudents = () => {
                           fontWeight: '700',
                           color: '#059669'
                         }}>
-                          Rs. {calculateMonthlyPayments(selectedStudent)
+                          Rs {calculateMonthlyPayments(selectedStudent)
                             .reduce((sum, payment) => sum + payment.paidAmount, 0)
                             .toFixed(2)}
                         </div>
@@ -1359,7 +1815,7 @@ const AdminStudents = () => {
                           fontWeight: '700',
                           color: '#dc2626'
                         }}>
-                          Rs. {calculateMonthlyPayments(selectedStudent)
+                          Rs {calculateMonthlyPayments(selectedStudent)
                             .reduce((sum, payment) => sum + payment.pendingAmount, 0)
                             .toFixed(2)}
                       </div>

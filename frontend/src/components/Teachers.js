@@ -1253,7 +1253,7 @@ const Teachers = () => {
                       </div>
                     </div>
                     <div style={{ fontSize: '24px', fontWeight: '700', color: '#10b981', marginBottom: '4px' }}>
-                        Rs. {(paymentData.totalPaid || 0).toFixed(2)}
+                        Rs {(paymentData.totalPaid || 0).toFixed(2)}
                       </div>
                     <div style={{ fontSize: '12px', color: '#94a3b8' }}>
                         From paid course fees
@@ -1290,7 +1290,7 @@ const Teachers = () => {
                       </div>
                     </div>
                     <div style={{ fontSize: '24px', fontWeight: '700', color: '#3b82f6', marginBottom: '4px' }}>
-                        Rs. {(paymentData.totalAdvancePayments || 0).toFixed(2)}
+                        Rs {(paymentData.totalAdvancePayments || 0).toFixed(2)}
                       </div>
                     <div style={{ fontSize: '12px', color: '#94a3b8' }}>
                         Amount given to teacher
@@ -1336,7 +1336,7 @@ const Teachers = () => {
                       color: (paymentData.remaining || 0) >= 0 ? '#f59e0b' : '#ef4444', 
                       marginBottom: '4px' 
                     }}>
-                        Rs. {(paymentData.remaining || 0).toFixed(2)}
+                        Rs {(paymentData.remaining || 0).toFixed(2)}
                       </div>
                     <div style={{ fontSize: '12px', color: '#94a3b8' }}>
                         {(paymentData.remaining || 0) >= 0 ? 'Amount to be paid out' : 'Overpaid amount'}
@@ -1373,7 +1373,7 @@ const Teachers = () => {
                       </div>
                       </div>
                     <div style={{ fontSize: '24px', fontWeight: '700', color: '#6366f1', marginBottom: '4px' }}>
-                      Rs. {(paymentData.totalPotential || 0).toFixed(2)}
+                      Rs {(paymentData.totalPotential || 0).toFixed(2)}
                     </div>
                     <div style={{ fontSize: '12px', color: '#94a3b8' }}>
                       If all fees are paid
@@ -1413,7 +1413,7 @@ const Teachers = () => {
                                   <td>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '600', color: '#3b82f6' }}>
                                       <HiOutlineCurrencyDollar style={{ fontSize: '14px' }} />
-                                      Rs. {parseFloat(payment.amount).toFixed(2)}
+                                      Rs {parseFloat(payment.amount).toFixed(2)}
                                     </div>
                                   </td>
                                 <td>{payment.description || '-'}</td>
@@ -1456,7 +1456,7 @@ const Teachers = () => {
                       fontWeight: '700', 
                       color: '#ef4444' 
                     }}>
-                      Rs. {((paymentData.totalPotential || 0) - (paymentData.totalPaid || 0)).toFixed(2)}
+                      Rs {((paymentData.totalPotential || 0) - (paymentData.totalPaid || 0)).toFixed(2)}
                     </div>
                   </div>
                   <div style={{ 
@@ -1505,7 +1505,7 @@ const Teachers = () => {
           {selectedTeacher && (
             <Form onSubmit={handleAdvancePaymentSubmit}>
               <Form.Group className="mb-3">
-                <Form.Label className="form-label">Amount (Rs.)</Form.Label>
+                <Form.Label className="form-label">Amount (Rs)</Form.Label>
                 <Form.Control
                   type="number"
                   step="0.01"
