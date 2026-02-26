@@ -34,7 +34,8 @@ const Attendance = ({ hideMarkButton = false }) => {
   const [showStudentDetails, setShowStudentDetails] = useState(false);
   const [selectedAttendanceRecord, setSelectedAttendanceRecord] = useState(null);
   const [showAttendanceDetailsModal, setShowAttendanceDetailsModal] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [warnings, setWarnings] = useState([]);
@@ -183,7 +184,7 @@ const Attendance = ({ hideMarkButton = false }) => {
     fetchStudents();
     fetchCourses();
     fetchPayments();
-    fetchAttendance();
+    fetchAttendance(true); // Initial load - no spinner
     
     // Don't set default month - let user see all records initially
     // Only filter by month when a course is selected
@@ -194,7 +195,7 @@ const Attendance = ({ hideMarkButton = false }) => {
       fetchStudents();
       fetchCourses();
       fetchPayments();
-      fetchAttendance();
+      fetchAttendance(); // Updates - show spinner
     }, SYNC_INTERVAL);
     
     // Check if user is admin or operator for queue processing
@@ -638,9 +639,11 @@ const Attendance = ({ hideMarkButton = false }) => {
     }
   };
 
-  const fetchAttendance = async () => {
+  const fetchAttendance = async (isInitialLoad = false) => {
     try {
-      setLoading(true);
+      if (!isInitialLoad) {
+        setLoading(true);
+      }
       const response = await fetch(`${API_URL}/api/attendance`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -659,6 +662,9 @@ const Attendance = ({ hideMarkButton = false }) => {
       setAttendance([]);
     } finally {
       setLoading(false);
+      if (isInitialLoad) {
+        setInitialLoad(false);
+      }
     }
   };
 
@@ -1098,7 +1104,7 @@ const Attendance = ({ hideMarkButton = false }) => {
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
+                {loading && !initialLoad ? (
                   <tr>
                     <td colSpan="6" style={{ padding: '60px 20px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
@@ -1111,7 +1117,7 @@ const Attendance = ({ hideMarkButton = false }) => {
                       </div>
                     </td>
                   </tr>
-                ) : paginatedAttendance.length === 0 ? (
+                ) : !initialLoad && paginatedAttendance.length === 0 ? (
                   <tr>
                     <td colSpan="6" style={{ padding: '60px 20px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>

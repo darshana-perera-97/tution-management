@@ -26,7 +26,8 @@ const AdminStudents = () => {
   const [students, setStudents] = useState([]);
   const [courses, setCourses] = useState([]);
   const [payments, setPayments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -65,7 +66,7 @@ const AdminStudents = () => {
   const qrScannerRef = useRef(null);
 
   useEffect(() => {
-    fetchStudents();
+    fetchStudents(true); // Initial load - no spinner
     fetchCourses();
     fetchPayments();
   }, []);
@@ -166,9 +167,11 @@ const AdminStudents = () => {
     };
   }, [showQRScanner]);
 
-  const fetchStudents = async () => {
+  const fetchStudents = async (isInitialLoad = false) => {
     try {
-      setLoading(true);
+      if (!isInitialLoad) {
+        setLoading(true);
+      }
       const response = await fetch(`${API_URL}/api/students`);
       const data = await response.json();
       if (data.success) {
@@ -187,6 +190,9 @@ const AdminStudents = () => {
       setError('Unable to connect to server. Please try again later.');
     } finally {
       setLoading(false);
+      if (isInitialLoad) {
+        setInitialLoad(false);
+      }
     }
   };
 
@@ -767,7 +773,7 @@ const AdminStudents = () => {
         <div className="table-header-section">
           <h3>Students ({paginatedStudents.length} {paginatedStudents.length === 1 ? 'student' : 'students'})</h3>
         </div>
-        {loading ? (
+        {loading && !initialLoad ? (
           <div className="text-center py-5">
             <p style={{ color: '#64748b' }}>Loading students...</p>
           </div>
