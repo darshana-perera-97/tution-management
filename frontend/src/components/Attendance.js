@@ -1104,20 +1104,7 @@ const Attendance = ({ hideMarkButton = false }) => {
                 </tr>
               </thead>
               <tbody>
-                {loading && !initialLoad ? (
-                  <tr>
-                    <td colSpan="6" style={{ padding: '60px 20px', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                        <div className="spinner-border text-primary" role="status">
-                          <span className="visually-hidden">Loading...</span>
-                        </div>
-                        <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px' }}>
-                          Loading attendance records...
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : !initialLoad && paginatedAttendance.length === 0 ? (
+                {!initialLoad && paginatedAttendance.length === 0 ? (
                   <tr>
                     <td colSpan="6" style={{ padding: '60px 20px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
@@ -1197,14 +1184,7 @@ const Attendance = ({ hideMarkButton = false }) => {
 
           {/* Mobile Card View */}
           <div className="d-lg-none">
-            {loading ? (
-              <div className="text-center py-5">
-                <div className="spinner-border text-primary" role="status">
-                  <span className="visually-hidden">Loading...</span>
-                </div>
-                <p className="mt-3 text-muted">Loading attendance records...</p>
-              </div>
-            ) : paginatedAttendance.length === 0 ? (
+            {paginatedAttendance.length === 0 ? (
               <div className="text-center text-muted py-5">
                 <p>
                   {attendance.length === 0 

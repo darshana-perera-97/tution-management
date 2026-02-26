@@ -749,7 +749,6 @@ const StudentChatbot = ({ student }) => {
                       backgroundSize: '200% 100%',
                       animation: 'shimmer 2s linear infinite'
                     }} />
-                    <Spinner animation="border" size="sm" style={{ color: '#6366f1' }} />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <span style={{ color: '#0f172a', fontSize: '15px', fontWeight: '600' }}>
                         AI is thinking
@@ -896,11 +895,7 @@ const StudentChatbot = ({ student }) => {
                         : 'none';
                     }}
                   >
-                    {isLoading ? (
-                      <Spinner animation="border" size="sm" style={{ color: 'white', borderWidth: '2px' }} />
-                    ) : (
-                      <HiPaperAirplane size={22} color="white" style={{ transform: 'rotate(-45deg)' }} />
-                    )}
+                    <HiPaperAirplane size={22} color="white" style={{ transform: 'rotate(-45deg)' }} />
                     {inputMessage.trim() && !isLoading && quota.remaining > 0 && (
                       <div style={{
                         position: 'absolute',

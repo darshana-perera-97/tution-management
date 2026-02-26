@@ -700,23 +700,7 @@ const StudentDashboard = () => {
             </div>
           </div>
 
-          {loading ? (
-            <Card style={{ 
-              border: 'none',
-              borderRadius: '16px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-              background: 'white'
-            }}>
-              <Card.Body style={{ 
-                textAlign: 'center', 
-                padding: '60px 20px',
-                color: '#94a3b8'
-              }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-                <p style={{ margin: 0, fontSize: '16px' }}>Loading courses...</p>
-              </Card.Body>
-            </Card>
-          ) : courses.length === 0 ? (
+          {courses.length === 0 ? (
             <Card style={{ 
               border: 'none',
               borderRadius: '16px',

@@ -186,14 +186,7 @@ const WhatsAppLink = () => {
               onClick={disconnectWhatsApp}
               disabled={isLoading}
             >
-              {isLoading ? (
-                <>
-                  <Spinner animation="border" size="sm" className="me-2" />
-                  Disconnecting...
-                </>
-              ) : (
-                'Disconnect WhatsApp'
-              )}
+              {isLoading ? 'Disconnecting...' : 'Disconnect WhatsApp'}
             </Button>
           </Card.Body>
         </Card>
@@ -214,14 +207,7 @@ const WhatsAppLink = () => {
                     onClick={disconnectWhatsApp}
                     disabled={isLoading}
                   >
-                    {isLoading ? (
-                      <>
-                        <Spinner animation="border" size="sm" className="me-2" />
-                        Disconnecting...
-                      </>
-                    ) : (
-                      'Disconnect & Retry'
-                    )}
+                    {isLoading ? 'Disconnecting...' : 'Disconnect & Retry'}
                   </Button>
                 </div>
               </Alert>
@@ -253,7 +239,7 @@ const WhatsAppLink = () => {
                         </div>
                       ) : (
                         <div className="d-flex align-items-center justify-content-center" style={{ width: '300px', height: '300px' }}>
-                          <Spinner animation="border" />
+                          <p className="text-muted">Loading QR Code...</p>
                         </div>
                       )}
                     </div>
@@ -273,14 +259,7 @@ const WhatsAppLink = () => {
                       onClick={generateQRCode}
                       disabled={isLoading}
                     >
-                      {isLoading ? (
-                        <>
-                          <Spinner animation="border" size="sm" className="me-2" />
-                          Generating...
-                        </>
-                      ) : (
-                        'Refresh QR Code'
-                      )}
+                      {isLoading ? 'Generating...' : 'Refresh QR Code'}
                     </Button>
                   </div>
                 </>
@@ -299,14 +278,7 @@ const WhatsAppLink = () => {
                     onClick={generateQRCode}
                     disabled={isLoading}
                   >
-                    {isLoading ? (
-                      <>
-                        <Spinner animation="border" size="sm" className="me-2" />
-                        Generating QR Code...
-                      </>
-                    ) : (
-                      'Generate QR Code'
-                    )}
+                    {isLoading ? 'Generating QR Code...' : 'Generate QR Code'}
                   </Button>
                 </>
               )}

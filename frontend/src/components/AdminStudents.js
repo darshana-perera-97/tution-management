@@ -773,11 +773,7 @@ const AdminStudents = () => {
         <div className="table-header-section">
           <h3>Students ({paginatedStudents.length} {paginatedStudents.length === 1 ? 'student' : 'students'})</h3>
         </div>
-        {loading && !initialLoad ? (
-          <div className="text-center py-5">
-            <p style={{ color: '#64748b' }}>Loading students...</p>
-          </div>
-        ) : (
+        {(
           <>
             <div className="table-responsive">
               {/* Desktop Table View */}

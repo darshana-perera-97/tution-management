@@ -1125,20 +1125,7 @@ const TeacherDashboard = () => {
                   </Alert>
                 )}
 
-                {loading && (
-                  <Card className="mb-4">
-                    <Card.Body>
-                      <div className="text-center py-5">
-                        <Spinner animation="border" role="status" variant="primary" style={{ width: '3rem', height: '3rem' }}>
-                          <span className="visually-hidden">Loading...</span>
-                        </Spinner>
-                        <p className="mt-3 text-muted">Loading dashboard data...</p>
-                      </div>
-                    </Card.Body>
-                  </Card>
-                )}
-
-                {!loading && (
+                {(
                 <Row className="g-3">
                   <Col xs={6} md={3}>
                     <Card className="dashboard-stat-card h-100">
