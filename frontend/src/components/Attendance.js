@@ -39,6 +39,8 @@ const Attendance = ({ hideMarkButton = false }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [warnings, setWarnings] = useState([]);
+  const [showAutoMarkResultModal, setShowAutoMarkResultModal] = useState(false);
+  const [autoMarkResult, setAutoMarkResult] = useState(null);
   const qrScannerRef = useRef(null);
   const isProcessingRef = useRef(false);
   const isProcessingQueueRef = useRef(false);
@@ -408,6 +410,68 @@ const Attendance = ({ hideMarkButton = false }) => {
     };
   }, [students, courses, payments]);
 
+  // Auto-mark attendance handler (without course selection)
+  const handleAutoMarkAttendance = useCallback(async (studentId) => {
+    if (isProcessingRef.current) return;
+
+    if (!studentId || !studentId.trim()) {
+      setAutoMarkResult({
+        success: false,
+        message: 'Please enter a valid Student ID'
+      });
+      setShowAutoMarkResultModal(true);
+      return;
+    }
+
+    isProcessingRef.current = true;
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/attendance/auto-mark`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          studentId: studentId.trim(),
+          date: new Date().toISOString()
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setAutoMarkResult({
+          success: true,
+          message: data.message || 'Attendance marked successfully!',
+          course: data.course,
+          student: data.student,
+          attendance: data.attendance
+        });
+        setStudentIdInput('');
+        setQrScanResult('');
+        await fetchAttendance();
+      } else {
+        setAutoMarkResult({
+          success: false,
+          message: data.message || 'Failed to mark attendance'
+        });
+      }
+      
+      setShowAutoMarkResultModal(true);
+    } catch (err) {
+      console.error('Error marking attendance:', err);
+      setAutoMarkResult({
+        success: false,
+        message: 'Unable to connect to server. Please try again later.'
+      });
+      setShowAutoMarkResultModal(true);
+    } finally {
+      setLoading(false);
+      isProcessingRef.current = false;
+    }
+  }, []);
+
   const handleMarkAttendance = useCallback(async (studentId) => {
     if (isProcessingRef.current) return;
     
@@ -516,7 +580,7 @@ const Attendance = ({ hideMarkButton = false }) => {
     let isMounted = true;
     let scanProcessed = false;
     
-    if (showQRScanner && qrScannerRef.current && selectedCourse) {
+    if (showQRScanner && qrScannerRef.current) {
       const startScanner = async () => {
         try {
           const scannerId = 'qr-reader-attendance';
@@ -547,7 +611,11 @@ const Attendance = ({ hideMarkButton = false }) => {
                   }
                   if (decodedText && isMounted) {
                     setTimeout(() => {
-                      handleMarkAttendance(decodedText.trim());
+                      if (selectedCourse) {
+                        handleMarkAttendance(decodedText.trim());
+                      } else {
+                        handleAutoMarkAttendance(decodedText.trim());
+                      }
                     }, 100);
                   }
                 });
@@ -582,7 +650,7 @@ const Attendance = ({ hideMarkButton = false }) => {
         safeStopScanner(html5QrCode);
       }
     };
-  }, [showQRScanner, selectedCourse, handleMarkAttendance]);
+  }, [showQRScanner, selectedCourse, handleMarkAttendance, handleAutoMarkAttendance]);
 
   // Auto-close queue popup after 3 seconds and show next item
   useEffect(() => {
@@ -596,6 +664,22 @@ const Attendance = ({ hideMarkButton = false }) => {
       };
     }
   }, [showQueuePopup, currentQueueItem, popupsEnabled, handleCloseQueuePopup]);
+
+  // Auto-close auto-mark result popup after 8 seconds for success cases
+  useEffect(() => {
+    if (showAutoMarkResultModal && autoMarkResult?.success) {
+      const autoCloseTimer = setTimeout(() => {
+        setShowAutoMarkResultModal(false);
+        setAutoMarkResult(null);
+        setStudentIdInput('');
+        setQrScanResult('');
+      }, 8000); // Auto-close after 8 seconds
+
+      return () => {
+        clearTimeout(autoCloseTimer);
+      };
+    }
+  }, [showAutoMarkResultModal, autoMarkResult]);
 
   const fetchStudents = async () => {
     try {
@@ -1252,7 +1336,10 @@ const Attendance = ({ hideMarkButton = false }) => {
         <Modal.Body>
           <Form>
             <Form.Group className="mb-3">
-              <Form.Label><strong>Select Course</strong></Form.Label>
+              <Form.Label><strong>Select Course (Optional)</strong></Form.Label>
+              <Form.Text className="text-muted d-block mb-2">
+                Leave empty to auto-detect course based on current schedule
+              </Form.Text>
               <Form.Select
                 value={selectedCourse}
                 onChange={(e) => {
@@ -1272,7 +1359,7 @@ const Attendance = ({ hideMarkButton = false }) => {
                 }}
                 className="form-control-custom"
               >
-                <option value="">-- Select a course --</option>
+                <option value="">-- Auto-detect course (recommended) --</option>
                 {courses.map(course => (
                   <option key={course.id} value={course.id}>
                     {course.courseName} ({course.subject}) - {course.grade}
@@ -1281,162 +1368,302 @@ const Attendance = ({ hideMarkButton = false }) => {
               </Form.Select>
             </Form.Group>
 
-            {selectedCourse && (
-              <>
-                <Form.Group className="mb-3">
-                  <Form.Label><strong>Student ID</strong></Form.Label>
-                  <div className="d-flex gap-2" style={{ flexWrap: 'nowrap' }}>
-                    <Form.Control
-                      type="text"
-                      placeholder="Enter Student ID"
-                      value={studentIdInput}
-                      onChange={(e) => {
-                        setStudentIdInput(e.target.value);
-                        setError('');
-                        setWarnings([]);
-                        setSelectedStudent(null);
-                        setShowStudentDetails(false);
-                      }}
-                      className="form-control-custom"
-                      style={{ flex: '1', minWidth: '0' }}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          handleMarkAttendance(studentIdInput);
-                        }
-                      }}
-                    />
-                    <Button
-                      variant="primary"
-                      onClick={() => handleMarkAttendance(studentIdInput)}
-                      disabled={loading || !studentIdInput.trim()}
-                      style={{ whiteSpace: 'nowrap' }}
-                    >
-                      Mark
-                    </Button>
-                    <Button
-                      variant="info"
-                      onClick={() => {
-                        if (showQRScanner && scannerInstance) {
-                          safeStopScanner(scannerInstance).then(() => {
-                            setScannerInstance(null);
-                          });
-                        }
-                        setShowQRScanner(!showQRScanner);
-                        setQrScanResult('');
-                        setError('');
-                      }}
-                      style={{ whiteSpace: 'nowrap' }}
-                    >
-                      {showQRScanner ? 'Cancel Scan' : 'Scan QR Code'}
-                    </Button>
-                  </div>
+            <Form.Group className="mb-3">
+              <Form.Label><strong>Student ID</strong></Form.Label>
+              <div className="d-flex gap-2" style={{ flexWrap: 'nowrap' }}>
+                <Form.Control
+                  type="text"
+                  placeholder="Enter Student ID or Scan QR Code"
+                  value={studentIdInput}
+                  onChange={(e) => {
+                    setStudentIdInput(e.target.value);
+                    setError('');
+                    setWarnings([]);
+                    setSelectedStudent(null);
+                    setShowStudentDetails(false);
+                  }}
+                  className="form-control-custom"
+                  style={{ flex: '1', minWidth: '0' }}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      if (selectedCourse) {
+                        handleMarkAttendance(studentIdInput);
+                      } else {
+                        handleAutoMarkAttendance(studentIdInput);
+                      }
+                    }
+                  }}
+                />
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    if (selectedCourse) {
+                      handleMarkAttendance(studentIdInput);
+                    } else {
+                      handleAutoMarkAttendance(studentIdInput);
+                    }
+                  }}
+                  disabled={loading || !studentIdInput.trim()}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  Mark
+                </Button>
+                <Button
+                  variant="info"
+                  onClick={() => {
+                    if (showQRScanner && scannerInstance) {
+                      safeStopScanner(scannerInstance).then(() => {
+                        setScannerInstance(null);
+                      });
+                    }
+                    setShowQRScanner(!showQRScanner);
+                    setQrScanResult('');
+                    setError('');
+                  }}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  {showQRScanner ? 'Cancel Scan' : 'Scan QR Code'}
+                </Button>
+              </div>
+            </Form.Group>
+
+            {showQRScanner && (
+              <div className="mb-3 p-3 bg-light rounded">
+                <Form.Group>
+                  <Form.Label>Camera QR Scanner</Form.Label>
+                  <div 
+                    id={`qr-reader-attendance`}
+                    ref={qrScannerRef}
+                    style={{ width: '100%', maxWidth: '500px', margin: '0 auto' }}
+                  ></div>
+                  <Form.Text className="text-muted d-block mt-2">
+                    Point your camera at the student's QR code. The scanner will automatically detect and mark attendance.
+                  </Form.Text>
                 </Form.Group>
-
-                {showQRScanner && (
-                  <div className="mb-3 p-3 bg-light rounded">
-                    <Form.Group>
-                      <Form.Label>Camera QR Scanner</Form.Label>
-                      <div 
-                        id={`qr-reader-attendance`}
-                        ref={qrScannerRef}
-                        style={{ width: '100%', maxWidth: '500px', margin: '0 auto' }}
-                      ></div>
-                      <Form.Text className="text-muted d-block mt-2">
-                        Point your camera at the student's QR code. The scanner will automatically detect and mark attendance.
-                      </Form.Text>
-                    </Form.Group>
-                    {qrScanResult && (
-                      <Alert variant="info" className="mb-2 mt-2">
-                        Scanned ID: <strong>{qrScanResult}</strong>
-                      </Alert>
-                    )}
-                    <div className="d-flex gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => {
-                          if (scannerInstance) {
-                            safeStopScanner(scannerInstance).then(() => {
-                              setScannerInstance(null);
-                            });
-                          }
-                          setShowQRScanner(false);
-                          setQrScanResult('');
-                        }}
-                      >
-                        Stop Scanner
-                      </Button>
-                      {qrScanResult && (
-                        <Button
-                          variant="success"
-                          size="sm"
-                          onClick={() => handleMarkAttendance(qrScanResult)}
-                          disabled={loading}
-                        >
-                          Mark Attendance
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {warnings.length > 0 && (
-                  <Alert variant="warning" className="mb-3">
-                    <strong>Warnings:</strong>
-                    <ul className="mb-0 mt-2">
-                      {warnings.map((warning, idx) => (
-                        <li key={idx}>{warning}</li>
-                      ))}
-                    </ul>
+                {qrScanResult && (
+                  <Alert variant="info" className="mb-2 mt-2">
+                    Scanned ID: <strong>{qrScanResult}</strong>
                   </Alert>
                 )}
+                <div className="d-flex gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      if (scannerInstance) {
+                        safeStopScanner(scannerInstance).then(() => {
+                          setScannerInstance(null);
+                        });
+                      }
+                      setShowQRScanner(false);
+                      setQrScanResult('');
+                    }}
+                  >
+                    Stop Scanner
+                  </Button>
+                  {qrScanResult && (
+                    <Button
+                      variant="success"
+                      size="sm"
+                      onClick={() => {
+                        if (selectedCourse) {
+                          handleMarkAttendance(qrScanResult);
+                        } else {
+                          handleAutoMarkAttendance(qrScanResult);
+                        }
+                      }}
+                      disabled={loading}
+                    >
+                      Mark Attendance
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
 
-                {showStudentDetails && selectedStudent && (
-                  <Card className="mt-3">
-                    <Card.Header>
-                      <strong>Student Details</strong>
-                    </Card.Header>
-                    <Card.Body>
-                      <div className="row">
-                        <div className="col-md-6">
-                          <p className="mb-2">
-                            <strong>Name:</strong> {selectedStudent.fullName}
-                          </p>
-                          <p className="mb-2">
-                            <strong>Grade:</strong> {selectedStudent.grade}
-                          </p>
-                          <p className="mb-2">
-                            <strong>Parent Name:</strong> {selectedStudent.parentName || '-'}
-                          </p>
-                          <p className="mb-2">
-                            <strong>Contact:</strong> {selectedStudent.contactNumber || '-'}
-                          </p>
-                        </div>
-                        <div className="col-md-6">
-                          <p className="mb-2">
-                            <strong>WhatsApp:</strong> {selectedStudent.whatsappNumber || '-'}
-                          </p>
-                          <p className="mb-2">
-                            <strong>Address:</strong> {selectedStudent.address || '-'}
-                          </p>
-                          <p className="mb-2">
-                            <strong>DOB:</strong> {selectedStudent.dob ? new Date(selectedStudent.dob).toLocaleDateString() : '-'}
-                          </p>
-                          <p className="mb-0">
-                            <strong>Enrollment Date:</strong> {new Date(selectedStudent.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    </Card.Body>
-                  </Card>
-                )}
-              </>
+            {selectedCourse && warnings.length > 0 && (
+              <Alert variant="warning" className="mb-3">
+                <strong>Warnings:</strong>
+                <ul className="mb-0 mt-2">
+                  {warnings.map((warning, idx) => (
+                    <li key={idx}>{warning}</li>
+                  ))}
+                </ul>
+              </Alert>
+            )}
+
+            {selectedCourse && showStudentDetails && selectedStudent && (
+              <Card className="mt-3">
+                <Card.Header>
+                  <strong>Student Details</strong>
+                </Card.Header>
+                <Card.Body>
+                  <div className="row">
+                    <div className="col-md-6">
+                      <p className="mb-2">
+                        <strong>Name:</strong> {selectedStudent.fullName}
+                      </p>
+                      <p className="mb-2">
+                        <strong>Grade:</strong> {selectedStudent.grade}
+                      </p>
+                      <p className="mb-2">
+                        <strong>Parent Name:</strong> {selectedStudent.parentName || '-'}
+                      </p>
+                      <p className="mb-2">
+                        <strong>Contact:</strong> {selectedStudent.contactNumber || '-'}
+                      </p>
+                    </div>
+                    <div className="col-md-6">
+                      <p className="mb-2">
+                        <strong>WhatsApp:</strong> {selectedStudent.whatsappNumber || '-'}
+                      </p>
+                      <p className="mb-2">
+                        <strong>Address:</strong> {selectedStudent.address || '-'}
+                      </p>
+                      <p className="mb-2">
+                        <strong>DOB:</strong> {selectedStudent.dob ? new Date(selectedStudent.dob).toLocaleDateString() : '-'}
+                      </p>
+                      <p className="mb-0">
+                        <strong>Enrollment Date:</strong> {new Date(selectedStudent.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </Card.Body>
+              </Card>
+            )}
+
+            {error && (
+              <Alert variant="danger" className="mb-3">
+                {error}
+              </Alert>
+            )}
+
+            {success && (
+              <Alert variant="success" className="mb-3">
+                {success}
+              </Alert>
             )}
           </Form>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseMarkAttendanceModal}>
             Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Auto-Mark Result Modal */}
+      <Modal 
+        show={showAutoMarkResultModal} 
+        onHide={() => {
+          setShowAutoMarkResultModal(false);
+          setAutoMarkResult(null);
+        }} 
+        centered 
+        size="md"
+        backdrop="static"
+      >
+        <Modal.Header closeButton style={{ backgroundColor: autoMarkResult?.success ? '#28a745' : '#dc3545', color: 'white' }}>
+          <Modal.Title>
+            {autoMarkResult?.success ? '✅ Attendance Marked' : '❌ Attendance Failed'}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {autoMarkResult && (
+            <div>
+              {autoMarkResult.success ? (
+                <>
+                  <Alert variant="success" className="mb-3">
+                    <strong>{autoMarkResult.message}</strong>
+                  </Alert>
+                  {autoMarkResult.student && (
+                    <div className="mb-3">
+                      <p className="mb-1"><strong>Student:</strong> {autoMarkResult.student.fullName}</p>
+                      <p className="mb-1"><strong>Student ID:</strong> {autoMarkResult.student.id}</p>
+                    </div>
+                  )}
+                  {autoMarkResult.course && (
+                    <>
+                      <div className="mb-3">
+                        <p className="mb-1"><strong>Course:</strong> {autoMarkResult.course.courseName}</p>
+                        <p className="mb-1"><strong>Subject:</strong> {autoMarkResult.course.subject}</p>
+                      </div>
+                      {(() => {
+                        // Calculate payment status for this course
+                        const student = students.find(s => s.id === autoMarkResult.student?.id);
+                        if (!student || !autoMarkResult.course?.id) return null;
+                        
+                        const paymentInfo = calculatePendingPaymentsForCourse(student, autoMarkResult.course.id);
+                        const currentDate = new Date();
+                        const currentMonthKey = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+                        const currentMonthPayment = payments.find(
+                          p => p.studentId === student.id &&
+                               p.monthKey === currentMonthKey &&
+                               p.courseId === autoMarkResult.course.id &&
+                               p.status === 'Paid'
+                        );
+                        const isCurrentMonthPaid = !!currentMonthPayment;
+                        
+                        return (
+                          <div className="mb-3">
+                            <hr />
+                            <h6 className="mb-2"><strong>Payment Status</strong></h6>
+                            {isCurrentMonthPaid ? (
+                              <Alert variant="success" className="mb-2 py-2">
+                                <strong>✓ Current Month:</strong> Paid
+                                {currentMonthPayment?.paymentDate && (
+                                  <span className="d-block mt-1" style={{ fontSize: '0.85rem' }}>
+                                    Paid on: {new Date(currentMonthPayment.paymentDate).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </Alert>
+                            ) : (
+                              <Alert variant="warning" className="mb-2 py-2">
+                                <strong>⚠ Current Month:</strong> Not Paid
+                              </Alert>
+                            )}
+                            {paymentInfo.pendingAmount > 0 && (
+                              <Alert variant="info" className="mb-0 py-2">
+                                <strong>Pending Amount:</strong> ₹{paymentInfo.pendingAmount.toFixed(2)}
+                                {paymentInfo.pendingMonths.length > 0 && (
+                                  <span className="d-block mt-1" style={{ fontSize: '0.85rem' }}>
+                                    {paymentInfo.pendingMonths.length} month(s) pending
+                                  </span>
+                                )}
+                              </Alert>
+                            )}
+                            {paymentInfo.pendingAmount === 0 && isCurrentMonthPaid && (
+                              <Alert variant="success" className="mb-0 py-2">
+                                <strong>✓ All payments up to date</strong>
+                              </Alert>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </>
+                  )}
+                </>
+              ) : (
+                <Alert variant="danger">
+                  <strong>Error:</strong> {autoMarkResult.message}
+                </Alert>
+              )}
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button 
+            variant={autoMarkResult?.success ? 'success' : 'secondary'} 
+            onClick={() => {
+              setShowAutoMarkResultModal(false);
+              setAutoMarkResult(null);
+              if (autoMarkResult?.success) {
+                setStudentIdInput('');
+                setQrScanResult('');
+              }
+            }}
+          >
+            {autoMarkResult?.success ? 'Done' : 'Close'}
           </Button>
         </Modal.Footer>
       </Modal>

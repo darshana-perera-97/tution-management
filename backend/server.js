@@ -3158,6 +3158,304 @@ app.post('/api/attendance', (req, res) => {
   }
 });
 
+// Auto-mark attendance - finds student's courses and marks attendance automatically
+app.post('/api/attendance/auto-mark', (req, res) => {
+  try {
+    const { studentId, date } = req.body;
+
+    if (!studentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student ID is required'
+      });
+    }
+
+    const studentsData = readStudentsData();
+    const coursesData = readCoursesData();
+    const attendanceData = readAttendanceData();
+    const extraClassesData = readExtraClassesData();
+    
+    const student = studentsData.students.find(s => s.id === studentId);
+    
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    // Find all courses the student is enrolled in
+    const studentCourses = coursesData.courses.filter(course =>
+      course.enrolledStudents && course.enrolledStudents.includes(studentId)
+    );
+
+    if (studentCourses.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student is not enrolled in any courses'
+      });
+    }
+
+    const now = new Date();
+    const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+    const [currentHours, currentMinutes] = currentTime.split(':').map(Number);
+    const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+    const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' });
+
+    let matchedCourse = null;
+    let reason = null;
+
+    // Check each course to find one that matches the current time window
+    for (const course of studentCourses) {
+      // First, check for extra class today
+      const todayExtraClass = extraClassesData.extraClasses.find(
+        ec => ec.courseId === course.id && ec.date === currentDate
+      );
+
+      if (todayExtraClass && todayExtraClass.time) {
+        const [extraClassHours, extraClassMinutes] = todayExtraClass.time.split(':').map(Number);
+        const extraClassTimeInMinutes = extraClassHours * 60 + extraClassMinutes;
+        
+        let timeDiff = currentTimeInMinutes - extraClassTimeInMinutes;
+        
+        // Check if within 30 minutes window (before or after)
+        if (Math.abs(timeDiff) <= 30) {
+          matchedCourse = course;
+          break;
+        }
+      }
+
+      // Check regular schedule if no extra class matched
+      if (!matchedCourse) {
+        // If course has no schedule, skip it (but could be marked if no other course matches)
+        if (!course.schedule || !Array.isArray(course.schedule) || course.schedule.length === 0) {
+          // Only use this as fallback if no other course matches
+          if (!matchedCourse) {
+            matchedCourse = course;
+            reason = 'Course has no schedule restrictions';
+          }
+          continue;
+        }
+
+        // Check if current day matches any schedule day
+        const todaySchedule = course.schedule.filter(s => s.day === currentDay);
+        
+        if (todaySchedule.length > 0) {
+          // Check if current time is within 30 minutes before or after any scheduled start time
+          for (const schedule of todaySchedule) {
+            if (!schedule.startTime) continue;
+            
+            const [scheduleHours, scheduleMinutes] = schedule.startTime.split(':').map(Number);
+            const scheduleTimeInMinutes = scheduleHours * 60 + scheduleMinutes;
+            
+            // Calculate time difference (handle day wrap-around)
+            let timeDiff = currentTimeInMinutes - scheduleTimeInMinutes;
+            
+            // Handle cases where current time might be after midnight but schedule is before
+            if (timeDiff < -720) { // More than 12 hours difference, likely next day
+              timeDiff += 1440; // Add 24 hours
+            } else if (timeDiff > 720) { // More than 12 hours difference, likely previous day
+              timeDiff -= 1440; // Subtract 24 hours
+            }
+            
+            // Check if within 30 minutes window (before or after)
+            if (Math.abs(timeDiff) <= 30) {
+              matchedCourse = course;
+              break;
+            }
+          }
+        }
+
+        if (matchedCourse) {
+          break;
+        }
+      }
+    }
+
+    // If no course matched, provide detailed reason
+    if (!matchedCourse) {
+      const reasons = [];
+      
+      for (const course of studentCourses) {
+        const todayExtraClass = extraClassesData.extraClasses.find(
+          ec => ec.courseId === course.id && ec.date === currentDate
+        );
+
+        if (todayExtraClass && todayExtraClass.time) {
+          const [extraClassHours, extraClassMinutes] = todayExtraClass.time.split(':').map(Number);
+          const extraClassTimeInMinutes = extraClassHours * 60 + extraClassMinutes;
+          let timeDiff = currentTimeInMinutes - extraClassTimeInMinutes;
+          
+          if (Math.abs(timeDiff) > 30) {
+            const windowStart = new Date(now);
+            windowStart.setHours(extraClassHours, extraClassMinutes - 30, 0, 0);
+            const windowEnd = new Date(now);
+            windowEnd.setHours(extraClassHours, extraClassMinutes + 30, 0, 0);
+            const windowStartStr = windowStart.toTimeString().slice(0, 5);
+            const windowEndStr = windowEnd.toTimeString().slice(0, 5);
+            reasons.push(`${course.courseName}: Extra class at ${todayExtraClass.time}, marking window ${windowStartStr} - ${windowEndStr}`);
+          }
+        }
+
+        if (course.schedule && Array.isArray(course.schedule) && course.schedule.length > 0) {
+          const todaySchedule = course.schedule.filter(s => s.day === currentDay);
+          
+          if (todaySchedule.length === 0) {
+            const scheduleDays = course.schedule.map(s => s.day).join(', ');
+            reasons.push(`${course.courseName}: Scheduled on ${scheduleDays}, today is ${currentDay}`);
+          } else {
+            let closestSchedule = null;
+            let minTimeDiff = Infinity;
+            
+            for (const schedule of todaySchedule) {
+              if (!schedule.startTime) continue;
+              
+              const [scheduleHours, scheduleMinutes] = schedule.startTime.split(':').map(Number);
+              const scheduleTimeInMinutes = scheduleHours * 60 + scheduleMinutes;
+              let timeDiff = currentTimeInMinutes - scheduleTimeInMinutes;
+              
+              if (timeDiff < -720) {
+                timeDiff += 1440;
+              } else if (timeDiff > 720) {
+                timeDiff -= 1440;
+              }
+              
+              const absDiff = Math.abs(timeDiff);
+              if (absDiff < minTimeDiff) {
+                minTimeDiff = absDiff;
+                closestSchedule = schedule;
+              }
+            }
+            
+            if (closestSchedule && minTimeDiff > 30) {
+              const [scheduleHours, scheduleMinutes] = closestSchedule.startTime.split(':').map(Number);
+              const scheduleTime = `${String(scheduleHours).padStart(2, '0')}:${String(scheduleMinutes).padStart(2, '0')}`;
+              const windowStart = new Date(now);
+              windowStart.setHours(scheduleHours, scheduleMinutes - 30, 0, 0);
+              const windowEnd = new Date(now);
+              windowEnd.setHours(scheduleHours, scheduleMinutes + 30, 0, 0);
+              const windowStartStr = windowStart.toTimeString().slice(0, 5);
+              const windowEndStr = windowEnd.toTimeString().slice(0, 5);
+              reasons.push(`${course.courseName}: Schedule at ${scheduleTime}, marking window ${windowStartStr} - ${windowEndStr}`);
+            }
+          }
+        }
+      }
+
+      const reasonMessage = reasons.length > 0 
+        ? `No course matches current time. Reasons: ${reasons.join('; ')}`
+        : 'No course matches current time window (±30 minutes from scheduled time)';
+
+      return res.status(400).json({
+        success: false,
+        message: reasonMessage
+      });
+    }
+
+    // Check if attendance can be marked for the matched course
+    const scheduleCheck = canMarkAttendance(matchedCourse, matchedCourse.id);
+    if (!scheduleCheck.allowed) {
+      return res.status(400).json({
+        success: false,
+        message: scheduleCheck.message
+      });
+    }
+
+    // Check if attendance already marked for today
+    const attendanceDate = date || new Date().toISOString();
+    const attendanceDateOnly = new Date(attendanceDate).toISOString().split('T')[0];
+    const existingAttendance = attendanceData.attendance.find(
+      a => a.studentId === studentId && 
+           a.courseId === matchedCourse.id && 
+           new Date(a.date).toISOString().split('T')[0] === attendanceDateOnly
+    );
+
+    if (existingAttendance) {
+      return res.status(400).json({
+        success: false,
+        message: `Attendance already marked for ${matchedCourse.courseName} today`
+      });
+    }
+
+    // Mark attendance
+    const newAttendance = {
+      id: Date.now().toString(),
+      studentId,
+      courseId: matchedCourse.id,
+      date: attendanceDate,
+      createdAt: new Date().toISOString()
+    };
+    
+    attendanceData.attendance.push(newAttendance);
+    
+    if (writeAttendanceData(attendanceData)) {
+      // Store in temporary queue for real-time notifications
+      const queueItem = {
+        id: newAttendance.id,
+        studentId,
+        courseId: matchedCourse.id,
+        studentName: student.fullName,
+        courseName: matchedCourse.courseName,
+        courseSubject: matchedCourse.subject,
+        studentImageUrl: student.imageUrl || null,
+        date: newAttendance.date,
+        createdAt: newAttendance.createdAt,
+        timestamp: Date.now()
+      };
+      
+      temporaryAttendanceQueue.push(queueItem);
+      
+      // Keep only last 100 items in queue to prevent memory issues
+      if (temporaryAttendanceQueue.length > 100) {
+        temporaryAttendanceQueue.shift();
+      }
+      
+      // Send WhatsApp notification to both student and parent
+      const notificationNumbers = getStudentNotificationNumbers(student);
+      if (notificationNumbers.length > 0) {
+        const attendanceDateObj = new Date(attendanceDate);
+        const formattedDate = attendanceDateObj.toLocaleDateString('en-US', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+        const attendanceMessage = `✅ Attendance Marked\n\nDear ${student.parentName},\n\nYour child ${student.fullName}'s attendance has been marked for:\n- Course: ${matchedCourse.courseName} (${matchedCourse.subject})\n- Date: ${formattedDate}\n\nThank you!\n\nBest regards,\nTuition Management System`;
+        sendWhatsAppToMultiple(notificationNumbers, attendanceMessage).catch(err => {
+          console.error('Failed to send attendance notification:', err);
+        });
+      }
+      
+      res.status(201).json({
+        success: true,
+        message: `Attendance marked successfully for ${matchedCourse.courseName}`,
+        attendance: newAttendance,
+        course: {
+          id: matchedCourse.id,
+          courseName: matchedCourse.courseName,
+          subject: matchedCourse.subject
+        },
+        student: {
+          id: student.id,
+          fullName: student.fullName
+        }
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to save attendance data'
+      });
+    }
+  } catch (error) {
+    console.error('Auto-mark attendance error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // Get temporary attendance queue (for real-time notifications)
 app.get('/api/attendance/queue', (req, res) => {
   try {
