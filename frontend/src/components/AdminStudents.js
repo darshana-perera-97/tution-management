@@ -32,14 +32,10 @@ const AdminStudents = () => {
   const [success, setSuccess] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
-  const [showQRModal, setShowQRModal] = useState(false);
   const [showCoursesModal, setShowCoursesModal] = useState(false);
   const [showPaymentsModal, setShowPaymentsModal] = useState(false);
   const [showIDCardModal, setShowIDCardModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [selectedStudentId, setSelectedStudentId] = useState(null);
-  const [newStudentId, setNewStudentId] = useState(null);
-  const qrCodeRef = useRef(null);
   const idCardRef = useRef(null);
   
   // Add Student Form States
@@ -59,8 +55,8 @@ const AdminStudents = () => {
 
   // Search states
   const [searchName, setSearchName] = useState('');
-  const [searchContact, setSearchContact] = useState('');
   const [searchQRCode, setSearchQRCode] = useState('');
+  const [searchGrade, setSearchGrade] = useState('');
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [scannerInstance, setScannerInstance] = useState(null);
   const qrScannerRef = useRef(null);
@@ -92,24 +88,7 @@ const AdminStudents = () => {
               if (!isMounted) return;
               setSearchQRCode(decodedText.trim());
               if (html5QrCode) {
-                html5QrCode.stop().then(() => {
-                  if (html5QrCode) {
-                    html5QrCode.clear();
-                  }
-                  if (isMounted) {
-                    setScannerInstance(null);
-                    setShowQRScanner(false);
-                  }
-                }).catch((err) => {
-                  // Silently ignore errors about scanner not running or cannot stop
-                  const errorMsg = err?.message || err?.toString() || '';
-                  if (errorMsg &&
-                    !errorMsg.includes('not running') &&
-                    !errorMsg.includes('not paused') &&
-                    !errorMsg.includes('Scanner is not running') &&
-                    !errorMsg.includes('Cannot stop')) {
-                    console.error('Error stopping scanner:', err);
-                  }
+                safeStopScanner(html5QrCode).then(() => {
                   if (isMounted) {
                     setScannerInstance(null);
                     setShowQRScanner(false);
@@ -140,29 +119,7 @@ const AdminStudents = () => {
     return () => {
       isMounted = false;
       if (html5QrCode) {
-        html5QrCode.stop().then(() => {
-          if (html5QrCode) {
-            html5QrCode.clear();
-          }
-        }).catch((err) => {
-          // Silently ignore errors about scanner not running or cannot stop
-          const errorMsg = err?.message || err?.toString() || '';
-          if (errorMsg &&
-            !errorMsg.includes('not running') &&
-            !errorMsg.includes('not paused') &&
-            !errorMsg.includes('Scanner is not running') &&
-            !errorMsg.includes('Cannot stop')) {
-            console.error('Error in cleanup:', err);
-          }
-          // Try to clear anyway
-          if (html5QrCode) {
-            try {
-              html5QrCode.clear();
-            } catch (clearErr) {
-              // Ignore clear errors
-            }
-          }
-        });
+        safeStopScanner(html5QrCode);
       }
     };
   }, [showQRScanner]);
@@ -298,8 +255,9 @@ const AdminStudents = () => {
         setStudentImage(null);
         setStudentImagePreview(null);
         setShowAddStudentModal(false);
-        setNewStudentId(data.student.id);
-        setShowQRModal(true);
+        // Set the newly added student and show ID card
+        setSelectedStudent(data.student);
+        setShowIDCardModal(true);
         fetchStudents();
         fetchCourses(); // Refresh courses to get updated enrollment data
         setTimeout(() => setSuccess(''), 3000);
@@ -367,16 +325,6 @@ const AdminStudents = () => {
     setSelectedStudent(null);
   };
 
-  const handleViewQRCode = (student) => {
-    setSelectedStudentId(student.id);
-    setShowQRModal(true);
-  };
-
-  const handleCloseQRModal = () => {
-    setShowQRModal(false);
-    setSelectedStudentId(null);
-    setNewStudentId(null);
-  };
 
   const handleViewCourses = (student) => {
     setSelectedStudent(student);
@@ -396,6 +344,54 @@ const AdminStudents = () => {
   const handleClosePaymentsModal = () => {
     setShowPaymentsModal(false);
     setSelectedStudent(null);
+  };
+
+  const handleMarkAsPaid = async (student, monthKey, amount, courseId, courseName) => {
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      const response = await fetch(`${API_URL}/api/payments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          studentId: student.id,
+          monthKey: monthKey,
+          amount: amount,
+          courseId: courseId || null,
+          paymentDate: new Date().toISOString()
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess(`Payment for ${courseName || 'month'} marked as paid successfully!`);
+        // Refresh payments and students data
+        await fetchPayments();
+        await fetchStudents();
+        // Update selected student to reflect new payment status
+        const updatedStudents = await fetch(`${API_URL}/api/students`).then(res => res.json());
+        if (updatedStudents.success) {
+          const updatedStudent = updatedStudents.students.find(s => s.id === student.id);
+          if (updatedStudent) {
+            setSelectedStudent(updatedStudent);
+          }
+        }
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(data.message || 'Failed to mark payment as paid');
+        setTimeout(() => setError(''), 5000);
+      }
+    } catch (err) {
+      console.error('Error marking payment as paid:', err);
+      setError('Unable to connect to server. Please try again later.');
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGenerateIDCard = (student) => {
@@ -546,77 +542,75 @@ const AdminStudents = () => {
     return payments;
   };
 
-  const downloadQRCode = () => {
-    const studentId = selectedStudentId || newStudentId;
-    if (qrCodeRef.current && studentId) {
-      const svg = qrCodeRef.current.querySelector('svg');
-      if (svg) {
+
+  // Safe function to stop scanner
+  const safeStopScanner = async (scanner) => {
+    if (!scanner) return;
+    
+    try {
+      // Check if scanner has stop method before calling
+      if (typeof scanner.stop === 'function') {
         try {
-          const svgData = new XMLSerializer().serializeToString(svg);
-          const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-          const svgUrl = URL.createObjectURL(svgBlob);
-
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-
-            // Fill white background
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Draw the QR code
-            ctx.drawImage(img, 0, 0);
-
-            // Convert to blob and download
-            canvas.toBlob((blob) => {
-              if (blob) {
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `student-qr-${studentId}.png`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-                URL.revokeObjectURL(svgUrl);
-              }
-            }, 'image/png');
-          };
-
-          img.onerror = () => {
-            // Fallback: download as SVG
-            const link = document.createElement('a');
-            link.href = svgUrl;
-            link.download = `student-qr-${studentId}.svg`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(svgUrl);
-          };
-
-          img.src = svgUrl;
-        } catch (error) {
-          console.error('Error downloading QR code:', error);
-          alert('Failed to download QR code. Please try again.');
+          await scanner.stop().catch((stopErr) => {
+            // Handle promise rejection - silently ignore scanner not running errors
+            const errorMsg = (stopErr?.message || stopErr?.toString() || '').toLowerCase();
+            const shouldIgnore = errorMsg && (
+              errorMsg.includes('not running') || 
+              errorMsg.includes('not paused') ||
+              errorMsg.includes('scanner is not running') ||
+              errorMsg.includes('cannot stop') ||
+              errorMsg.includes('scanner is not running or paused')
+            );
+            // Silently ignore - don't log these expected errors
+          });
+        } catch (syncErr) {
+          // Handle synchronous errors - silently ignore scanner not running errors
+          const errorMsg = (syncErr?.message || syncErr?.toString() || '').toLowerCase();
+          const shouldIgnore = errorMsg && (
+            errorMsg.includes('not running') || 
+            errorMsg.includes('not paused') ||
+            errorMsg.includes('scanner is not running') ||
+            errorMsg.includes('cannot stop') ||
+            errorMsg.includes('scanner is not running or paused')
+          );
+          // Silently ignore - don't log these expected errors
         }
       }
+      
+      // Try to clear scanner
+      if (typeof scanner.clear === 'function') {
+        try {
+          scanner.clear();
+        } catch (clearErr) {
+          // Ignore clear errors
+        }
+      }
+    } catch (err) {
+      // Silently ignore errors about scanner not running or cannot stop
+      const errorMsg = (err?.message || err?.toString() || '').toLowerCase();
+      const shouldIgnore = errorMsg && (
+        errorMsg.includes('not running') || 
+        errorMsg.includes('not paused') ||
+        errorMsg.includes('scanner is not running') ||
+        errorMsg.includes('cannot stop') ||
+        errorMsg.includes('scanner is not running or paused')
+      );
+      // Silently ignore - don't log these expected errors
     }
   };
 
-  // Filter students based on search criteria
+  // Filter students based on search criteria (name, Student ID, grade)
   const filteredStudents = students.filter(student => {
     const nameMatch = !searchName ||
       student.fullName.toLowerCase().includes(searchName.toLowerCase());
-    const contactMatch = !searchContact ||
-      student.contactNumber.includes(searchContact) ||
-      (student.whatsappNumber && student.whatsappNumber.includes(searchContact));
     const qrMatch = !searchQRCode ||
       student.id.toString().includes(searchQRCode);
+    
+    // Search by grade
+    const gradeMatch = !searchGrade ||
+      (student.grade && student.grade.toLowerCase().includes(searchGrade.toLowerCase()));
 
-    return nameMatch && contactMatch && qrMatch;
+    return nameMatch && qrMatch && gradeMatch;
   });
 
   // Pagination
@@ -637,36 +631,13 @@ const AdminStudents = () => {
 
   const handleClearSearch = () => {
     setSearchName('');
-    setSearchContact('');
     setSearchQRCode('');
+    setSearchGrade('');
   };
 
   const handleCloseQRScanner = () => {
     if (scannerInstance) {
-      scannerInstance.stop().then(() => {
-        if (scannerInstance) {
-          scannerInstance.clear();
-        }
-        setScannerInstance(null);
-        setShowQRScanner(false);
-      }).catch((err) => {
-        // Silently ignore errors about scanner not running
-        const errorMsg = err?.message || err?.toString() || '';
-        if (errorMsg &&
-          !errorMsg.includes('not running') &&
-          !errorMsg.includes('not paused') &&
-          !errorMsg.includes('Scanner is not running') &&
-          !errorMsg.includes('Cannot stop')) {
-          console.error('Error stopping scanner:', err);
-        }
-        // Try to clear anyway
-        if (scannerInstance) {
-          try {
-            scannerInstance.clear();
-          } catch (clearErr) {
-            // Ignore clear errors
-          }
-        }
+      safeStopScanner(scannerInstance).then(() => {
         setScannerInstance(null);
         setShowQRScanner(false);
       });
@@ -724,19 +695,7 @@ const AdminStudents = () => {
             </Col>
             <Col md={4}>
               <Form.Group>
-                <Form.Label>Search by Contact Number</Form.Label>
-                <Form.Control
-                  type="text"
-                  placeholder="Enter contact number"
-                  value={searchContact}
-                  onChange={(e) => setSearchContact(e.target.value)}
-                  className="form-control-custom"
-                />
-              </Form.Group>
-            </Col>
-            <Col md={4}>
-              <Form.Group>
-                <Form.Label>Search by QR Code / Student ID</Form.Label>
+                <Form.Label>Search by Student ID</Form.Label>
                 <div className="d-flex gap-2">
                   <Form.Control
                     type="text"
@@ -755,8 +714,20 @@ const AdminStudents = () => {
                 </div>
               </Form.Group>
             </Col>
+            <Col md={4}>
+              <Form.Group>
+                <Form.Label>Search by Grade</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="Enter grade"
+                  value={searchGrade}
+                  onChange={(e) => setSearchGrade(e.target.value)}
+                  className="form-control-custom"
+                />
+              </Form.Group>
+            </Col>
           </Row>
-          {(searchName || searchContact || searchQRCode) && (
+          {(searchName || searchQRCode || searchGrade) && (
             <div className="mt-3">
               <Button variant="outline-secondary" size="sm" onClick={handleClearSearch}>
                 Clear Search
@@ -780,11 +751,11 @@ const AdminStudents = () => {
               <Table className="operators-table d-none d-lg-table" style={{ margin: 0 }}>
                 <thead>
                   <tr>
-                    <th style={{ width: '60px' }}>#</th>
-                    <th>Full Name</th>
-                    <th style={{ width: '180px' }}>Grade</th>
-                    <th>Contact Number</th>
-                    <th style={{ width: '280px' }}>Actions</th>
+                    <th style={{ width: '60px' }} className="text-start">#</th>
+                    <th className="text-start">Full Name</th>
+                    <th style={{ width: '180px' }} className="text-start">Grade</th>
+                    <th className="text-start">Contact Number</th>
+                    <th style={{ width: '280px' }} className="text-start">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -811,11 +782,12 @@ const AdminStudents = () => {
                           padding: '16px 24px',
                           fontSize: '13px',
                           fontWeight: '600',
-                          color: '#64748b'
+                          color: '#64748b',
+                          textAlign: 'left'
                         }}>
                           {startIndex + index + 1}
                         </td>
-                        <td style={{ padding: '16px 24px' }}>
+                        <td style={{ padding: '16px 24px', textAlign: 'left' }}>
                           <div style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
@@ -846,7 +818,7 @@ const AdminStudents = () => {
                             </div>
                           </div>
                         </td>
-                        <td style={{ padding: '16px 24px' }}>
+                        <td style={{ padding: '16px 24px', textAlign: 'left' }}>
                           <div style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
@@ -859,7 +831,7 @@ const AdminStudents = () => {
                             <span>{student.grade}</span>
                           </div>
                         </td>
-                        <td style={{ padding: '16px 24px' }}>
+                        <td style={{ padding: '16px 24px', textAlign: 'left' }}>
                           <div style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
@@ -871,7 +843,7 @@ const AdminStudents = () => {
                             <span>{student.contactNumber}</span>
                           </div>
                         </td>
-                        <td style={{ padding: '16px 24px' }}>
+                        <td style={{ padding: '16px 24px', textAlign: 'left' }}>
                           <div className="d-flex gap-2 flex-wrap">
                             <OverlayTrigger
                               placement="top"
@@ -884,19 +856,6 @@ const AdminStudents = () => {
                                 className="action-btn-icon"
                               >
                                 <HiOutlineEye />
-                              </Button>
-                            </OverlayTrigger>
-                            <OverlayTrigger
-                              placement="top"
-                              overlay={<Tooltip>View QR Code</Tooltip>}
-                            >
-                              <Button
-                                variant="info"
-                                size="sm"
-                                onClick={() => handleViewQRCode(student)}
-                                className="action-btn-icon"
-                              >
-                                <HiOutlineQrCode />
                               </Button>
                             </OverlayTrigger>
                             <OverlayTrigger
@@ -970,14 +929,6 @@ const AdminStudents = () => {
                               className="action-btn"
                             >
                               View Details
-                            </Button>
-                            <Button
-                              variant="info"
-                              size="sm"
-                              onClick={() => handleViewQRCode(student)}
-                              className="action-btn"
-                            >
-                              View QR Code
                             </Button>
                             <Button
                               variant="success"
@@ -1186,36 +1137,6 @@ const AdminStudents = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* QR Code Modal */}
-      <Modal show={showQRModal} onHide={handleCloseQRModal} centered backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Student QR Code</Modal.Title>
-        </Modal.Header>
-        <Modal.Body className="text-center">
-          {(selectedStudentId || newStudentId) && (
-            <div>
-              <p className="mb-3"><strong>{selectedStudentId || newStudentId}</strong></p>
-              <div ref={qrCodeRef} className="d-flex justify-content-center mb-3" style={{ padding: '20px', backgroundColor: 'white' }}>
-                <QRCodeSVG
-                  value={selectedStudentId || newStudentId}
-                  size={256}
-                  level="H"
-                  includeMargin={true}
-                />
-              </div>
-              <p className="text-muted small">Scan this QR code to get the Student ID</p>
-            </div>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseQRModal}>
-            Close
-          </Button>
-          <Button variant="primary" onClick={downloadQRCode}>
-            Download QR Code
-          </Button>
-        </Modal.Footer>
-      </Modal>
 
       {/* Add Student Modal - Benchmark Style */}
       <Modal show={showAddStudentModal} onHide={handleCloseAddStudentModal} centered size="lg" backdrop="static">
@@ -1264,17 +1185,32 @@ const AdminStudents = () => {
                   <div className="student-form-field">
                     <label className="student-form-label">
                       <HiOutlineAcademicCap className="student-form-label-icon" />
-                      Grade
+                      Select Grade
                     </label>
-                    <input
-                      type="text"
+                    <select
                       name="grade"
-                      placeholder="e.g. Grade 1"
                       value={formData.grade}
                       onChange={handleChange}
                       required
-                      className="student-form-input"
-                    />
+                      className="student-form-select"
+                    >
+                      <option value="">Select a grade</option>
+                      <option value="Grade 1">Grade 1</option>
+                      <option value="Grade 2">Grade 2</option>
+                      <option value="Grade 3">Grade 3</option>
+                      <option value="Grade 4">Grade 4</option>
+                      <option value="Grade 5">Grade 5</option>
+                      <option value="Grade 6">Grade 6</option>
+                      <option value="Grade 7">Grade 7</option>
+                      <option value="Grade 8">Grade 8</option>
+                      <option value="Grade 9">Grade 9</option>
+                      <option value="Grade 10">Grade 10</option>
+                      <option value="Grade 11">Grade 11</option>
+                      <option value="Grade 12">Grade 12</option>
+                      <option value="Grade 13">Grade 13</option>
+                      <option value="After AL">After AL</option>
+                      <option value="After OL">After OL</option>
+                    </select>
                   </div>
                 </div>
 
@@ -1639,7 +1575,7 @@ const AdminStudents = () => {
       </Modal>
 
       {/* View Payments Modal - Benchmark Style */}
-      <Modal show={showPaymentsModal} onHide={handleClosePaymentsModal} centered size="lg" backdrop="static">
+      <Modal show={showPaymentsModal} onHide={handleClosePaymentsModal} centered size="xl" backdrop="static">
         <Modal.Header closeButton style={{ padding: 0, border: 'none' }}>
           <div className="student-form-header" style={{ width: '100%' }}>
             <h2>Student Payments</h2>
@@ -1649,6 +1585,16 @@ const AdminStudents = () => {
         <Modal.Body style={{ padding: 0 }}>
           {selectedStudent && (
             <div className="student-form-body">
+              {error && (
+                <Alert variant="danger" className="m-3" onClose={() => setError('')} dismissible>
+                  {error}
+                </Alert>
+              )}
+              {success && (
+                <Alert variant="success" className="m-3" onClose={() => setSuccess('')} dismissible>
+                  {success}
+                </Alert>
+              )}
               {calculateMonthlyPayments(selectedStudent).length > 0 ? (
                 <>
                   <div className="operators-table-container">
@@ -1681,22 +1627,35 @@ const AdminStudents = () => {
                                       border: `1px solid ${course.isPaid ? '#e2e8f0' : 'rgba(245, 158, 11, 0.2)'}`,
                                       fontSize: '13px'
                                     }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                        <strong>{course.courseName}</strong>
-                                        <span style={{ color: '#64748b' }}>({course.subject})</span>
-                                        <span style={{ fontWeight: '600', color: '#3b82f6' }}>Rs {course.fee.toFixed(2)}</span>
-                                  {course.isPaid && (
-                                          <span style={{
-                                            padding: '2px 8px',
-                                            borderRadius: '6px',
-                                            fontSize: '11px',
-                                            fontWeight: '700',
-                                            background: 'rgba(16, 185, 129, 0.1)',
-                                            color: '#059669'
-                                          }}>
-                                            Paid
-                                          </span>
-                                  )}
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                          <strong>{course.courseName}</strong>
+                                          <span style={{ color: '#64748b' }}>({course.subject})</span>
+                                          <span style={{ fontWeight: '600', color: '#3b82f6' }}>Rs {course.fee.toFixed(2)}</span>
+                                          {course.isPaid && (
+                                            <span style={{
+                                              padding: '2px 8px',
+                                              borderRadius: '6px',
+                                              fontSize: '11px',
+                                              fontWeight: '700',
+                                              background: 'rgba(16, 185, 129, 0.1)',
+                                              color: '#059669'
+                                            }}>
+                                              Paid
+                                            </span>
+                                          )}
+                                        </div>
+                                        {!course.isPaid && (
+                                          <Button
+                                            variant="success"
+                                            size="sm"
+                                            onClick={() => handleMarkAsPaid(selectedStudent, payment.monthKey, course.fee, course.courseId, course.courseName)}
+                                            disabled={loading}
+                                            style={{ whiteSpace: 'nowrap' }}
+                                          >
+                                            Pay
+                                          </Button>
+                                        )}
                                       </div>
                                   {course.isPaid && course.paymentDate && (
                                         <div style={{ 
@@ -1925,16 +1884,17 @@ const AdminStudents = () => {
                 <div style={{ position: 'relative', zIndex: 1, padding: '20px', paddingTop: '0' }}>
                   {/* Student Image at the top */}
                   <div style={{
-                    textAlign: 'center',
+                    textAlign: 'left',
                     marginBottom: '20px',
-                    marginTop: '39px'
+                    marginTop: '97px'
                   }}>
                     <div style={{
-                      width: '225px',
-                      height: '225px',
-                      borderRadius: '1200px',
+                      width: '204px',
+                      height: '204px',
+                      borderRadius: '30px',
                       overflow: 'hidden',
-                      margin: '0 auto',
+                      margin: '0',
+                      marginLeft:'10px',
                       background: '#f8f9fa',
                       display: 'flex',
                       alignItems: 'center',
@@ -1975,15 +1935,16 @@ const AdminStudents = () => {
 
                   {/* Student Name */}
                   <div style={{
-                    textAlign: 'center',
+                    textAlign: 'left',
                     marginBottom: '15px'
                   }}>
                     <h3 style={{
                       margin: 0,
+                      marginLeft:'10px',
                       marginTop: '10px',
-                      fontSize: '29px',
+                      fontSize: '26px',
                       fontWeight: 'bold',
-                      color: '#1e293b',
+                      color: '#237ac6',
                       lineHeight: '1.2'
                     }}>
                       {selectedStudent.fullName}
@@ -1992,24 +1953,39 @@ const AdminStudents = () => {
                     <div style={{}}>
 
                       <p style={{
-                        margin: '4px 0 0 0',
-                        fontSize: '26px',
+                        margin: '0',
+                        fontSize: '16px',
+                        marginLeft:'10px',
                         borderRadius: '100px',
-                        color: '#fff',
-                        fontWeight: '700',
-                        background: '#66be36',
+                        color: '#000',
+                        fontWeight: '500',
                         display: 'inline-block',
-                        padding: '6px 22px'
+                        marginTop:'10px'
                       }}>
-                        {selectedStudent.id}
+                        Grade {selectedStudent.grade}
+                      </p>
+                    </div>
+                    <div style={{}}>
+
+                      <p style={{
+                        margin: '0',
+                        fontSize: '16px',
+                        marginLeft:'10px',
+                        borderRadius: '100px',
+                        color: '#000',
+                        fontWeight: '500',
+                        display: 'inline-block',
+                      }}>
+                        Student ID : {selectedStudent.id}
                       </p>
                     </div>
                   </div>
 
                   {/* QR Code */}
                   <div style={{
-                    textAlign: 'center',
-                    marginTop: '-10px'
+                    textAlign: 'left',
+                    marginTop: '0px',
+                    marginLeft:'10px'
                   }}>
                     <div style={{
                       display: 'inline-block',
@@ -2017,7 +1993,7 @@ const AdminStudents = () => {
                     }}>
                       <QRCodeSVG
                         value={selectedStudent.id}
-                        size={220}
+                        size={100}
                         level="H"
                         includeMargin={true}
                       />

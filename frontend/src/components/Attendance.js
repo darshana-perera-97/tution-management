@@ -1179,12 +1179,12 @@ const Attendance = ({ hideMarkButton = false }) => {
             <Table striped bordered hover className="operators-table d-none d-lg-table">
               <thead>
                 <tr>
-                  <th>#</th>
-                  <th>Student ID</th>
-                  <th>Student Name</th>
-                  <th>Course</th>
-                  <th>Subject</th>
-                  <th>Date & Time</th>
+                  <th className="text-start">#</th>
+                  <th className="text-start">Student ID</th>
+                  <th className="text-start">Student Name</th>
+                  <th className="text-start">Course</th>
+                  <th className="text-start">Subject</th>
+                  <th className="text-start">Date & Time</th>
                 </tr>
               </thead>
               <tbody>
@@ -1209,14 +1209,14 @@ const Attendance = ({ hideMarkButton = false }) => {
                       style={{ cursor: 'pointer' }}
                       className="attendance-row-hover"
                     >
-                      <td style={{ padding: '16px 32px' }}>{startIndex + index + 1}</td>
-                      <td style={{ padding: '16px 32px' }}>
+                      <td style={{ padding: '16px 32px', textAlign: 'left' }}>{startIndex + index + 1}</td>
+                      <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <HiOutlineIdentification style={{ fontSize: '16px', color: '#64748b' }} />
                           <code style={{ fontSize: '13px', color: '#475569' }}>{record.studentId}</code>
                         </div>
                       </td>
-                      <td style={{ padding: '16px 32px' }}>
+                      <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <div style={{
                             width: '32px',
@@ -1235,13 +1235,13 @@ const Attendance = ({ hideMarkButton = false }) => {
                           </span>
                         </div>
                       </td>
-                      <td style={{ padding: '16px 32px' }}>
+                      <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <HiOutlineBookOpen style={{ fontSize: '16px', color: '#64748b' }} />
                           <span style={{ fontSize: '14px', color: '#475569' }}>{record.courseName}</span>
                         </div>
                       </td>
-                      <td style={{ padding: '16px 32px' }}>
+                      <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <HiOutlineAcademicCap style={{ fontSize: '16px', color: '#64748b' }} />
                           <span style={{ fontSize: '14px', color: '#475569', fontWeight: '500' }}>
@@ -1249,7 +1249,7 @@ const Attendance = ({ hideMarkButton = false }) => {
                           </span>
                         </div>
                       </td>
-                      <td style={{ padding: '16px 32px' }}>
+                      <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <HiOutlineClock style={{ fontSize: '16px', color: '#64748b' }} />
                           <span style={{ fontSize: '14px', color: '#475569' }}>
@@ -1624,7 +1624,7 @@ const Attendance = ({ hideMarkButton = false }) => {
                             )}
                             {paymentInfo.pendingAmount > 0 && (
                               <Alert variant="info" className="mb-0 py-2">
-                                <strong>Pending Amount:</strong> ₹{paymentInfo.pendingAmount.toFixed(2)}
+                                <strong>Pending Amount:</strong> Rs.{paymentInfo.pendingAmount.toFixed(2)}
                                 {paymentInfo.pendingMonths.length > 0 && (
                                   <span className="d-block mt-1" style={{ fontSize: '0.85rem' }}>
                                     {paymentInfo.pendingMonths.length} month(s) pending
@@ -1793,7 +1793,7 @@ const Attendance = ({ hideMarkButton = false }) => {
                   return (
                     <>
                       <Alert variant="warning">
-                        <strong>Total Pending:</strong> ₹{pendingInfo.pendingAmount.toFixed(2)}
+                        <strong>Total Pending:</strong> Rs.{pendingInfo.pendingAmount.toFixed(2)}
                       </Alert>
                       {pendingInfo.pendingMonths.length > 0 && (
                         <div className="table-responsive">
@@ -1808,7 +1808,7 @@ const Attendance = ({ hideMarkButton = false }) => {
                               {pendingInfo.pendingMonths.map((month, idx) => (
                                 <tr key={idx}>
                                   <td>{month.month}</td>
-                                  <td>₹{month.amount.toFixed(2)}</td>
+                                  <td>Rs.{month.amount.toFixed(2)}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -1856,7 +1856,7 @@ const Attendance = ({ hideMarkButton = false }) => {
                             <tr key={course.id}>
                               <td>{course.courseName}</td>
                               <td>{course.subject}</td>
-                              <td>₹{parseFloat(course.courseFee || 0).toFixed(2)}</td>
+                              <td>Rs.{parseFloat(course.courseFee || 0).toFixed(2)}</td>
                             </tr>
                           ))}
                         </tbody>

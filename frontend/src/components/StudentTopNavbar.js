@@ -33,7 +33,6 @@ const StudentTopNavbar = ({ student }) => {
         WebkitTextFillColor: 'transparent',
         backgroundClip: 'text'
       }}>
-        Student Portal
       </Navbar.Brand>
       <Navbar.Toggle aria-controls="basic-navbar-nav" />
       <Navbar.Collapse id="basic-navbar-nav" className="justify-content-end">

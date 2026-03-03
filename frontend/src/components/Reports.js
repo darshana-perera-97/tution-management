@@ -1227,13 +1227,13 @@ const Reports = () => {
               <Table className="operators-table">
                         <thead>
                           <tr>
-                    <th style={{ width: '60px' }}>#</th>
-                    <th>Student Name</th>
-                    <th>Contact</th>
-                    <th style={{ width: '100px' }}>Grade</th>
-                    <th style={{ width: '140px' }}>Payment Status</th>
-                    <th style={{ width: '180px' }}>Attendance</th>
-                    <th style={{ width: '150px' }}>Rate</th>
+                    <th style={{ width: '60px' }} className="text-start">#</th>
+                    <th className="text-start">Student Name</th>
+                    <th className="text-start">Contact</th>
+                    <th style={{ width: '100px' }} className="text-start">Grade</th>
+                    <th style={{ width: '140px' }} className="text-start">Payment Status</th>
+                    <th style={{ width: '180px' }} className="text-start">Attendance</th>
+                    <th style={{ width: '150px' }} className="text-start">Rate</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1260,11 +1260,12 @@ const Reports = () => {
                           padding: '16px 24px',
                           fontSize: '13px',
                           fontWeight: '600',
-                          color: '#64748b'
+                          color: '#64748b',
+                          textAlign: 'left'
                         }}>
                           {index + 1}
                                 </td>
-                        <td style={{ padding: '16px 24px' }}>
+                        <td style={{ padding: '16px 24px', textAlign: 'left' }}>
                           <div style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
@@ -1295,7 +1296,7 @@ const Reports = () => {
                               </div>
                                 </div>
                         </td>
-                        <td style={{ padding: '16px 24px' }}>
+                        <td style={{ padding: '16px 24px', textAlign: 'left' }}>
                           <div style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
@@ -1307,7 +1308,7 @@ const Reports = () => {
                             <span>{student.contact}</span>
                                 </div>
                         </td>
-                        <td style={{ padding: '16px 24px' }}>
+                        <td style={{ padding: '16px 24px', textAlign: 'left' }}>
                           <div style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
@@ -1320,7 +1321,7 @@ const Reports = () => {
                             <span>{student.grade}</span>
                                 </div>
                         </td>
-                        <td style={{ padding: '16px 24px' }}>
+                        <td style={{ padding: '16px 24px', textAlign: 'left' }}>
                           {student.isPaid ? (
                             <div style={{
                               display: 'inline-flex',
@@ -1355,7 +1356,7 @@ const Reports = () => {
                                 </div>
                           )}
                         </td>
-                        <td style={{ padding: '16px 24px' }}>
+                        <td style={{ padding: '16px 24px', textAlign: 'left' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             {/* Main attendance display */}
                             <div style={{ 
@@ -1417,7 +1418,7 @@ const Reports = () => {
                             )}
                           </div>
                         </td>
-                        <td style={{ padding: '16px 24px' }}>
+                        <td style={{ padding: '16px 24px', textAlign: 'left' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             {/* Rate percentage with badge */}
                             <div style={{ 

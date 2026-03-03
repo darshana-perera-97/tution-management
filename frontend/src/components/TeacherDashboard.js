@@ -6,7 +6,8 @@ import {
   HiOutlineUserGroup, 
   HiOutlineCurrencyDollar,
   HiOutlineClipboardDocumentCheck,
-  HiOutlineCog6Tooth
+  HiOutlineCog6Tooth,
+  HiOutlineMagnifyingGlass
 } from 'react-icons/hi2';
 import TeacherSidebar from './TeacherSidebar';
 import TeacherTopNavbar from './TeacherTopNavbar';
@@ -56,6 +57,7 @@ const TeacherDashboard = () => {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
 
   useEffect(() => {
     const isAuthenticated = localStorage.getItem('isTeacherAuthenticated');
@@ -308,6 +310,34 @@ const TeacherDashboard = () => {
     itemsPerPageMobile: 5
   });
 
+  // Get student courses helper
+  const getStudentCourses = (studentId) => {
+    return courses.filter(course =>
+      course.enrolledStudents && 
+      Array.isArray(course.enrolledStudents) && 
+      course.enrolledStudents.includes(studentId)
+    );
+  };
+
+  // Filter students based on search query (name, Student ID, grade)
+  const filteredMyStudents = myStudents.filter(student => {
+    if (!studentSearchQuery.trim()) return true;
+    
+    const query = studentSearchQuery.toLowerCase().trim();
+    
+    // Search by name
+    const nameMatch = student.fullName?.toLowerCase().includes(query);
+    
+    // Search by Student ID
+    const idMatch = student.id?.toLowerCase().includes(query) || 
+                   student.id?.toString().includes(query);
+    
+    // Search by grade
+    const gradeMatch = student.grade?.toLowerCase().includes(query);
+    
+    return nameMatch || idMatch || gradeMatch;
+  });
+
   // Pagination for my students
   const {
     currentPage: studentsPage,
@@ -319,7 +349,7 @@ const TeacherDashboard = () => {
     startIndex: studentsStartIndex,
     endIndex: studentsEndIndex,
     totalItems: studentsTotalItems
-  } = usePagination(myStudents, {
+  } = usePagination(filteredMyStudents, {
     itemsPerPageDesktop: 10,
     itemsPerPageMobile: 5
   });
@@ -831,14 +861,14 @@ const TeacherDashboard = () => {
           <Table striped bordered hover className="operators-table d-none d-lg-table">
             <thead>
               <tr>
-                <th>#</th>
-                <th>Course Name</th>
-                <th>Subject</th>
-                <th>Grade</th>
-                <th>Course Fee</th>
-                <th>Payment %</th>
-                <th>Students</th>
-                <th>Actions</th>
+                <th className="text-start">#</th>
+                <th className="text-start">Course Name</th>
+                <th className="text-start">Subject</th>
+                <th className="text-start">Grade</th>
+                <th className="text-start">Course Fee</th>
+                <th className="text-start">Payment %</th>
+                <th className="text-start">Students</th>
+                <th className="text-start">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -851,14 +881,14 @@ const TeacherDashboard = () => {
               ) : (
                 paginatedCourses.map((course, index) => (
                   <tr key={course.id}>
-                    <td>{coursesStartIndex + index + 1}</td>
-                    <td>{course.courseName}</td>
-                    <td>{course.subject || '-'}</td>
-                    <td>{course.grade}</td>
-                    <td>{course.courseFee ? `Rs ${parseFloat(course.courseFee).toFixed(2)}` : '-'}</td>
-                    <td>{course.teacherPaymentPercentage ? `${course.teacherPaymentPercentage}%` : '-'}</td>
-                    <td>{course.enrolledStudents ? course.enrolledStudents.length : 0}</td>
-                    <td>
+                    <td className="text-start">{coursesStartIndex + index + 1}</td>
+                    <td className="text-start">{course.courseName}</td>
+                    <td className="text-start">{course.subject || '-'}</td>
+                    <td className="text-start">{course.grade}</td>
+                    <td className="text-start">{course.courseFee ? `Rs ${parseFloat(course.courseFee).toFixed(2)}` : '-'}</td>
+                    <td className="text-start">{course.teacherPaymentPercentage ? `${course.teacherPaymentPercentage}%` : '-'}</td>
+                    <td className="text-start">{course.enrolledStudents ? course.enrolledStudents.length : 0}</td>
+                    <td className="text-start">
                       <OverlayTrigger
                         placement="top"
                         overlay={<Tooltip>Manage</Tooltip>}
@@ -956,7 +986,46 @@ const TeacherDashboard = () => {
 
         <div className="operators-table-container">
           <div className="table-header-section">
-            <h3>Enrolled Students</h3>
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+              <h3>Enrolled Students ({filteredMyStudents.length} {filteredMyStudents.length === 1 ? 'student' : 'students'})</h3>
+              <div className="d-flex gap-2" style={{ minWidth: '300px', maxWidth: '500px', flex: '1' }}>
+                <div className="position-relative" style={{ flex: '1' }}>
+                  <HiOutlineMagnifyingGlass 
+                    style={{ 
+                      position: 'absolute', 
+                      left: '12px', 
+                      top: '50%', 
+                      transform: 'translateY(-50%)',
+                      color: '#94a3b8',
+                      fontSize: '18px',
+                      pointerEvents: 'none'
+                    }} 
+                  />
+                  <Form.Control
+                    type="text"
+                    placeholder="Search by name, ID, or grade..."
+                    value={studentSearchQuery}
+                    onChange={(e) => setStudentSearchQuery(e.target.value)}
+                    style={{
+                      paddingLeft: '40px',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+                {studentSearchQuery && (
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={() => setStudentSearchQuery('')}
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
           <Table striped bordered hover className="operators-table d-none d-lg-table">
             <thead>
@@ -1018,7 +1087,7 @@ const TeacherDashboard = () => {
             )}
           </div>
 
-          {myStudents.length > 0 && (
+          {filteredMyStudents.length > 0 && (
             <Pagination
               currentPage={studentsPage}
               totalPages={studentsTotalPages}

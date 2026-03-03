@@ -24,7 +24,6 @@ const OperatorTopNavbar = ({ operator, onMenuToggle }) => {
         <HiOutlineBars3 />
       </button>
       <Navbar.Brand className="top-navbar-brand">
-        Operator Panel
       </Navbar.Brand>
       <Navbar.Toggle aria-controls="basic-navbar-nav" />
       <Navbar.Collapse id="basic-navbar-nav" className="justify-content-end">

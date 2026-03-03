@@ -27,8 +27,8 @@ const PORT = process.env.PORT || 5253;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' })); // Increased limit for image uploads (base64 encoded)
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // File upload middleware with error handling
 try {
@@ -3961,12 +3961,12 @@ app.get('/api/student/chatbot/quota/:studentId', (req, res) => {
 // Student chatbot endpoint
 app.post('/api/student/chatbot', async (req, res) => {
   try {
-    const { studentId, message, gradeSection, masterPrompt, chatHistory } = req.body;
+    const { studentId, message, images, gradeSection, masterPrompt, chatHistory } = req.body;
 
-    if (!studentId || !message || !message.trim()) {
+    if (!studentId || (!message || !message.trim()) && (!images || images.length === 0)) {
       return res.status(400).json({
         success: false,
-        message: 'Student ID and message are required'
+        message: 'Student ID and either a message or images are required'
       });
     }
 
@@ -3994,41 +3994,100 @@ app.post('/api/student/chatbot', async (req, res) => {
     if (masterPrompt && masterPrompt.trim()) {
       messages.push({
         role: 'system',
-        content: `You are a helpful and friendly AI study assistant for ${gradeSection ? gradeSection.replace('grade', 'Grade ').replace('-', '-') : 'students'}. Your knowledge base consists of the following educational content:\n\n${masterPrompt.substring(0, 12000)}\n\nUse this content to help answer student questions. Provide SHORT, concise answers (2-3 sentences maximum). Be clear, direct, and encouraging. If the question is not related to the provided content, politely let the student know and suggest they ask about the course materials.`
+        content: `You are a helpful and friendly AI study assistant for ${gradeSection ? gradeSection.replace('grade', 'Grade ').replace('-', '-') : 'students'}. Your knowledge base consists of the following educational content:\n\n${masterPrompt.substring(0, 12000)}\n\nUse this content to help answer student questions. Provide SHORT, concise answers (2-3 sentences maximum). Be clear, direct, and encouraging. If the question is not related to the provided content, politely let the student know and suggest they ask about the course materials. When analyzing images, describe what you see and help students understand the content.`
       });
     } else {
       messages.push({
         role: 'system',
-        content: `You are a helpful and friendly AI study assistant. Help students with their questions about their courses and educational materials. Provide SHORT, concise answers (2-3 sentences maximum). Be clear, direct, and encouraging.`
+        content: `You are a helpful and friendly AI study assistant. Help students with their questions about their courses and educational materials. Provide SHORT, concise answers (2-3 sentences maximum). Be clear, direct, and encouraging. When analyzing images, describe what you see and help students understand the content.`
       });
     }
 
     // Add chat history (last 10 messages to avoid token limits)
     const recentHistory = chatHistory ? chatHistory.slice(-10) : [];
     recentHistory.forEach(msg => {
-      if (msg.role && msg.content) {
-        messages.push({
-          role: msg.role,
-          content: msg.content
-        });
+      if (msg.role) {
+        if (msg.images && msg.images.length > 0) {
+          // Handle messages with images
+          const content = [];
+          if (msg.content && msg.content.trim()) {
+            content.push({ type: 'text', text: msg.content });
+          }
+          msg.images.forEach(img => {
+            content.push({
+              type: 'image_url',
+              image_url: {
+                url: img.data
+              }
+            });
+          });
+          messages.push({
+            role: msg.role,
+            content: content
+          });
+        } else if (msg.content) {
+          messages.push({
+            role: msg.role,
+            content: msg.content
+          });
+        }
       }
     });
 
-    // Add current user message
-    messages.push({
-      role: 'user',
-      content: message.trim()
-    });
+    // Build current user message with images if present
+    const userMessageContent = [];
+    
+    // Add text if present
+    if (message && message.trim()) {
+      userMessageContent.push({ type: 'text', text: message.trim() });
+    }
+    
+    // Add images if present
+    if (images && images.length > 0) {
+      images.forEach(img => {
+        userMessageContent.push({
+          type: 'image_url',
+          image_url: {
+            url: img.data
+          }
+        });
+      });
+    }
 
-    // Call OpenAI
+    // If no content at all, return error (shouldn't happen due to validation above)
+    if (userMessageContent.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Message or images are required'
+      });
+    }
+
+    // Use array format if there are images, otherwise use string
+    if (userMessageContent.length === 1 && userMessageContent[0].type === 'text') {
+      messages.push({
+        role: 'user',
+        content: userMessageContent[0].text
+      });
+    } else {
+      messages.push({
+        role: 'user',
+        content: userMessageContent
+      });
+    }
+
+    // Call OpenAI - use vision model if images are present, otherwise use regular model
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY
     });
 
+    // Determine which model to use based on whether images are present
+    const hasImages = images && images.length > 0;
+    const model = hasImages ? 'gpt-4o' : 'gpt-3.5-turbo';
+
     const completion = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
+      model: model,
       messages: messages,
-      max_tokens: 100,
+      max_tokens: hasImages ? 300 : 100, // Allow more tokens for image analysis
       temperature: 0.6
     });
 
@@ -4053,7 +4112,7 @@ app.post('/api/student/chatbot', async (req, res) => {
     console.error('Student chatbot error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error processing chatbot request'
+      message: 'Error processing chatbot request: ' + (error.message || 'Unknown error')
     });
   }
 });

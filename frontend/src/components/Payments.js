@@ -481,6 +481,27 @@ const Payments = () => {
     itemsPerPageMobile: 5
   });
 
+  // Calculate Payment Summary
+  const calculatePaymentSummary = () => {
+    const studentPayments = getAllPaymentsWithStudentInfo();
+    const teacherPayments = getAllTeacherPaymentsWithInfo();
+    
+    const totalMoneyIn = studentPayments.reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0);
+    const totalMoneyOut = teacherPayments.reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0);
+    const netAmount = totalMoneyIn - totalMoneyOut;
+    
+    return {
+      totalMoneyIn,
+      totalMoneyOut,
+      netAmount,
+      studentPaymentCount: studentPayments.length,
+      teacherPaymentCount: teacherPayments.length,
+      totalPaymentCount: studentPayments.length + teacherPayments.length
+    };
+  };
+
+  const paymentSummary = calculatePaymentSummary();
+
   return (
     <Container fluid>
       <div className="operators-header mb-4">
@@ -501,6 +522,178 @@ const Payments = () => {
           {success}
         </Alert>
       )}
+
+      {/* Payment Summary Section */}
+      <Card className="mb-4" style={{
+        border: '1px solid #e2e8f0',
+        borderRadius: '12px',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+        background: '#ffffff'
+      }}>
+        <Card.Body style={{ padding: '24px' }}>
+          <h5 style={{ 
+            fontSize: '18px', 
+            fontWeight: '700', 
+            color: '#1e293b',
+            marginBottom: '20px'
+          }}>
+            Payment Summary
+          </h5>
+          <Row className="g-3">
+            <Col md={3} sm={6}>
+              <div style={{
+                padding: '20px',
+                background: 'rgba(16, 185, 129, 0.05)',
+                borderRadius: '10px',
+                border: '1px solid rgba(16, 185, 129, 0.2)'
+              }}>
+                <div style={{
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: '#64748b',
+                  marginBottom: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <HiOutlineArrowTrendingUp style={{ fontSize: '16px', color: '#10b981' }} />
+                  Money In
+                </div>
+                <div style={{
+                  fontSize: '24px',
+                  fontWeight: '700',
+                  color: '#10b981',
+                  marginBottom: '4px'
+                }}>
+                  Rs {paymentSummary.totalMoneyIn.toFixed(2)}
+                </div>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#94a3b8'
+                }}>
+                  {paymentSummary.studentPaymentCount} {paymentSummary.studentPaymentCount === 1 ? 'payment' : 'payments'}
+                </div>
+              </div>
+            </Col>
+            <Col md={3} sm={6}>
+              <div style={{
+                padding: '20px',
+                background: 'rgba(239, 68, 68, 0.05)',
+                borderRadius: '10px',
+                border: '1px solid rgba(239, 68, 68, 0.2)'
+              }}>
+                <div style={{
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: '#64748b',
+                  marginBottom: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <HiOutlineArrowTrendingDown style={{ fontSize: '16px', color: '#ef4444' }} />
+                  Money Out
+                </div>
+                <div style={{
+                  fontSize: '24px',
+                  fontWeight: '700',
+                  color: '#ef4444',
+                  marginBottom: '4px'
+                }}>
+                  Rs {paymentSummary.totalMoneyOut.toFixed(2)}
+                </div>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#94a3b8'
+                }}>
+                  {paymentSummary.teacherPaymentCount} {paymentSummary.teacherPaymentCount === 1 ? 'payment' : 'payments'}
+                </div>
+              </div>
+            </Col>
+            <Col md={3} sm={6}>
+              <div style={{
+                padding: '20px',
+                background: paymentSummary.netAmount >= 0 ? 'rgba(59, 130, 246, 0.05)' : 'rgba(245, 158, 11, 0.05)',
+                borderRadius: '10px',
+                border: `1px solid ${paymentSummary.netAmount >= 0 ? 'rgba(59, 130, 246, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`
+              }}>
+                <div style={{
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: '#64748b',
+                  marginBottom: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <HiOutlineCurrencyDollar style={{ 
+                    fontSize: '16px', 
+                    color: paymentSummary.netAmount >= 0 ? '#3b82f6' : '#f59e0b' 
+                  }} />
+                  Net Amount
+                </div>
+                <div style={{
+                  fontSize: '24px',
+                  fontWeight: '700',
+                  color: paymentSummary.netAmount >= 0 ? '#3b82f6' : '#f59e0b',
+                  marginBottom: '4px'
+                }}>
+                  Rs {paymentSummary.netAmount.toFixed(2)}
+                </div>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#94a3b8'
+                }}>
+                  {paymentSummary.netAmount >= 0 ? 'Profit' : 'Loss'}
+                </div>
+              </div>
+            </Col>
+            <Col md={3} sm={6}>
+              <div style={{
+                padding: '20px',
+                background: 'rgba(139, 92, 246, 0.05)',
+                borderRadius: '10px',
+                border: '1px solid rgba(139, 92, 246, 0.2)'
+              }}>
+                <div style={{
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: '#64748b',
+                  marginBottom: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <HiOutlineBanknotes style={{ fontSize: '16px', color: '#8b5cf6' }} />
+                  Total Payments
+                </div>
+                <div style={{
+                  fontSize: '24px',
+                  fontWeight: '700',
+                  color: '#8b5cf6',
+                  marginBottom: '4px'
+                }}>
+                  {paymentSummary.totalPaymentCount}
+                </div>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#94a3b8'
+                }}>
+                  All transactions
+                </div>
+              </div>
+            </Col>
+          </Row>
+        </Card.Body>
+      </Card>
 
       {/* Student Lookup Section */}
       <Card className="mb-4" style={{
@@ -790,12 +983,12 @@ const Payments = () => {
             <Table striped bordered hover className="operators-table d-none d-lg-table">
               <thead>
                 <tr>
-                  <th>#</th>
-                  <th>From/To</th>
-                  <th>Details</th>
-                  <th>Description</th>
-                  <th>Amount</th>
-                  <th>Date</th>
+                  <th className="text-start">#</th>
+                  <th className="text-start">From/To</th>
+                  <th className="text-start">Details</th>
+                  <th className="text-start">Description</th>
+                  <th className="text-start">Amount</th>
+                  <th className="text-start">Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -818,8 +1011,8 @@ const Payments = () => {
                         backgroundColor: payment.type === 'Money Out' ? 'rgba(239, 68, 68, 0.05)' : 'transparent'
                       }}
                     >
-                      <td style={{ padding: '16px 32px' }}>{index + 1}</td>
-                      <td style={{ padding: '16px 32px' }}>
+                      <td style={{ padding: '16px 32px', textAlign: 'left' }}>{index + 1}</td>
+                      <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <HiOutlineUser style={{ fontSize: '16px', color: '#64748b' }} />
                           <span style={{ 
@@ -867,7 +1060,7 @@ const Payments = () => {
                           )
                         )}
                       </td>
-                      <td style={{ padding: '16px 32px' }}>
+                      <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <HiOutlineCurrencyDollar style={{ 
                             fontSize: '16px', 
@@ -882,7 +1075,7 @@ const Payments = () => {
                           </span>
                         </div>
                       </td>
-                      <td style={{ padding: '16px 32px' }}>
+                      <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <HiOutlineClock style={{ fontSize: '16px', color: '#64748b' }} />
                           <span style={{ fontSize: '14px', color: '#475569' }}>
@@ -984,149 +1177,6 @@ const Payments = () => {
             />
           )}
         </div>
-      </div>
-
-      {/* Payment Summary Section */}
-      <div className="mb-4">
-        <div style={{ marginBottom: '24px' }}>
-          <h3 className="dashboard-title" style={{ marginBottom: '8px' }}>Payment Summary</h3>
-          <p className="dashboard-subtitle">Overview of all financial transactions</p>
-        </div>
-        <Row className="g-3">
-          <Col md={4}>
-            <Card className="dashboard-stat-card" style={{
-              borderTop: '4px solid #10b981'
-            }}>
-              <Card.Body>
-                <div className="stat-icon" style={{
-                  background: 'rgba(16, 185, 129, 0.1)',
-                  color: '#10b981'
-                }}>
-                  <HiOutlineArrowTrendingUp style={{ fontSize: '24px' }} />
-                </div>
-                <div className="stat-number" style={{ color: '#10b981' }}>
-                  Rs {getAllPaymentsCombined()
-                    .filter(p => p.type === 'Money In')
-                    .reduce((sum, p) => sum + p.amount, 0)
-                    .toFixed(2)}
-                </div>
-                <p className="stat-label">Total Money In</p>
-                <div style={{
-                  marginTop: '8px',
-                  fontSize: '13px',
-                  color: '#64748b',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}>
-                  <HiOutlineCheckCircle style={{ fontSize: '14px' }} />
-                  <span>
-                    {getAllPaymentsCombined().filter(p => p.type === 'Money In').length} payment{getAllPaymentsCombined().filter(p => p.type === 'Money In').length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={4}>
-            <Card className="dashboard-stat-card" style={{
-              borderTop: '4px solid #ef4444'
-            }}>
-              <Card.Body>
-                <div className="stat-icon" style={{
-                  background: 'rgba(239, 68, 68, 0.1)',
-                  color: '#ef4444'
-                }}>
-                  <HiOutlineArrowTrendingDown style={{ fontSize: '24px' }} />
-                </div>
-                <div className="stat-number" style={{ color: '#ef4444' }}>
-                  Rs {getAllPaymentsCombined()
-                    .filter(p => p.type === 'Money Out')
-                    .reduce((sum, p) => sum + p.amount, 0)
-                    .toFixed(2)}
-                </div>
-                <p className="stat-label">Total Money Out</p>
-                <div style={{
-                  marginTop: '8px',
-                  fontSize: '13px',
-                  color: '#64748b',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}>
-                  <HiOutlineXCircle style={{ fontSize: '14px' }} />
-                  <span>
-                    {getAllPaymentsCombined().filter(p => p.type === 'Money Out').length} payment{getAllPaymentsCombined().filter(p => p.type === 'Money Out').length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={4}>
-            <Card className="dashboard-stat-card" style={{
-              borderTop: `4px solid ${(getAllPaymentsCombined()
-                .filter(p => p.type === 'Money In')
-                .reduce((sum, p) => sum + p.amount, 0) -
-              getAllPaymentsCombined()
-                .filter(p => p.type === 'Money Out')
-                .reduce((sum, p) => sum + p.amount, 0)) >= 0 ? '#10b981' : '#ef4444'}`
-            }}>
-              <Card.Body>
-                <div className="stat-icon" style={{
-                  background: (getAllPaymentsCombined()
-                    .filter(p => p.type === 'Money In')
-                    .reduce((sum, p) => sum + p.amount, 0) -
-                  getAllPaymentsCombined()
-                    .filter(p => p.type === 'Money Out')
-                    .reduce((sum, p) => sum + p.amount, 0)) >= 0 
-                    ? 'rgba(16, 185, 129, 0.1)' 
-                    : 'rgba(239, 68, 68, 0.1)',
-                  color: (getAllPaymentsCombined()
-                    .filter(p => p.type === 'Money In')
-                    .reduce((sum, p) => sum + p.amount, 0) -
-                  getAllPaymentsCombined()
-                    .filter(p => p.type === 'Money Out')
-                    .reduce((sum, p) => sum + p.amount, 0)) >= 0 
-                    ? '#10b981' 
-                    : '#ef4444'
-                }}>
-                  <HiOutlineCurrencyDollar style={{ fontSize: '24px' }} />
-                </div>
-                <div className="stat-number" style={{
-                  color: (getAllPaymentsCombined()
-                    .filter(p => p.type === 'Money In')
-                    .reduce((sum, p) => sum + p.amount, 0) -
-                  getAllPaymentsCombined()
-                    .filter(p => p.type === 'Money Out')
-                    .reduce((sum, p) => sum + p.amount, 0)) >= 0 
-                    ? '#10b981' 
-                    : '#ef4444'
-                }}>
-                  Rs {(getAllPaymentsCombined()
-                    .filter(p => p.type === 'Money In')
-                    .reduce((sum, p) => sum + p.amount, 0) -
-                  getAllPaymentsCombined()
-                    .filter(p => p.type === 'Money Out')
-                    .reduce((sum, p) => sum + p.amount, 0))
-                    .toFixed(2)}
-                </div>
-                <p className="stat-label">Net Total</p>
-                <div style={{
-                  marginTop: '8px',
-                  fontSize: '13px',
-                  color: '#64748b',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}>
-                  <HiOutlineBanknotes style={{ fontSize: '14px' }} />
-                  <span>
-                    {getAllPaymentsCombined().length} total transaction{getAllPaymentsCombined().length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
       </div>
 
       {/* Student Payment Details Modal */}

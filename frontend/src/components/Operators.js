@@ -169,17 +169,17 @@ const Operators = () => {
           </h3>
         </div>
         <div className="table-responsive">
-          <Table striped bordered hover className="operators-table d-none d-lg-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Created At</th>
-                <th>Last Login</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
+            <Table striped bordered hover className="operators-table d-none d-lg-table">
+              <thead>
+                <tr>
+                  <th className="text-start">#</th>
+                  <th className="text-start">Name</th>
+                  <th className="text-start">Email</th>
+                  <th className="text-start">Created At</th>
+                  <th className="text-start">Last Login</th>
+                  <th className="text-start">Actions</th>
+                </tr>
+              </thead>
             <tbody>
               {paginatedOperators.length === 0 ? (
                 <tr>
@@ -195,8 +195,8 @@ const Operators = () => {
               ) : (
                 paginatedOperators.map((operator, index) => (
                   <tr key={operator.id}>
-                    <td style={{ padding: '16px 32px' }}>{startIndex + index + 1}</td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>{startIndex + index + 1}</td>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{
                           width: '32px',
@@ -215,13 +215,13 @@ const Operators = () => {
                         </span>
                       </div>
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <HiOutlineEnvelope style={{ fontSize: '16px', color: '#64748b' }} />
                         <span style={{ fontSize: '14px', color: '#475569' }}>{operator.email}</span>
                       </div>
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <HiOutlineCalendar style={{ fontSize: '16px', color: '#64748b' }} />
                         <span style={{ fontSize: '14px', color: '#475569' }}>
@@ -229,7 +229,7 @@ const Operators = () => {
                         </span>
                       </div>
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <HiOutlineClock style={{ fontSize: '16px', color: '#64748b' }} />
                         <span style={{ fontSize: '14px', color: '#475569' }}>
@@ -237,7 +237,7 @@ const Operators = () => {
                         </span>
                       </div>
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <OverlayTrigger
                         placement="top"
                         overlay={<Tooltip>Delete</Tooltip>}

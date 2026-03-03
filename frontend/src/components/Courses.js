@@ -766,18 +766,18 @@ const Courses = () => {
           </h3>
         </div>
         <div className="table-responsive">
-          <Table striped bordered hover className="operators-table d-none d-lg-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Course Name</th>
-                <th>Subject</th>
-                <th>Teacher</th>
-                <th>Grade</th>
-                <th>Course Fee</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
+            <Table striped bordered hover className="operators-table d-none d-lg-table">
+              <thead>
+                <tr>
+                  <th className="text-start">#</th>
+                  <th className="text-start">Course Name</th>
+                  <th className="text-start">Subject</th>
+                  <th className="text-start">Teacher</th>
+                  <th className="text-start">Grade</th>
+                  <th className="text-start">Course Fee</th>
+                  <th className="text-start">Actions</th>
+                </tr>
+              </thead>
             <tbody>
               {paginatedCourses.length === 0 ? (
                 <tr>
@@ -793,8 +793,8 @@ const Courses = () => {
               ) : (
                 paginatedCourses.map((course, index) => (
                   <tr key={course.id}>
-                    <td style={{ padding: '16px 32px' }}>{startIndex + index + 1}</td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>{startIndex + index + 1}</td>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{
                           width: '32px',
@@ -813,7 +813,7 @@ const Courses = () => {
                         </span>
                       </div>
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <HiOutlineAcademicCap style={{ fontSize: '16px', color: '#64748b' }} />
                         <span style={{ fontSize: '14px', color: '#475569', fontWeight: '500' }}>
@@ -821,7 +821,7 @@ const Courses = () => {
                         </span>
                       </div>
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <HiOutlineUser style={{ fontSize: '16px', color: '#64748b' }} />
                         <span style={{ fontSize: '14px', color: '#475569' }}>
@@ -829,7 +829,7 @@ const Courses = () => {
                         </span>
                       </div>
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <HiOutlineAcademicCap style={{ fontSize: '16px', color: '#64748b' }} />
                         <span style={{ fontSize: '14px', color: '#475569', fontWeight: '500' }}>
@@ -837,7 +837,7 @@ const Courses = () => {
                         </span>
                       </div>
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <HiOutlineCurrencyDollar style={{ fontSize: '16px', color: '#64748b' }} />
                         <span style={{ fontSize: '14px', color: '#475569' }}>
@@ -845,7 +845,7 @@ const Courses = () => {
                         </span>
                       </div>
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div className="d-flex gap-2 flex-wrap">
                         <OverlayTrigger
                           placement="top"

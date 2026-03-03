@@ -7,7 +7,8 @@ import {
   HiOutlineSparkles,
   HiOutlineCpuChip,
   HiOutlineLightBulb,
-  HiOutlineAcademicCap
+  HiOutlineAcademicCap,
+  HiOutlinePhoto
 } from 'react-icons/hi2';
 import API_URL from '../config';
 
@@ -19,7 +20,9 @@ const StudentChatbot = ({ student }) => {
   const [quota, setQuota] = useState({ count: 0, remaining: 15, limit: 15 });
   const [gradeSection, setGradeSection] = useState(null);
   const [masterPrompt, setMasterPrompt] = useState('');
+  const [uploadedImages, setUploadedImages] = useState([]);
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const MAX_QUESTIONS = 15;
   
@@ -55,6 +58,9 @@ const StudentChatbot = ({ student }) => {
           }
         }
       }
+      
+      // Clear uploaded images when modal opens
+      setUploadedImages([]);
 
       // Fetch quota from backend
       fetchQuota();
@@ -117,7 +123,7 @@ const StudentChatbot = ({ student }) => {
   const handleSendMessage = async (e) => {
     e.preventDefault();
     
-    if (!inputMessage.trim() || isLoading) return;
+    if ((!inputMessage.trim() && uploadedImages.length === 0) || isLoading) return;
 
     // Check question limit from backend quota
     if (quota.remaining <= 0) {
@@ -136,13 +142,20 @@ const StudentChatbot = ({ student }) => {
     const userMessage = {
       id: Date.now(),
       role: 'user',
-      content: inputMessage.trim(),
+      content: inputMessage.trim() || '',
+      images: uploadedImages.map(img => ({
+        id: img.id,
+        data: img.preview,
+        name: img.name
+      })),
       timestamp: new Date().toISOString()
     };
 
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setInputMessage('');
+    const imagesToSend = [...uploadedImages];
+    setUploadedImages([]);
     setIsLoading(true);
 
     try {
@@ -153,12 +166,18 @@ const StudentChatbot = ({ student }) => {
         },
         body: JSON.stringify({
           studentId: student.id,
-          message: inputMessage.trim(),
+          message: inputMessage.trim() || '',
+          images: imagesToSend.map(img => ({
+            data: img.preview,
+            name: img.name,
+            type: img.file.type
+          })),
           gradeSection: gradeSection,
           masterPrompt: masterPrompt,
           chatHistory: messages.map(m => ({
             role: m.role,
-            content: m.content
+            content: m.content,
+            images: m.images || []
           }))
         }),
       });
@@ -215,11 +234,57 @@ const StudentChatbot = ({ student }) => {
   const handleClearChat = () => {
     if (window.confirm('Are you sure you want to clear the chat history? This will not reset your question count.')) {
       setMessages([]);
+      setUploadedImages([]);
       const storageKey = getStorageKey();
       if (storageKey) {
         localStorage.removeItem(storageKey);
       }
     }
+  };
+
+  const handleImageUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
+      alert('Please select image files only.');
+      return;
+    }
+
+    // Limit to 5 images max
+    const remainingSlots = 5 - uploadedImages.length;
+    if (imageFiles.length > remainingSlots) {
+      alert(`You can upload a maximum of 5 images. ${remainingSlots} slot(s) remaining.`);
+      imageFiles.splice(remainingSlots);
+    }
+
+    imageFiles.forEach(file => {
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        alert(`Image ${file.name} is too large. Maximum size is 10MB.`);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setUploadedImages(prev => [...prev, {
+          id: Date.now() + Math.random(),
+          file: file,
+          preview: reader.result,
+          name: file.name
+        }]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveImage = (imageId) => {
+    setUploadedImages(prev => prev.filter(img => img.id !== imageId));
   };
 
   // Don't render if student is not available
@@ -660,7 +725,10 @@ const StudentChatbot = ({ student }) => {
                           ? '1px solid #e2e8f0' 
                           : 'none',
                         position: 'relative',
-                        transition: 'all 0.2s ease'
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
                       }}
                       onMouseEnter={(e) => {
                         if (message.role === 'assistant') {
@@ -673,7 +741,41 @@ const StudentChatbot = ({ student }) => {
                         }
                       }}
                     >
-                      {message.content}
+                      {message.content && (
+                        <div>{message.content}</div>
+                      )}
+                      {message.images && message.images.length > 0 && (
+                        <div style={{
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: '8px',
+                          marginTop: message.content ? '8px' : '0'
+                        }}>
+                          {message.images.map((img) => (
+                            <div key={img.id} style={{
+                              position: 'relative',
+                              borderRadius: '12px',
+                              overflow: 'hidden',
+                              maxWidth: '200px',
+                              maxHeight: '200px',
+                              border: message.role === 'user' 
+                                ? '2px solid rgba(255, 255, 255, 0.3)' 
+                                : '2px solid #e2e8f0'
+                            }}>
+                              <img 
+                                src={img.data} 
+                                alt={img.name || 'Uploaded image'}
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover',
+                                  display: 'block'
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       {message.role === 'assistant' && (
                         <div style={{
                           position: 'absolute',
@@ -790,6 +892,63 @@ const StudentChatbot = ({ student }) => {
               </div>
             ) : (
               <Form onSubmit={handleSendMessage}>
+                {/* Image Preview Area */}
+                {uploadedImages.length > 0 && (
+                  <div style={{
+                    marginBottom: '12px',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    padding: '12px',
+                    background: '#f8fafc',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    {uploadedImages.map((img) => (
+                      <div key={img.id} style={{
+                        position: 'relative',
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        border: '2px solid #e2e8f0'
+                      }}>
+                        <img 
+                          src={img.preview} 
+                          alt={img.name}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(img.id)}
+                          style={{
+                            position: 'absolute',
+                            top: '4px',
+                            right: '4px',
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            background: 'rgba(0, 0, 0, 0.6)',
+                            border: 'none',
+                            color: 'white',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '12px',
+                            padding: 0
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div 
                   className="gradient-input-container"
                   style={{
@@ -824,6 +983,45 @@ const StudentChatbot = ({ student }) => {
                   }}>
                     <HiOutlineLightBulb size={18} />
                   </div>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageUpload}
+                    style={{ display: 'none' }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isLoading || quota.remaining <= 0 || uploadedImages.length >= 5}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '40px',
+                      height: '40px',
+                      padding: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: uploadedImages.length >= 5 ? '#cbd5e1' : '#6366f1',
+                      cursor: uploadedImages.length >= 5 ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.2s ease',
+                      flexShrink: 0
+                    }}
+                    onMouseEnter={(e) => {
+                      if (uploadedImages.length < 5 && !isLoading && quota.remaining > 0) {
+                        e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                    title={uploadedImages.length >= 5 ? 'Maximum 5 images allowed' : 'Upload image'}
+                  >
+                    <HiOutlinePhoto size={20} />
+                  </Button>
                   <Form.Control
                     as="textarea"
                     rows={1}
@@ -853,7 +1051,7 @@ const StudentChatbot = ({ student }) => {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
-                        if (inputMessage.trim() && !isLoading) {
+                        if ((inputMessage.trim() || uploadedImages.length > 0) && !isLoading) {
                           handleSendMessage(e);
                         }
                       }
@@ -861,9 +1059,9 @@ const StudentChatbot = ({ student }) => {
                   />
                   <Button
                     type="submit"
-                    disabled={!inputMessage.trim() || isLoading || quota.remaining <= 0}
+                    disabled={(!inputMessage.trim() && uploadedImages.length === 0) || isLoading || quota.remaining <= 0}
                     style={{
-                      background: inputMessage.trim() && !isLoading && quota.remaining > 0
+                      background: ((inputMessage.trim() || uploadedImages.length > 0) && !isLoading && quota.remaining > 0)
                         ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
                         : '#cbd5e1',
                       border: 'none',
@@ -876,27 +1074,27 @@ const StudentChatbot = ({ student }) => {
                       justifyContent: 'center',
                       transition: 'all 0.3s ease',
                       flexShrink: 0,
-                      boxShadow: inputMessage.trim() && !isLoading && quota.remaining > 0
+                      boxShadow: ((inputMessage.trim() || uploadedImages.length > 0) && !isLoading && quota.remaining > 0)
                         ? '0 4px 12px rgba(99, 102, 241, 0.3)'
                         : 'none',
                       position: 'relative',
                       overflow: 'hidden'
                     }}
                     onMouseEnter={(e) => {
-                      if (inputMessage.trim() && !isLoading && quota.remaining > 0) {
+                      if ((inputMessage.trim() || uploadedImages.length > 0) && !isLoading && quota.remaining > 0) {
                         e.currentTarget.style.transform = 'scale(1.08) rotate(5deg)';
                         e.currentTarget.style.boxShadow = '0 6px 20px rgba(99, 102, 241, 0.5)';
                       }
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
-                      e.currentTarget.style.boxShadow = inputMessage.trim() && !isLoading && quota.remaining > 0
+                      e.currentTarget.style.boxShadow = ((inputMessage.trim() || uploadedImages.length > 0) && !isLoading && quota.remaining > 0)
                         ? '0 4px 12px rgba(99, 102, 241, 0.3)'
                         : 'none';
                     }}
                   >
                     <HiPaperAirplane size={22} color="white" style={{ transform: 'rotate(-45deg)' }} />
-                    {inputMessage.trim() && !isLoading && quota.remaining > 0 && (
+                    {((inputMessage.trim() || uploadedImages.length > 0) && !isLoading && quota.remaining > 0) && (
                       <div style={{
                         position: 'absolute',
                         top: '-50%',
@@ -922,6 +1120,7 @@ const StudentChatbot = ({ student }) => {
                     fontWeight: '500'
                   }}>
                     {remainingQuestions} messages remaining • Press Enter to send, Shift+Enter for new line
+                    {uploadedImages.length > 0 && ` • ${uploadedImages.length} image${uploadedImages.length > 1 ? 's' : ''} attached`}
                   </small>
                   <Button
                     variant="link"

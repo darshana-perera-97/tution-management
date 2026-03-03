@@ -355,10 +355,10 @@ const StudentDashboard = () => {
                           <Table hover style={{ margin: 0 }}>
                             <thead style={{ background: '#f8fafc' }}>
                               <tr>
-                                <th style={{ border: 'none', padding: '12px', color: '#64748b', fontSize: '13px', fontWeight: '600' }}>#</th>
-                                <th style={{ border: 'none', padding: '12px', color: '#64748b', fontSize: '13px', fontWeight: '600' }}>Date</th>
-                                <th style={{ border: 'none', padding: '12px', color: '#64748b', fontSize: '13px', fontWeight: '600' }}>Day</th>
-                                <th style={{ border: 'none', padding: '12px', color: '#64748b', fontSize: '13px', fontWeight: '600' }}>Status</th>
+                                <th style={{ border: 'none', padding: '12px', color: '#64748b', fontSize: '13px', fontWeight: '600', textAlign: 'left' }}>#</th>
+                                <th style={{ border: 'none', padding: '12px', color: '#64748b', fontSize: '13px', fontWeight: '600', textAlign: 'left' }}>Date</th>
+                                <th style={{ border: 'none', padding: '12px', color: '#64748b', fontSize: '13px', fontWeight: '600', textAlign: 'left' }}>Day</th>
+                                <th style={{ border: 'none', padding: '12px', color: '#64748b', fontSize: '13px', fontWeight: '600', textAlign: 'left' }}>Status</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -366,14 +366,14 @@ const StudentDashboard = () => {
                                 const date = new Date(record.date);
                                 return (
                                   <tr key={record.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                    <td style={{ padding: '16px 12px', color: '#64748b' }}>{index + 1}</td>
-                                    <td style={{ padding: '16px 12px', color: '#1e293b', fontWeight: '500' }}>
+                                    <td style={{ padding: '16px 12px', color: '#64748b', textAlign: 'left' }}>{index + 1}</td>
+                                    <td style={{ padding: '16px 12px', color: '#1e293b', fontWeight: '500', textAlign: 'left' }}>
                                       {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                     </td>
-                                    <td style={{ padding: '16px 12px', color: '#64748b' }}>
+                                    <td style={{ padding: '16px 12px', color: '#64748b', textAlign: 'left' }}>
                                       {date.toLocaleDateString('en-US', { weekday: 'long' })}
                                     </td>
-                                    <td style={{ padding: '16px 12px' }}>
+                                    <td style={{ padding: '16px 12px', textAlign: 'left' }}>
                                       <Badge bg="success" style={{ 
                                         background: '#10b981',
                                         padding: '4px 12px',

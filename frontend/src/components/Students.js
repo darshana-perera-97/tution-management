@@ -17,7 +17,8 @@ import {
   HiOutlineEnvelope,
   HiOutlineMapPin,
   HiOutlineClock,
-  HiOutlineTrash
+  HiOutlineTrash,
+  HiOutlineMagnifyingGlass
 } from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
@@ -30,13 +31,10 @@ const Students = () => {
   const [payments, setPayments] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showQRModal, setShowQRModal] = useState(false);
   const [showCoursesModal, setShowCoursesModal] = useState(false);
   const [showPaymentsModal, setShowPaymentsModal] = useState(false);
   const [showIDCardModal, setShowIDCardModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [newStudentId, setNewStudentId] = useState(null);
-  const qrCodeRef = useRef(null);
   const idCardRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -58,6 +56,7 @@ const Students = () => {
   const [editImage, setEditImage] = useState(null);
   const [editImagePreview, setEditImagePreview] = useState(null);
   const [isOperator, setIsOperator] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     // Check if user is operator
@@ -93,7 +92,7 @@ const Students = () => {
     startIndex,
     endIndex,
     totalItems
-  } = usePagination(students, {
+  } = usePagination(filteredStudents, {
     itemsPerPageDesktop: 10,
     itemsPerPageMobile: 5
   });
@@ -241,8 +240,9 @@ const Students = () => {
         setStudentImage(null);
         setStudentImagePreview(null);
         setShowModal(false);
-        setNewStudentId(data.student.id);
-        setShowQRModal(true);
+        // Set the newly added student and show ID card
+        setSelectedStudent(data.student);
+        setShowIDCardModal(true);
         fetchStudents();
         fetchCourses(); // Refresh courses to get updated enrollment data
         setTimeout(() => setSuccess(''), 3000);
@@ -397,13 +397,80 @@ const Students = () => {
     setSelectedStudent(null);
   };
 
+  const handleMarkAsPaid = async (student, monthKey, amount, courseId, courseName) => {
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      const response = await fetch(`${API_URL}/api/payments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          studentId: student.id,
+          monthKey: monthKey,
+          amount: amount,
+          courseId: courseId || null,
+          paymentDate: new Date().toISOString()
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess(`Payment for ${courseName || 'month'} marked as paid successfully!`);
+        // Refresh payments and students data
+        await fetchPayments();
+        await fetchStudents();
+        // Update selected student to reflect new payment status
+        const updatedStudents = await fetch(`${API_URL}/api/students`).then(res => res.json());
+        if (updatedStudents.success) {
+          const updatedStudent = updatedStudents.students.find(s => s.id === student.id);
+          if (updatedStudent) {
+            setSelectedStudent(updatedStudent);
+          }
+        }
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(data.message || 'Failed to mark payment as paid');
+        setTimeout(() => setError(''), 5000);
+      }
+    } catch (err) {
+      console.error('Error marking payment as paid:', err);
+      setError('Unable to connect to server. Please try again later.');
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getStudentCourses = (studentId) => {
-    return courses.filter(course => 
+    return courses.filter(course =>
       course.enrolledStudents && 
       Array.isArray(course.enrolledStudents) && 
       course.enrolledStudents.includes(studentId)
     );
   };
+
+  // Filter students based on search query (name, Student ID, grade)
+  const filteredStudents = students.filter(student => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase().trim();
+    
+    // Search by name
+    const nameMatch = student.fullName?.toLowerCase().includes(query);
+    
+    // Search by Student ID
+    const idMatch = student.id?.toLowerCase().includes(query) || 
+                   student.id?.toString().includes(query);
+    
+    // Search by grade
+    const gradeMatch = student.grade?.toLowerCase().includes(query);
+    
+    return nameMatch || idMatch || gradeMatch;
+  });
 
   const calculateMonthlyPayments = (student) => {
     const studentCourses = getStudentCourses(student.id);
@@ -490,74 +557,6 @@ const Students = () => {
     return payments;
   };
 
-  const handleViewQRCode = (student) => {
-    setNewStudentId(student.id);
-    setShowQRModal(true);
-  };
-
-  const handleCloseQRModal = () => {
-    setShowQRModal(false);
-    setNewStudentId(null);
-  };
-
-  const downloadQRCode = () => {
-    if (qrCodeRef.current && newStudentId) {
-      const svg = qrCodeRef.current.querySelector('svg');
-      if (svg) {
-        try {
-          const svgData = new XMLSerializer().serializeToString(svg);
-          const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-          const svgUrl = URL.createObjectURL(svgBlob);
-          
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            
-            // Fill white background
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw the QR code
-            ctx.drawImage(img, 0, 0);
-            
-            // Convert to blob and download
-            canvas.toBlob((blob) => {
-              if (blob) {
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `student-qr-${newStudentId}.png`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-                URL.revokeObjectURL(svgUrl);
-              }
-            }, 'image/png');
-          };
-          
-          img.onerror = () => {
-            // Fallback: download as SVG
-            const link = document.createElement('a');
-            link.href = svgUrl;
-            link.download = `student-qr-${newStudentId}.svg`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(svgUrl);
-          };
-          
-          img.src = svgUrl;
-        } catch (error) {
-          console.error('Error downloading QR code:', error);
-          alert('Failed to download QR code. Please try again.');
-        }
-      }
-    }
-  };
 
   const handleGenerateIDCard = (student) => {
     setSelectedStudent(student);
@@ -646,18 +645,57 @@ const Students = () => {
 
       <div className="operators-table-container">
         <div className="table-header-section">
-          <h3>Students ({paginatedStudents.length} {paginatedStudents.length === 1 ? 'student' : 'students'})</h3>
+          <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <h3>Students ({filteredStudents.length} {filteredStudents.length === 1 ? 'student' : 'students'})</h3>
+            <div className="d-flex gap-2" style={{ minWidth: '300px', maxWidth: '500px', flex: '1' }}>
+              <div className="position-relative" style={{ flex: '1' }}>
+                <HiOutlineMagnifyingGlass 
+                  style={{ 
+                    position: 'absolute', 
+                    left: '12px', 
+                    top: '50%', 
+                    transform: 'translateY(-50%)',
+                    color: '#94a3b8',
+                    fontSize: '18px',
+                    pointerEvents: 'none'
+                  }} 
+                />
+                <Form.Control
+                  type="text"
+                  placeholder="Search by name, ID, or grade..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    paddingLeft: '40px',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              {searchQuery && (
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  onClick={() => setSearchQuery('')}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
         <div className="table-responsive">
           {/* Desktop Table View */}
           <Table className="operators-table d-none d-lg-table" style={{ margin: 0 }}>
             <thead>
               <tr>
-                <th style={{ width: '60px' }}>#</th>
-                <th>Full Name</th>
-                <th style={{ width: '180px' }}>Grade</th>
-                <th>Contact Number</th>
-                <th style={{ width: '280px' }}>Actions</th>
+                <th style={{ width: '60px' }} className="text-start">#</th>
+                <th className="text-start">Full Name</th>
+                <th style={{ width: '180px' }} className="text-start">Grade</th>
+                <th className="text-start">Contact Number</th>
+                <th style={{ width: '280px' }} className="text-start">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -684,11 +722,12 @@ const Students = () => {
                       padding: '16px 32px',
                       fontSize: '13px',
                       fontWeight: '600',
-                      color: '#64748b'
+                      color: '#64748b',
+                      textAlign: 'left'
                     }}>
                       {startIndex + index + 1}
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
@@ -718,7 +757,7 @@ const Students = () => {
                         </div>
                       </div>
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
@@ -731,7 +770,7 @@ const Students = () => {
                         <span>{student.grade}</span>
                       </div>
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
@@ -743,7 +782,7 @@ const Students = () => {
                         <span>{student.contactNumber}</span>
                       </div>
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div className="d-flex gap-2 flex-wrap">
                         <OverlayTrigger
                           placement="top"
@@ -756,19 +795,6 @@ const Students = () => {
                             className="action-btn-icon"
                           >
                             <HiOutlineEye />
-                          </Button>
-                        </OverlayTrigger>
-                        <OverlayTrigger
-                          placement="top"
-                          overlay={<Tooltip>View QR Code</Tooltip>}
-                        >
-                          <Button
-                            variant="info"
-                            size="sm"
-                            onClick={() => handleViewQRCode(student)}
-                            className="action-btn-icon"
-                          >
-                            <HiOutlineQrCode />
                           </Button>
                         </OverlayTrigger>
                         <OverlayTrigger
@@ -855,14 +881,6 @@ const Students = () => {
                           className="action-btn"
                         >
                           View Details
-                        </Button>
-                        <Button
-                          variant="info"
-                          size="sm"
-                          onClick={() => handleViewQRCode(student)}
-                          className="action-btn"
-                        >
-                          View QR Code
                         </Button>
                         <Button
                           variant="success"
@@ -1387,36 +1405,6 @@ const Students = () => {
         </Modal.Footer>
       </Modal>
 
-      {/* QR Code Modal */}
-      <Modal show={showQRModal} onHide={handleCloseQRModal} centered backdrop="static">
-        <Modal.Header closeButton>
-          <Modal.Title>Student QR Code</Modal.Title>
-        </Modal.Header>
-        <Modal.Body className="text-center">
-          {newStudentId && (
-            <div>
-              <p className="mb-3">Student ID: <strong>{newStudentId}</strong></p>
-              <div ref={qrCodeRef} className="d-flex justify-content-center mb-3" style={{ padding: '20px', backgroundColor: 'white' }}>
-                <QRCodeSVG
-                  value={newStudentId}
-                  size={256}
-                  level="H"
-                  includeMargin={true}
-                />
-              </div>
-              <p className="text-muted small">Scan this QR code to get the Student ID</p>
-            </div>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleCloseQRModal}>
-            Close
-          </Button>
-          <Button variant="primary" onClick={downloadQRCode}>
-            Download QR Code
-          </Button>
-        </Modal.Footer>
-      </Modal>
 
       {/* View Courses Modal - Benchmark Style */}
       <Modal show={showCoursesModal} onHide={handleCloseCoursesModal} centered size="lg" backdrop="static">
@@ -1562,7 +1550,7 @@ const Students = () => {
       </Modal>
 
       {/* View Payments Modal - Benchmark Style */}
-      <Modal show={showPaymentsModal} onHide={handleClosePaymentsModal} centered size="lg" backdrop="static">
+      <Modal show={showPaymentsModal} onHide={handleClosePaymentsModal} centered size="xl" backdrop="static">
         <Modal.Header closeButton style={{ padding: 0, border: 'none' }}>
           <div className="student-form-header" style={{ width: '100%' }}>
             <h2>Student Payments</h2>
@@ -1572,6 +1560,16 @@ const Students = () => {
         <Modal.Body style={{ padding: 0 }}>
           {selectedStudent && (
             <div className="student-form-body">
+              {error && (
+                <Alert variant="danger" className="m-3" onClose={() => setError('')} dismissible>
+                  {error}
+                </Alert>
+              )}
+              {success && (
+                <Alert variant="success" className="m-3" onClose={() => setSuccess('')} dismissible>
+                  {success}
+                </Alert>
+              )}
               {calculateMonthlyPayments(selectedStudent).length > 0 ? (
                 <>
                   <div className="operators-table-container">
@@ -1604,22 +1602,35 @@ const Students = () => {
                                       border: `1px solid ${course.isPaid ? '#e2e8f0' : 'rgba(245, 158, 11, 0.2)'}`,
                                       fontSize: '13px'
                                     }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                        <strong>{course.courseName}</strong>
-                                        <span style={{ color: '#64748b' }}>({course.subject})</span>
-                                        <span style={{ fontWeight: '600', color: '#3b82f6' }}>Rs {course.fee.toFixed(2)}</span>
-                                  {course.isPaid && (
-                                          <span style={{
-                                            padding: '2px 8px',
-                                            borderRadius: '6px',
-                                            fontSize: '11px',
-                                            fontWeight: '700',
-                                            background: 'rgba(16, 185, 129, 0.1)',
-                                            color: '#059669'
-                                          }}>
-                                            Paid
-                                          </span>
-                                  )}
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                          <strong>{course.courseName}</strong>
+                                          <span style={{ color: '#64748b' }}>({course.subject})</span>
+                                          <span style={{ fontWeight: '600', color: '#3b82f6' }}>Rs {course.fee.toFixed(2)}</span>
+                                          {course.isPaid && (
+                                            <span style={{
+                                              padding: '2px 8px',
+                                              borderRadius: '6px',
+                                              fontSize: '11px',
+                                              fontWeight: '700',
+                                              background: 'rgba(16, 185, 129, 0.1)',
+                                              color: '#059669'
+                                            }}>
+                                              Paid
+                                            </span>
+                                          )}
+                                        </div>
+                                        {!course.isPaid && (
+                                          <Button
+                                            variant="success"
+                                            size="sm"
+                                            onClick={() => handleMarkAsPaid(selectedStudent, payment.monthKey, course.fee, course.courseId, course.courseName)}
+                                            disabled={loading}
+                                            style={{ whiteSpace: 'nowrap' }}
+                                          >
+                                            Pay
+                                          </Button>
+                                        )}
                                       </div>
                                   {course.isPaid && course.paymentDate && (
                                         <div style={{ 
@@ -1890,12 +1901,12 @@ const Students = () => {
                   <div style={{
                     textAlign: 'center',
                     marginBottom: '20px',
-                    marginTop: '39px'
+                    marginTop: '80px'
                   }}>
                     <div style={{
                       width: '225px',
                       height: '225px',
-                      borderRadius: '1200px',
+                      borderRadius: '12px',
                       overflow: 'hidden',
                       margin: '0 auto',
                       background: '#f8f9fa',

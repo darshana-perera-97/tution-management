@@ -548,11 +548,11 @@ const Teachers = () => {
           <Table className="operators-table d-none d-lg-table" style={{ margin: 0 }}>
             <thead>
               <tr>
-                <th style={{ width: '60px' }}>#</th>
-                <th>Name</th>
-                <th>Subject</th>
-                <th>Conducting Courses</th>
-                <th style={{ width: '200px' }}>Actions</th>
+                <th style={{ width: '60px' }} className="text-start">#</th>
+                <th className="text-start">Name</th>
+                <th className="text-start">Subject</th>
+                <th className="text-start">Conducting Courses</th>
+                <th style={{ width: '200px' }} className="text-start">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -579,11 +579,12 @@ const Teachers = () => {
                       padding: '16px 32px',
                       fontSize: '13px',
                       fontWeight: '600',
-                      color: '#64748b'
+                      color: '#64748b',
+                      textAlign: 'left'
                     }}>
                       {startIndex + index + 1}
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
@@ -613,7 +614,7 @@ const Teachers = () => {
                         </div>
                       </div>
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
@@ -626,7 +627,7 @@ const Teachers = () => {
                         <span>{teacher.subject || '-'}</span>
                       </div>
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ 
                         fontSize: '14px',
                         color: '#64748b',
@@ -635,7 +636,7 @@ const Teachers = () => {
                         {getTeacherCourses(teacher.id)}
                       </div>
                     </td>
-                    <td style={{ padding: '16px 32px' }}>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div className="d-flex gap-2 flex-wrap">
                         <OverlayTrigger
                           placement="top"

@@ -26,7 +26,6 @@ const TopNavbar = ({ admin, onMenuToggle }) => {
         </button>
       </div>
       <Navbar.Brand className="top-navbar-brand">
-        Admin Panel
       </Navbar.Brand>
       <Navbar.Toggle aria-controls="basic-navbar-nav" className="d-none" />
       <Navbar.Collapse id="basic-navbar-nav" className="justify-content-end">
