@@ -1010,6 +1010,8 @@ app.put('/api/students/:id/image', (req, res) => {
           const oldImagePath = path.join(__dirname, 'data', oldImageUrl);
           if (fs.existsSync(oldImagePath)) {
             fs.unlinkSync(oldImagePath);
+
+            
           }
         }
         
