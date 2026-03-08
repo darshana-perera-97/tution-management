@@ -12,8 +12,10 @@ import {
 } from 'react-icons/hi2';
 import API_URL from '../config';
 
-const StudentChatbot = ({ student }) => {
-  const [isOpen, setIsOpen] = useState(false);
+const StudentChatbot = ({ student, isOpen: externalIsOpen, onIsOpenChange }) => {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = onIsOpenChange || setInternalIsOpen;
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
