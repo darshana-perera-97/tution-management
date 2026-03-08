@@ -522,7 +522,7 @@ const StudentChatbot = ({ student }) => {
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text'
                 }}>
-                  Welcome to AI Study Assistant
+                  Learn & Grow with [Institute Name] AI-Study Assistant
                 </h3>
                 <p style={{
                   margin: '0 0 12px 0',
@@ -531,7 +531,7 @@ const StudentChatbot = ({ student }) => {
                   color: '#475569',
                   fontWeight: '400'
                 }}>
-                  I'm your intelligent study companion powered by AI. Ask me anything about your course materials, and I'll help you understand concepts, solve problems, and excel in your studies.
+                  I'm your intelligent study companion powered by AI. Ask me anything and I'll help you understand concepts, solve problems, and excel in your studies.
                 </p>
                 <div style={{
                   display: 'flex',
