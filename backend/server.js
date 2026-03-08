@@ -962,54 +962,114 @@ app.post('/api/students', (req, res) => {
       const lmsBaseUrl = process.env.FRONTEND_URL || 'https://smartclass.nexgenai.asia';
       const lmsLink = `${lmsBaseUrl}/student/login`;
       
-      // Build comprehensive welcome message
-      let welcomeMessage = `🎓 Welcome to our Tuition Center!\n\nDear ${newStudent.parentName},\n\nYour child ${newStudent.fullName} has been successfully registered as a student.\n\n`;
+      // Build student-specific welcome message
+      let studentMessage = `Dear *${newStudent.fullName}*,\n\n`;
+      studentMessage += `Congratulations! You have been successfully registered as a student at our center. We are excited to support you in your academic journey.\n\n`;
       
-      // Parent Details
-      welcomeMessage += `📋 Parent Details:\n`;
-      welcomeMessage += `- Parent Name: ${newStudent.parentName}\n`;
-      welcomeMessage += `- Contact Number: ${newStudent.contactNumber}\n`;
-      if (newStudent.parentWhatsAppNumber) {
-        welcomeMessage += `- Parent WhatsApp: ${newStudent.parentWhatsAppNumber}\n`;
-      }
-      if (newStudent.studentWhatsAppNumber) {
-        welcomeMessage += `- Student WhatsApp: ${newStudent.studentWhatsAppNumber}\n`;
-      }
-      welcomeMessage += `\n`;
-      
-      // Student Details
-      welcomeMessage += `👤 Student Details:\n`;
-      welcomeMessage += `- Name: ${newStudent.fullName}\n`;
-      welcomeMessage += `- Grade: ${newStudent.grade}\n`;
-      welcomeMessage += `- Student ID: ${newStudent.id}\n`;
-      welcomeMessage += `\n`;
+      // Profile Details
+      studentMessage += `👤 *Your Profile Details:*\n\n`;
+      studentMessage += `* *Student Name:* ${newStudent.fullName}\n`;
+      studentMessage += `* *Grade:* ${newStudent.grade}\n`;
+      studentMessage += `* *Student ID:* ${newStudent.id}\n`;
       
       // Registered Courses
       if (enrolledCoursesList.length > 0) {
-        welcomeMessage += `📚 Registered Courses:\n`;
-        enrolledCoursesList.forEach((course, index) => {
-          welcomeMessage += `${index + 1}. ${course}\n`;
-        });
-        welcomeMessage += `\n`;
+        if (enrolledCoursesList.length === 1) {
+          // Single course - use singular form
+          const courseParts = enrolledCoursesList[0].split(' - ');
+          const courseName = courseParts[0];
+          studentMessage += `* *Registered Course:* ${courseName}\n`;
+        } else {
+          // Multiple courses
+          studentMessage += `* *Registered Courses:*\n`;
+          enrolledCoursesList.forEach((course, index) => {
+            const courseParts = course.split(' - ');
+            const courseName = courseParts[0];
+            studentMessage += `  ${index + 1}. ${courseName}\n`;
+          });
+        }
       } else {
-        welcomeMessage += `📚 Registered Courses: No courses enrolled yet.\n\n`;
+        studentMessage += `* *Registered Course:* No courses enrolled yet.\n`;
+      }
+      studentMessage += `\n`;
+      
+      // Login Credentials
+      studentMessage += `🔐 *Your LMS Login Credentials:*\n`;
+      studentMessage += `You can use the details below to access your portal, where you'll find your attendance, course materials, and schedules.\n\n`;
+      studentMessage += `* *LMS Link:* ${lmsLink}\n`;
+      studentMessage += `* *Username:* ${newStudent.id}\n`;
+      studentMessage += `* *Password:* ${defaultPassword}\n`;
+      studentMessage += `\n`;
+      
+      // Pro-tip
+      studentMessage += `💡 *Pro-tip:* Keep your login credentials safe! If you have any trouble logging in, please reach out to your instructor or the administration office.\n\n`;
+      studentMessage += `We look forward to seeing you in class and helping you excel in your studies!\n\n`;
+      studentMessage += `Best regards,\n*Tuition Management System*`;
+      
+      // Build parent welcome message
+      let parentMessage = `🎓 Welcome to our Tuition Center!\n\nDear ${newStudent.parentName},\n\nYour child ${newStudent.fullName} has been successfully registered as a student.\n\n`;
+      
+      // Parent Details
+      parentMessage += `📋 Parent Details:\n`;
+      parentMessage += `- Parent Name: ${newStudent.parentName}\n`;
+      parentMessage += `- Contact Number: ${newStudent.contactNumber}\n`;
+      if (newStudent.parentWhatsAppNumber) {
+        parentMessage += `- Parent WhatsApp: ${newStudent.parentWhatsAppNumber}\n`;
+      }
+      if (newStudent.studentWhatsAppNumber) {
+        parentMessage += `- Student WhatsApp: ${newStudent.studentWhatsAppNumber}\n`;
+      }
+      parentMessage += `\n`;
+      
+      // Student Details
+      parentMessage += `👤 Student Details:\n`;
+      parentMessage += `- Name: ${newStudent.fullName}\n`;
+      parentMessage += `- Grade: ${newStudent.grade}\n`;
+      parentMessage += `- Student ID: ${newStudent.id}\n`;
+      parentMessage += `\n`;
+      
+      // Registered Courses
+      if (enrolledCoursesList.length > 0) {
+        parentMessage += `📚 Registered Courses:\n`;
+        enrolledCoursesList.forEach((course, index) => {
+          parentMessage += `${index + 1}. ${course}\n`;
+        });
+        parentMessage += `\n`;
+      } else {
+        parentMessage += `📚 Registered Courses: No courses enrolled yet.\n\n`;
       }
       
       // Login Credentials
-      welcomeMessage += `🔐 Login Credentials:\n`;
-      welcomeMessage += `- LMS Link: ${lmsLink}\n`;
-      welcomeMessage += `- Username: ${newStudent.id}\n`;
-      welcomeMessage += `- Password: ${defaultPassword}\n`;
-      welcomeMessage += `\n`;
+      parentMessage += `🔐 Login Credentials:\n`;
+      parentMessage += `- LMS Link: ${lmsLink}\n`;
+      parentMessage += `- Username: ${newStudent.id}\n`;
+      parentMessage += `- Password: ${defaultPassword}\n`;
+      parentMessage += `\n`;
       
-      welcomeMessage += `💡 Please keep these credentials safe. You can use them to access the student portal and view attendance, course materials, and more.\n\n`;
-      welcomeMessage += `We look forward to supporting ${newStudent.fullName}'s educational journey!\n\n`;
-      welcomeMessage += `Best regards,\nTuition Management System`;
+      parentMessage += `💡 Please keep these credentials safe. You can use them to access the student portal and view attendance, course materials, and more.\n\n`;
+      parentMessage += `We look forward to supporting ${newStudent.fullName}'s educational journey!\n\n`;
+      parentMessage += `Best regards,\nTuition Management System`;
       
-      const notificationNumbers = getStudentNotificationNumbers(newStudent);
-      if (notificationNumbers.length > 0) {
-        sendWhatsAppToMultiple(notificationNumbers, welcomeMessage).catch(err => {
-          console.error('Failed to send welcome message:', err);
+      // Send student message to student WhatsApp number
+      if (newStudent.studentWhatsAppNumber) {
+        sendWhatsAppMessage(newStudent.studentWhatsAppNumber, studentMessage).catch(err => {
+          console.error('Failed to send student welcome message:', err);
+        });
+      }
+      
+      // Send parent message to parent numbers
+      const parentNumbers = [];
+      if (newStudent.parentWhatsAppNumber) {
+        parentNumbers.push(newStudent.parentWhatsAppNumber);
+      }
+      // Fallback to contact number if parent WhatsApp not provided
+      if (!newStudent.parentWhatsAppNumber && newStudent.contactNumber) {
+        parentNumbers.push(newStudent.contactNumber);
+      }
+      
+      if (parentNumbers.length > 0) {
+        sendWhatsAppToMultiple(parentNumbers, parentMessage).catch(err => {
+          console.error('Failed to send parent welcome message:', err);
         });
       }
       
