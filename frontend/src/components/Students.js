@@ -2141,16 +2141,17 @@ const Students = () => {
                 <div style={{ position: 'relative', zIndex: 1, padding: '20px', paddingTop: '0' }}>
                   {/* Student Image at the top */}
                   <div style={{
-                    textAlign: 'center',
+                    textAlign: 'left',
                     marginBottom: '20px',
-                    marginTop: '80px'
+                    marginTop: '97px'
                   }}>
                     <div style={{
-                      width: '225px',
-                      height: '225px',
-                      borderRadius: '12px',
+                      width: '204px',
+                      height: '204px',
+                      borderRadius: '30px',
                       overflow: 'hidden',
-                      margin: '0 auto',
+                      margin: '0',
+                      marginLeft:'10px',
                       background: '#f8f9fa',
                       display: 'flex',
                       alignItems: 'center',
@@ -2191,15 +2192,16 @@ const Students = () => {
 
                   {/* Student Name */}
                   <div style={{
-                    textAlign: 'center',
+                    textAlign: 'left',
                     marginBottom: '15px'
                   }}>
                     <h3 style={{
                       margin: 0,
+                      marginLeft:'10px',
                       marginTop: '10px',
-                      fontSize: '29px',
+                      fontSize: '26px',
                       fontWeight: 'bold',
-                      color: '#1e293b',
+                      color: '#237ac6',
                       lineHeight: '1.2'
                     }}>
                       {selectedStudent.fullName}
@@ -2208,24 +2210,39 @@ const Students = () => {
                     <div style={{}}>
 
                       <p style={{
-                        margin: '4px 0 0 0',
-                        fontSize: '26px',
+                        margin: '0',
+                        fontSize: '16px',
+                        marginLeft:'10px',
                         borderRadius: '100px',
-                        color: '#fff',
-                        fontWeight: '700',
-                        background: '#66be36',
+                        color: '#000',
+                        fontWeight: '500',
                         display: 'inline-block',
-                        padding: '6px 22px'
+                        marginTop:'10px'
                       }}>
-                        {selectedStudent.id}
+                        Grade {selectedStudent.grade}
+                      </p>
+                    </div>
+                    <div style={{}}>
+
+                      <p style={{
+                        margin: '0',
+                        fontSize: '16px',
+                        marginLeft:'10px',
+                        borderRadius: '100px',
+                        color: '#000',
+                        fontWeight: '500',
+                        display: 'inline-block',
+                      }}>
+                        Student ID : {selectedStudent.id}
                       </p>
                     </div>
                   </div>
 
                   {/* QR Code */}
                   <div style={{
-                    textAlign: 'center',
-                    marginTop: '-10px'
+                    textAlign: 'left',
+                    marginTop: '0px',
+                    marginLeft:'10px'
                   }}>
                     <div style={{
                       display: 'inline-block',
@@ -2233,7 +2250,7 @@ const Students = () => {
                     }}>
                       <QRCodeSVG
                         value={selectedStudent.id}
-                        size={220}
+                        size={100}
                         level="H"
                         includeMargin={true}
                       />
