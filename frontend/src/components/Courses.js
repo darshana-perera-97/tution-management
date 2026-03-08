@@ -20,7 +20,8 @@ import {
   HiOutlinePaperAirplane,
   HiOutlineDocumentText,
   HiOutlineUsers,
-  HiOutlineSparkles
+  HiOutlineSparkles,
+  HiOutlinePhoto
 } from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
@@ -48,6 +49,8 @@ const Courses = () => {
   const [isAdminOrOperator, setIsAdminOrOperator] = useState(false);
   const [showBulkMessageModal, setShowBulkMessageModal] = useState(false);
   const [bulkMessage, setBulkMessage] = useState('');
+  const [bulkMessageImage, setBulkMessageImage] = useState(null);
+  const [bulkMessageImagePreview, setBulkMessageImagePreview] = useState(null);
   const [bulkMessageLoading, setBulkMessageLoading] = useState(false);
   const [showExtraClassModal, setShowExtraClassModal] = useState(false);
   const [extraClassData, setExtraClassData] = useState({ date: '', time: '' });
@@ -463,6 +466,9 @@ const Courses = () => {
   };
 
   const handleCloseBulkMessageModal = () => {
+    setBulkMessage('');
+    setBulkMessageImage(null);
+    setBulkMessageImagePreview(null);
     setShowBulkMessageModal(false);
     setSelectedCourse(null);
     setBulkMessage('');
@@ -568,6 +574,27 @@ const Courses = () => {
     }
   };
 
+  const handleBulkMessageImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        setError('Image size should be less than 10MB');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file');
+        return;
+      }
+      setBulkMessageImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setBulkMessageImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+      setError('');
+    }
+  };
+
   const handleSendBulkMessage = async (e) => {
     e.preventDefault();
     if (!bulkMessage.trim() || !selectedCourse) {
@@ -580,14 +607,16 @@ const Courses = () => {
     setBulkMessageLoading(true);
 
     try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('message', bulkMessage);
+      
+      if (bulkMessageImage) {
+        formDataToSend.append('image', bulkMessageImage);
+      }
+
       const response = await fetch(`${API_URL}/api/courses/${selectedCourse.id}/bulk-message`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: bulkMessage
-        }),
+        body: formDataToSend,
       });
 
       const data = await response.json();
@@ -595,6 +624,8 @@ const Courses = () => {
       if (data.success) {
         setSuccess(`Bulk message sent successfully to ${data.sentCount || 0} student(s)!`);
         setBulkMessage('');
+        setBulkMessageImage(null);
+        setBulkMessageImagePreview(null);
         setTimeout(() => {
           setShowBulkMessageModal(false);
           setSelectedCourse(null);
@@ -1903,6 +1934,122 @@ const Courses = () => {
                     marginBottom: 0
                   }}>
                     The message will be sent to all enrolled students' WhatsApp numbers.
+                  </p>
+                </div>
+
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlinePhoto className="student-form-label-icon" />
+                    Image (Optional)
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleBulkMessageImageChange}
+                      id="bulk-message-image-input"
+                      style={{
+                        position: 'absolute',
+                        opacity: 0,
+                        width: 0,
+                        height: 0,
+                        overflow: 'hidden'
+                      }}
+                    />
+                    <label
+                      htmlFor="bulk-message-image-input"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px 16px',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '12px',
+                        backgroundColor: '#ffffff',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        minHeight: '48px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = '#3b82f6';
+                        e.currentTarget.style.backgroundColor = '#f8fafc';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = '#e2e8f0';
+                        e.currentTarget.style.backgroundColor = '#ffffff';
+                      }}
+                    >
+                      <span style={{
+                        color: bulkMessageImage ? '#0f172a' : '#94a3b8',
+                        fontSize: '14px',
+                        fontWeight: bulkMessageImage ? '500' : '400',
+                        flex: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        marginRight: '12px'
+                      }}>
+                        {bulkMessageImage ? bulkMessageImage.name : 'Choose an image file...'}
+                      </span>
+                      <span style={{
+                        padding: '6px 12px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#64748b',
+                        backgroundColor: '#f1f5f9',
+                        borderRadius: '8px',
+                        whiteSpace: 'nowrap',
+                        border: '1px solid #e2e8f0'
+                      }}>
+                        {bulkMessageImage ? 'Change' : 'Browse'}
+                      </span>
+                    </label>
+                    {bulkMessageImage && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBulkMessageImage(null);
+                          setBulkMessageImagePreview(null);
+                          const input = document.getElementById('bulk-message-image-input');
+                          if (input) input.value = '';
+                        }}
+                        style={{
+                          marginTop: '8px',
+                          padding: '4px 8px',
+                          fontSize: '12px',
+                          color: '#dc2626',
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontWeight: '500'
+                        }}
+                      >
+                        Remove image
+                      </button>
+                    )}
+                  </div>
+                  {bulkMessageImagePreview && (
+                    <div style={{ marginTop: '12px' }}>
+                      <img 
+                        src={bulkMessageImagePreview} 
+                        alt="Preview" 
+                        style={{ 
+                          maxWidth: '300px', 
+                          maxHeight: '300px', 
+                          objectFit: 'cover', 
+                          borderRadius: '12px',
+                          border: '1px solid #e2e8f0'
+                        }}
+                      />
+                    </div>
+                  )}
+                  <p style={{ 
+                    fontSize: '12px', 
+                    color: '#94a3b8', 
+                    marginTop: '8px',
+                    marginBottom: 0
+                  }}>
+                    Optional: Attach an image to your message (max 10MB)
                   </p>
                 </div>
 

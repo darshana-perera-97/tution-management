@@ -971,12 +971,32 @@ const Students = () => {
                         alignItems: 'center', 
                         gap: '12px' 
                       }}>
+                        {student.imageUrl ? (
+                          <img
+                            src={`${API_URL}${student.imageUrl}`}
+                            alt={student.fullName}
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '50%',
+                              objectFit: 'cover',
+                              border: '2px solid #e2e8f0',
+                              flexShrink: 0
+                            }}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              if (e.target.nextSibling) {
+                                e.target.nextSibling.style.display = 'flex';
+                              }
+                            }}
+                          />
+                        ) : null}
                         <div style={{
                           width: '32px',
                           height: '32px',
                           borderRadius: '50%',
-                          background: 'rgba(59, 130, 246, 0.1)',
-                          display: 'flex',
+                          background: student.imageUrl ? 'transparent' : 'rgba(59, 130, 246, 0.1)',
+                          display: student.imageUrl ? 'none' : 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           color: '#3b82f6',
@@ -1107,7 +1127,40 @@ const Students = () => {
               {paginatedStudents.map((student, index) => (
                 <Card key={student.id} className="student-card mb-3">
                   <Card.Body>
-                    <div className="student-card-header mb-0">
+                    <div className="student-card-header mb-0" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      {student.imageUrl ? (
+                        <img
+                          src={`${API_URL}${student.imageUrl}`}
+                          alt={student.fullName}
+                          style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '50%',
+                            objectFit: 'cover',
+                            border: '2px solid #e2e8f0',
+                            flexShrink: 0
+                          }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            if (e.target.nextSibling) {
+                              e.target.nextSibling.style.display = 'flex';
+                            }
+                          }}
+                        />
+                      ) : null}
+                      <div style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        background: student.imageUrl ? 'transparent' : 'rgba(59, 130, 246, 0.1)',
+                        display: student.imageUrl ? 'none' : 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#3b82f6',
+                        flexShrink: 0
+                      }}>
+                        <HiOutlineUser size={20} />
+                      </div>
                       <h5 className="student-card-name mb-0">{student.fullName}</h5>
                     </div>
                     <div className="student-card-actions">
@@ -1529,6 +1582,14 @@ const Students = () => {
                       Full Name
                     </label>
                     <div className="student-details-value">{selectedStudent.fullName}</div>
+              </div>
+
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineIdentification className="student-form-label-icon" />
+                      Student ID
+                    </label>
+                    <div className="student-details-value">{selectedStudent.id}</div>
               </div>
 
                   <div className="student-form-grid-2">

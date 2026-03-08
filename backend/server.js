@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const fileUpload = require('express-fileupload');
 const qrcode = require('qrcode-terminal');
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const pdfParse = require('pdf-parse');
 const OpenAI = require('openai');
 
@@ -823,13 +823,13 @@ const getStudentNotificationNumbers = (student) => {
 };
 
 // Helper function to send WhatsApp messages to multiple numbers
-const sendWhatsAppToMultiple = async (phoneNumbers, message) => {
+const sendWhatsAppToMultiple = async (phoneNumbers, message, imagePath = null) => {
   const results = [];
   const uniqueNumbers = [...new Set(phoneNumbers.filter(num => num && num.trim()))];
   
   for (const phoneNumber of uniqueNumbers) {
     try {
-      const result = await sendWhatsAppMessage(phoneNumber, message);
+      const result = await sendWhatsAppMessage(phoneNumber, message, imagePath);
       results.push({ phoneNumber, success: result.success, error: result.error });
     } catch (err) {
       console.error(`Error sending WhatsApp to ${phoneNumber}:`, err);
@@ -1939,6 +1939,25 @@ app.post('/api/courses/:courseId/bulk-message', async (req, res) => {
       });
     }
 
+    // Handle image upload (optional)
+    let imagePath = null;
+    if (req.files && req.files.image) {
+      const image = req.files.image;
+      const fileName = `bulk-message-${Date.now()}-${image.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const filePath = path.join(uploadsPath, fileName);
+      
+      try {
+        image.mv(filePath);
+        imagePath = filePath;
+      } catch (err) {
+        console.error('Error saving bulk message image:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to save image'
+        });
+      }
+    }
+
     // Get all enrolled students
     const enrolledStudents = studentsData.students.filter(s => enrolledStudentIds.includes(s.id));
     
@@ -1951,7 +1970,7 @@ app.post('/api/courses/:courseId/bulk-message', async (req, res) => {
       if (notificationNumbers.length > 0) {
         try {
           const bulkMessage = `📢 Message from ${course.courseName}\n\n${message}\n\nBest regards,\nTuition Management System`;
-          const sendResults = await sendWhatsAppToMultiple(notificationNumbers, bulkMessage);
+          const sendResults = await sendWhatsAppToMultiple(notificationNumbers, bulkMessage, imagePath);
           const successCount = sendResults.filter(r => r.success).length;
           if (successCount > 0) {
             sentCount += successCount;
@@ -1978,6 +1997,15 @@ app.post('/api/courses/:courseId/bulk-message', async (req, res) => {
           success: false,
           error: 'No WhatsApp number available'
         });
+      }
+    }
+
+    // Clean up image file after sending
+    if (imagePath && fs.existsSync(imagePath)) {
+      try {
+        fs.unlinkSync(imagePath);
+      } catch (err) {
+        console.error('Error deleting bulk message image:', err);
       }
     }
 
@@ -4310,7 +4338,7 @@ const formatPhoneNumber = (phoneNumber) => {
 };
 
 // Helper function to send WhatsApp message
-const sendWhatsAppMessage = async (phoneNumber, message) => {
+const sendWhatsAppMessage = async (phoneNumber, message, imagePath = null) => {
   try {
     // Check if WhatsApp client exists
     if (!whatsappState.client) {
@@ -4353,10 +4381,17 @@ const sendWhatsAppMessage = async (phoneNumber, message) => {
 
     // Send message using the correct API
     try {
-      // For whatsapp-web.js v1.34.6, use sendMessage with chat ID
-    await whatsappState.client.sendMessage(formattedNumber, message);
-      console.log(`✅ WhatsApp message sent successfully to ${formattedNumber}`);
-    return { success: true };
+      if (imagePath) {
+        // Send message with image
+        const media = MessageMedia.fromFilePath(imagePath);
+        await whatsappState.client.sendMessage(formattedNumber, media, { caption: message });
+        console.log(`✅ WhatsApp message with image sent successfully to ${formattedNumber}`);
+      } else {
+        // Send text message only
+        await whatsappState.client.sendMessage(formattedNumber, message);
+        console.log(`✅ WhatsApp message sent successfully to ${formattedNumber}`);
+      }
+      return { success: true };
     } catch (sendError) {
       console.error('❌ Error sending message:', sendError.message);
       
