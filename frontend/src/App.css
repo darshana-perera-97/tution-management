@@ -44,6 +44,15 @@
   }
 }
 
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
 /* Student Dashboard Styles */
 .student-dashboard {
   min-height: 100vh;

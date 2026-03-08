@@ -39,6 +39,8 @@ const AdminStudents = () => {
   const [showIDCardModal, setShowIDCardModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const idCardRef = useRef(null);
+  const [idCardImage, setIdCardImage] = useState(null);
+  const [generatingImage, setGeneratingImage] = useState(false);
   
   // Add Student Form States
   const [formData, setFormData] = useState({
@@ -543,7 +545,70 @@ const AdminStudents = () => {
   const handleCloseIDCardModal = () => {
     setShowIDCardModal(false);
     setSelectedStudent(null);
+    setIdCardImage(null);
   };
+
+  const generateIDCardImage = async () => {
+    if (!selectedStudent) return;
+    
+    setGeneratingImage(true);
+    setIdCardImage(null);
+    
+    try {
+      // Wait for the DOM to render and ref to be available
+      let attempts = 0;
+      while (!idCardRef.current && attempts < 10) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+      
+      if (!idCardRef.current) {
+        throw new Error('ID card element not found');
+      }
+      
+      // Wait a bit more for images to load
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Dynamically import html2canvas
+      const html2canvas = (await import('html2canvas')).default;
+      
+      const canvas = await html2canvas(idCardRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: false,
+        onclone: (clonedDoc) => {
+          // Ensure images are loaded in the cloned document
+          const clonedElement = clonedDoc.querySelector('[data-id-card]');
+          if (clonedElement) {
+            const images = clonedElement.querySelectorAll('img');
+            images.forEach(img => {
+              if (img.src && !img.complete) {
+                img.style.display = 'none';
+              }
+            });
+          }
+        }
+      });
+
+      // Convert canvas to image data URL
+      const imgData = canvas.toDataURL('image/png');
+      setIdCardImage(imgData);
+    } catch (error) {
+      console.error('Error generating ID card image:', error);
+      setError('Failed to generate ID card image. Please try again.');
+    } finally {
+      setGeneratingImage(false);
+    }
+  };
+
+  // Generate image when modal opens
+  useEffect(() => {
+    if (showIDCardModal && selectedStudent) {
+      generateIDCardImage();
+    }
+  }, [showIDCardModal, selectedStudent]);
 
   const handleDownloadIDCard = async () => {
     if (!idCardRef.current || !selectedStudent) return;
@@ -587,6 +652,39 @@ const AdminStudents = () => {
     } catch (error) {
       console.error('Error downloading ID card:', error);
       alert('Failed to download ID card. Please try again.');
+    }
+  };
+
+  const handleDownloadIDCardAsImage = async () => {
+    if (!idCardRef.current || !selectedStudent) return;
+
+    try {
+      // Dynamically import html2canvas
+      const html2canvas = (await import('html2canvas')).default;
+      
+      const canvas = await html2canvas(idCardRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: false
+      });
+
+      // Convert canvas to image data URL
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Create a temporary link element to trigger download
+      const link = document.createElement('a');
+      link.download = `student-id-card-${selectedStudent.id}.png`;
+      link.href = imgData;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading ID card as image:', error);
+      alert('Failed to download ID card as image. Please try again.');
     }
   };
 
@@ -2094,19 +2192,22 @@ const AdminStudents = () => {
         <Modal.Body>
           {selectedStudent && (
             <div>
+              {/* Hidden div for html2canvas to capture */}
               <div
                 ref={idCardRef}
+                data-id-card="true"
                 style={{
-                  width: '100%',
-                  maxWidth: '400px',
+                  position: 'fixed',
+                  left: '-9999px',
+                  top: 0,
+                  width: '400px',
                   aspectRatio: '2/3',
-                  margin: '0 auto',
                   background: 'white',
                   borderRadius: '16px',
                   padding: '0',
                   boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
                   overflow: 'hidden',
-                  position: 'relative'
+                  zIndex: -1
                 }}
               >
                 {/* Template Background Image */}
@@ -2244,8 +2345,53 @@ const AdminStudents = () => {
                   </div>
                 </div>
               </div>
+              
+              {/* Display the generated image */}
+              <div style={{ textAlign: 'center' }}>
+                {generatingImage ? (
+                  <div style={{ 
+                    padding: '60px 20px',
+                    color: '#64748b',
+                    fontSize: '14px'
+                  }}>
+                    <div style={{ 
+                      display: 'inline-block',
+                      width: '40px',
+                      height: '40px',
+                      border: '4px solid #e2e8f0',
+                      borderTop: '4px solid #3b82f6',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      marginBottom: '16px'
+                    }}></div>
+                    <p style={{ margin: 0 }}>Generating ID card image...</p>
+                  </div>
+                ) : idCardImage ? (
+                  <img
+                    src={idCardImage}
+                    alt="Student ID Card"
+                    style={{
+                      height: '50vh',
+                      width: 'auto',
+                      maxWidth: '100%',
+                      borderRadius: '16px',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                      margin: '0 auto',
+                      display: 'block'
+                    }}
+                  />
+                ) : (
+                  <div style={{ 
+                    padding: '60px 20px',
+                    color: '#64748b',
+                    fontSize: '14px'
+                  }}>
+                    <p>Loading ID card...</p>
+                  </div>
+                )}
+              </div>
               <p className="text-muted text-center mt-3 small">
-                Preview of the student ID card. Click download to save as PDF.
+                Preview of the student ID card. Click download to save as PDF or Image.
               </p>
             </div>
           )}
@@ -2254,8 +2400,11 @@ const AdminStudents = () => {
           <Button variant="secondary" onClick={handleCloseIDCardModal}>
             Close
           </Button>
+          <Button variant="success" onClick={handleDownloadIDCardAsImage}>
+            Download as Image
+          </Button>
           <Button variant="primary" onClick={handleDownloadIDCard}>
-            Download ID Card
+            Download as PDF
           </Button>
         </Modal.Footer>
       </Modal>
