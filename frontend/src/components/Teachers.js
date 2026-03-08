@@ -590,19 +590,38 @@ const Teachers = () => {
                         alignItems: 'center', 
                         gap: '12px' 
                       }}>
-                        <div style={{
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '50%',
-                          background: 'rgba(139, 92, 246, 0.1)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#7c3aed',
-                          flexShrink: 0
-                        }}>
-                          <HiOutlineUser size={16} />
-                        </div>
+                        {teacher.imageUrl ? (
+                          <img
+                            src={teacher.imageUrl.startsWith('http') ? teacher.imageUrl : `${API_URL}${teacher.imageUrl.startsWith('/') ? teacher.imageUrl : '/' + teacher.imageUrl}`}
+                            alt={teacher.name}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'flex';
+                            }}
+                            style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '50%',
+                              objectFit: 'cover',
+                              border: '2px solid #e2e8f0',
+                              flexShrink: 0
+                            }}
+                          />
+                        ) : (
+                          <div style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '50%',
+                            background: 'rgba(139, 92, 246, 0.1)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#7c3aed',
+                            flexShrink: 0
+                          }}>
+                            <HiOutlineUser size={20} />
+                          </div>
+                        )}
                         <div>
                           <div style={{ 
                             fontSize: '14px', 
@@ -701,7 +720,35 @@ const Teachers = () => {
               {paginatedTeachers.map((teacher, index) => (
                 <Card key={teacher.id} className="student-card mb-3">
                   <Card.Body>
-                    <div className="student-card-header mb-0">
+                    <div className="student-card-header mb-3" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      {teacher.imageUrl ? (
+                        <img
+                          src={`${API_URL}${teacher.imageUrl}`}
+                          alt={teacher.name}
+                          style={{
+                            width: '48px',
+                            height: '48px',
+                            borderRadius: '50%',
+                            objectFit: 'cover',
+                            border: '2px solid #e2e8f0',
+                            flexShrink: 0
+                          }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: '48px',
+                          height: '48px',
+                          borderRadius: '50%',
+                          background: 'rgba(139, 92, 246, 0.1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#7c3aed',
+                          flexShrink: 0
+                        }}>
+                          <HiOutlineUser size={24} />
+                        </div>
+                      )}
                       <h5 className="student-card-name mb-0">{teacher.name}</h5>
                     </div>
                     <div className="mb-2">
