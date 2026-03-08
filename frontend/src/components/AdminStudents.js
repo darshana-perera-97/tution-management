@@ -15,7 +15,9 @@ import {
   HiOutlineCalendar,
   HiOutlinePhoto,
   HiOutlineMapPin,
-  HiOutlineClock
+  HiOutlineClock,
+  HiOutlinePlus,
+  HiOutlineXMark
 } from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
@@ -60,6 +62,10 @@ const AdminStudents = () => {
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [scannerInstance, setScannerInstance] = useState(null);
   const qrScannerRef = useRef(null);
+  
+  // Course management states
+  const [courseToAdd, setCourseToAdd] = useState('');
+  const [updatingCourses, setUpdatingCourses] = useState(false);
 
   useEffect(() => {
     fetchStudents(true); // Initial load - no spinner
@@ -334,6 +340,141 @@ const AdminStudents = () => {
   const handleCloseCoursesModal = () => {
     setShowCoursesModal(false);
     setSelectedStudent(null);
+    setCourseToAdd('');
+    setError('');
+    setSuccess('');
+  };
+
+  const getAvailableCoursesForStudent = (student) => {
+    if (!student || !student.grade) return [];
+    const enrolledCourseIds = getStudentCourses(student.id).map(c => c.id);
+    return courses.filter(course => 
+      gradesMatch(course.grade, student.grade) && 
+      !enrolledCourseIds.includes(course.id)
+    );
+  };
+
+  const handleAddCourseToStudent = async (student, courseId) => {
+    if (!courseId) {
+      setError('Please select a course to add');
+      return;
+    }
+
+    const course = courses.find(c => c.id === courseId);
+    if (!course) {
+      setError('Course not found');
+      return;
+    }
+
+    if (!gradesMatch(course.grade, student.grade)) {
+      setError(`Course grade (${course.grade}) does not match student grade (${student.grade})`);
+      return;
+    }
+
+    const currentEnrolled = course.enrolledStudents || [];
+    if (currentEnrolled.includes(student.id)) {
+      setError('Student is already enrolled in this course');
+      return;
+    }
+
+    setUpdatingCourses(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const updatedEnrolledStudents = [...currentEnrolled, student.id];
+      const response = await fetch(`${API_URL}/api/courses/${courseId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          enrolledStudents: updatedEnrolledStudents
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess(`Student enrolled in ${course.courseName} successfully!`);
+        setCourseToAdd('');
+        await fetchCourses();
+        await fetchStudents();
+        // Update selected student
+        const updatedStudentsResponse = await fetch(`${API_URL}/api/students`);
+        const updatedStudentsData = await updatedStudentsResponse.json();
+        if (updatedStudentsData.success) {
+          const updatedStudent = updatedStudentsData.students.find(s => s.id === student.id);
+          if (updatedStudent) {
+            setSelectedStudent(updatedStudent);
+          }
+        }
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(data.message || 'Failed to add course');
+      }
+    } catch (err) {
+      console.error('Error adding course to student:', err);
+      setError('Unable to connect to server. Please try again later.');
+    } finally {
+      setUpdatingCourses(false);
+    }
+  };
+
+  const handleRemoveCourseFromStudent = async (student, courseId) => {
+    if (!window.confirm('Are you sure you want to remove this course from the student?')) {
+      return;
+    }
+
+    const course = courses.find(c => c.id === courseId);
+    if (!course) {
+      setError('Course not found');
+      return;
+    }
+
+    setUpdatingCourses(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const currentEnrolled = course.enrolledStudents || [];
+      const updatedEnrolledStudents = currentEnrolled.filter(id => id !== student.id);
+      
+      const response = await fetch(`${API_URL}/api/courses/${courseId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          enrolledStudents: updatedEnrolledStudents
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess(`Student removed from ${course.courseName} successfully!`);
+        await fetchCourses();
+        await fetchStudents();
+        // Update selected student
+        const updatedStudentsResponse = await fetch(`${API_URL}/api/students`);
+        const updatedStudentsData = await updatedStudentsResponse.json();
+        if (updatedStudentsData.success) {
+          const updatedStudent = updatedStudentsData.students.find(s => s.id === student.id);
+          if (updatedStudent) {
+            setSelectedStudent(updatedStudent);
+          }
+        }
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(data.message || 'Failed to remove course');
+      }
+    } catch (err) {
+      console.error('Error removing course from student:', err);
+      setError('Unable to connect to server. Please try again later.');
+    } finally {
+      setUpdatingCourses(false);
+    }
   };
 
   const handleViewPayments = (student) => {
@@ -1442,6 +1583,89 @@ const AdminStudents = () => {
         <Modal.Body style={{ padding: 0 }}>
           {selectedStudent && (
             <div className="student-form-body">
+              {error && (
+                <Alert variant="danger" className="m-3" onClose={() => setError('')} dismissible>
+                  {error}
+                </Alert>
+              )}
+              {success && (
+                <Alert variant="success" className="m-3" onClose={() => setSuccess('')} dismissible>
+                  {success}
+                </Alert>
+              )}
+              
+              {/* Add Course Section */}
+              {getAvailableCoursesForStudent(selectedStudent).length > 0 && (
+                <div style={{
+                  margin: '24px',
+                  padding: '20px',
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '12px',
+                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)'
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '12px',
+                    marginBottom: '16px'
+                  }}>
+                    <HiOutlinePlus style={{ fontSize: '20px', color: '#3b82f6' }} />
+                    <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#0f172a' }}>
+                      Add Course
+                    </h4>
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
+                    <div style={{ flex: 1 }}>
+                      <Form.Label style={{ 
+                        fontSize: '13px', 
+                        fontWeight: '600', 
+                        color: '#475569',
+                        marginBottom: '8px'
+                      }}>
+                        Select Course
+                      </Form.Label>
+                      <Form.Select
+                        value={courseToAdd}
+                        onChange={(e) => setCourseToAdd(e.target.value)}
+                        disabled={updatingCourses}
+                        style={{
+                          borderRadius: '8px',
+                          border: '1px solid #e2e8f0',
+                          fontSize: '14px',
+                          padding: '10px 12px'
+                        }}
+                      >
+                        <option value="">Choose a course...</option>
+                        {getAvailableCoursesForStudent(selectedStudent).map((course) => (
+                          <option key={course.id} value={course.id}>
+                            {course.courseName} ({course.subject}) - Rs {parseFloat(course.courseFee || 0).toFixed(2)}
+                          </option>
+                        ))}
+                      </Form.Select>
+                    </div>
+                    <Button
+                      variant="primary"
+                      onClick={() => handleAddCourseToStudent(selectedStudent, courseToAdd)}
+                      disabled={!courseToAdd || updatingCourses}
+                      style={{
+                        borderRadius: '8px',
+                        padding: '10px 20px',
+                        fontWeight: '600',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {updatingCourses ? 'Adding...' : (
+                        <>
+                          <HiOutlinePlus style={{ marginRight: '6px' }} />
+                          Add Course
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {getStudentCourses(selectedStudent.id).length > 0 ? (
                 <>
                   <div className="operators-table-container">
@@ -1457,6 +1681,7 @@ const AdminStudents = () => {
                         <th>Subject</th>
                             <th>Grade</th>
                         <th>Course Fee</th>
+                        <th style={{ width: '100px' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1476,6 +1701,22 @@ const AdminStudents = () => {
                                   </span>
                                 ) : '-'}
                               </td>
+                          <td>
+                            <OverlayTrigger
+                              placement="top"
+                              overlay={<Tooltip>Remove Course</Tooltip>}
+                            >
+                              <Button
+                                variant="danger"
+                                size="sm"
+                                onClick={() => handleRemoveCourseFromStudent(selectedStudent, course.id)}
+                                disabled={updatingCourses}
+                                className="action-btn-icon"
+                              >
+                                <HiOutlineXMark />
+                              </Button>
+                            </OverlayTrigger>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1542,7 +1783,9 @@ const AdminStudents = () => {
                   <HiOutlineBookOpen style={{ fontSize: '64px', marginBottom: '16px', opacity: 0.5 }} />
                   <p style={{ margin: 0, fontSize: '16px', fontWeight: '500' }}>No courses enrolled.</p>
                   <p style={{ margin: '8px 0 0 0', fontSize: '14px', opacity: 0.8 }}>
-                    This student is not enrolled in any courses yet.
+                    {getAvailableCoursesForStudent(selectedStudent).length > 0 
+                      ? 'Add a course using the form above to get started.'
+                      : 'No courses available for this student\'s grade.'}
                   </p>
                 </div>
               )}
