@@ -946,8 +946,65 @@ app.post('/api/students', (req, res) => {
         writeEnrollmentsData(enrollmentsData);
       }
       
-      // Send WhatsApp notification to both student and parent
-      const welcomeMessage = `🎓 Welcome to our Tuition Center!\n\nDear ${newStudent.parentName},\n\nYour child ${newStudent.fullName} has been successfully registered as a student.\n\nStudent Details:\n- Name: ${newStudent.fullName}\n- Grade: ${newStudent.grade}\n- Parent: ${newStudent.parentName}\n\nWe look forward to supporting ${newStudent.fullName}'s educational journey!\n\nBest regards,\nTuition Management System`;
+      // Get enrolled courses for the message
+      let enrolledCoursesList = [];
+      if (selectedCoursesArray && Array.isArray(selectedCoursesArray) && selectedCoursesArray.length > 0) {
+        const coursesData = readCoursesData();
+        enrolledCoursesList = selectedCoursesArray
+          .map(courseId => {
+            const course = coursesData.courses.find(c => c.id === courseId);
+            return course ? `${course.courseName} (${course.subject}) - Rs ${parseFloat(course.courseFee || 0).toFixed(2)}` : null;
+          })
+          .filter(c => c !== null);
+      }
+      
+      // Construct LMS link (using the same base URL as API)
+      const lmsBaseUrl = process.env.FRONTEND_URL || 'https://smartclass.nexgenai.asia';
+      const lmsLink = `${lmsBaseUrl}/student/login`;
+      
+      // Build comprehensive welcome message
+      let welcomeMessage = `🎓 Welcome to our Tuition Center!\n\nDear ${newStudent.parentName},\n\nYour child ${newStudent.fullName} has been successfully registered as a student.\n\n`;
+      
+      // Parent Details
+      welcomeMessage += `📋 Parent Details:\n`;
+      welcomeMessage += `- Parent Name: ${newStudent.parentName}\n`;
+      welcomeMessage += `- Contact Number: ${newStudent.contactNumber}\n`;
+      if (newStudent.parentWhatsAppNumber) {
+        welcomeMessage += `- Parent WhatsApp: ${newStudent.parentWhatsAppNumber}\n`;
+      }
+      if (newStudent.studentWhatsAppNumber) {
+        welcomeMessage += `- Student WhatsApp: ${newStudent.studentWhatsAppNumber}\n`;
+      }
+      welcomeMessage += `\n`;
+      
+      // Student Details
+      welcomeMessage += `👤 Student Details:\n`;
+      welcomeMessage += `- Name: ${newStudent.fullName}\n`;
+      welcomeMessage += `- Grade: ${newStudent.grade}\n`;
+      welcomeMessage += `- Student ID: ${newStudent.id}\n`;
+      welcomeMessage += `\n`;
+      
+      // Registered Courses
+      if (enrolledCoursesList.length > 0) {
+        welcomeMessage += `📚 Registered Courses:\n`;
+        enrolledCoursesList.forEach((course, index) => {
+          welcomeMessage += `${index + 1}. ${course}\n`;
+        });
+        welcomeMessage += `\n`;
+      } else {
+        welcomeMessage += `📚 Registered Courses: No courses enrolled yet.\n\n`;
+      }
+      
+      // Login Credentials
+      welcomeMessage += `🔐 Login Credentials:\n`;
+      welcomeMessage += `- LMS Link: ${lmsLink}\n`;
+      welcomeMessage += `- Username: ${newStudent.id}\n`;
+      welcomeMessage += `- Password: ${defaultPassword}\n`;
+      welcomeMessage += `\n`;
+      
+      welcomeMessage += `💡 Please keep these credentials safe. You can use them to access the student portal and view attendance, course materials, and more.\n\n`;
+      welcomeMessage += `We look forward to supporting ${newStudent.fullName}'s educational journey!\n\n`;
+      welcomeMessage += `Best regards,\nTuition Management System`;
       
       const notificationNumbers = getStudentNotificationNumbers(newStudent);
       if (notificationNumbers.length > 0) {
