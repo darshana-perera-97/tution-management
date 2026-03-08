@@ -5,7 +5,8 @@ import {
   HiOutlineUserGroup, 
   HiOutlineAcademicCap, 
   HiOutlineBookOpen,
-  HiOutlineCurrencyDollar
+  HiOutlineCurrencyDollar,
+  HiOutlineClipboardDocumentCheck
 } from 'react-icons/hi2';
 import OperatorSidebar from './OperatorSidebar';
 import OperatorTopNavbar from './OperatorTopNavbar';
@@ -28,7 +29,8 @@ const OperatorDashboard = () => {
     totalTeachers: 0,
     activeCourses: 0,
     unpaidFees: 0,
-    totalRevenue: 0
+    totalRevenue: 0,
+    attendancePercentage: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -49,17 +51,19 @@ const OperatorDashboard = () => {
       setLoading(true);
       
       // Fetch all data in parallel
-      const [studentsRes, teachersRes, coursesRes, paymentsRes] = await Promise.all([
+      const [studentsRes, teachersRes, coursesRes, paymentsRes, attendanceRes] = await Promise.all([
         fetch(`${API_URL}/api/students`),
         fetch(`${API_URL}/api/teachers`),
         fetch(`${API_URL}/api/courses`),
-        fetch(`${API_URL}/api/payments`)
+        fetch(`${API_URL}/api/payments`),
+        fetch(`${API_URL}/api/attendance`)
       ]);
 
       const studentsData = await studentsRes.json();
       const teachersData = await teachersRes.json();
       const coursesData = await coursesRes.json();
       const paymentsData = await paymentsRes.json();
+      const attendanceData = await attendanceRes.json();
 
       // Calculate stats
       const totalStudents = studentsData.success ? studentsData.students.length : 0;
@@ -123,12 +127,49 @@ const OperatorDashboard = () => {
         });
       }
 
+      // Calculate attendance percentage for current month
+      let attendancePercentage = 0;
+      if (studentsData.success && coursesData.success && attendanceData.success) {
+        const students = studentsData.students;
+        const courses = coursesData.courses;
+        const allAttendance = attendanceData.attendance || [];
+        const currentDate = new Date();
+        const currentMonth = currentDate.getMonth();
+        const currentYear = currentDate.getFullYear();
+        
+        // Get all enrolled students
+        const enrolledStudents = students.filter(student => {
+          return courses.some(course => 
+            course.enrolledStudents && 
+            Array.isArray(course.enrolledStudents) && 
+            course.enrolledStudents.includes(student.id)
+          );
+        });
+        
+        if (enrolledStudents.length > 0) {
+          // Get attendance records for current month
+          const currentMonthAttendance = allAttendance.filter(att => {
+            const attDate = new Date(att.date);
+            return attDate.getMonth() === currentMonth && attDate.getFullYear() === currentYear;
+          });
+          
+          // Count unique students who attended this month
+          const uniqueStudentsAttended = new Set(currentMonthAttendance.map(att => att.studentId)).size;
+          
+          // Calculate percentage
+          attendancePercentage = enrolledStudents.length > 0 
+            ? (uniqueStudentsAttended / enrolledStudents.length) * 100 
+            : 0;
+        }
+      }
+
       setStats({
         totalStudents,
         totalTeachers,
         activeCourses,
         unpaidFees,
-        totalRevenue
+        totalRevenue,
+        attendancePercentage
       });
     } catch (err) {
       console.error('Error fetching dashboard stats:', err);
@@ -215,46 +256,174 @@ const OperatorDashboard = () => {
 
                 <Row className="g-3">
                   <Col xs={6} md={3}>
-                    <Card className="dashboard-stat-card h-100">
-                      <Card.Body>
-                        <div className="stat-icon">
-                          <HiOutlineUserGroup />
+                    <Card className="dashboard-stat-card h-100" style={{
+                      border: 'none',
+                      borderRadius: '16px',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                      background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.05) 100%)',
+                      transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
+                    }}>
+                      <Card.Body style={{ padding: '24px' }}>
+                        <div className="stat-icon" style={{
+                          width: '56px',
+                          height: '56px',
+                          borderRadius: '12px',
+                          background: 'rgba(59, 130, 246, 0.1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginBottom: '16px'
+                        }}>
+                          <HiOutlineUserGroup style={{ fontSize: '28px', color: '#3b82f6' }} />
                         </div>
-                        <h3 className="stat-number">{loading ? '...' : stats.totalStudents}</h3>
-                        <p className="stat-label">Total Students</p>
+                        <h3 className="stat-number" style={{ color: '#0f172a', marginBottom: '8px' }}>{loading ? '...' : stats.totalStudents}</h3>
+                        <p className="stat-label" style={{ color: '#64748b', margin: 0 }}>Total Students</p>
                       </Card.Body>
                     </Card>
                   </Col>
                   <Col xs={6} md={3}>
-                    <Card className="dashboard-stat-card h-100">
-                      <Card.Body>
-                        <div className="stat-icon">
-                          <HiOutlineAcademicCap />
+                    <Card className="dashboard-stat-card h-100" style={{
+                      border: 'none',
+                      borderRadius: '16px',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.05) 100%)',
+                      transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
+                    }}>
+                      <Card.Body style={{ padding: '24px' }}>
+                        <div className="stat-icon" style={{
+                          width: '56px',
+                          height: '56px',
+                          borderRadius: '12px',
+                          background: 'rgba(16, 185, 129, 0.1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginBottom: '16px'
+                        }}>
+                          <HiOutlineAcademicCap style={{ fontSize: '28px', color: '#10b981' }} />
                         </div>
-                        <h3 className="stat-number">{loading ? '...' : stats.totalTeachers}</h3>
-                        <p className="stat-label">Total Teachers</p>
+                        <h3 className="stat-number" style={{ color: '#0f172a', marginBottom: '8px' }}>{loading ? '...' : stats.totalTeachers}</h3>
+                        <p className="stat-label" style={{ color: '#64748b', margin: 0 }}>Total Teachers</p>
                       </Card.Body>
                     </Card>
                   </Col>
                   <Col xs={6} md={3}>
-                    <Card className="dashboard-stat-card h-100">
-                      <Card.Body>
-                        <div className="stat-icon">
-                          <HiOutlineBookOpen />
+                    <Card className="dashboard-stat-card h-100" style={{
+                      border: 'none',
+                      borderRadius: '16px',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                      background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(124, 58, 237, 0.05) 100%)',
+                      transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(139, 92, 246, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
+                    }}>
+                      <Card.Body style={{ padding: '24px' }}>
+                        <div className="stat-icon" style={{
+                          width: '56px',
+                          height: '56px',
+                          borderRadius: '12px',
+                          background: 'rgba(139, 92, 246, 0.1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginBottom: '16px'
+                        }}>
+                          <HiOutlineBookOpen style={{ fontSize: '28px', color: '#8b5cf6' }} />
                         </div>
-                        <h3 className="stat-number">{loading ? '...' : stats.activeCourses}</h3>
-                        <p className="stat-label">Active Courses</p>
+                        <h3 className="stat-number" style={{ color: '#0f172a', marginBottom: '8px' }}>{loading ? '...' : stats.activeCourses}</h3>
+                        <p className="stat-label" style={{ color: '#64748b', margin: 0 }}>Active Courses</p>
                       </Card.Body>
                     </Card>
                   </Col>
                   <Col xs={6} md={3}>
-                    <Card className="dashboard-stat-card h-100">
-                      <Card.Body>
-                        <div className="stat-icon">
-                          <HiOutlineCurrencyDollar />
+                    <Card className="dashboard-stat-card h-100" style={{
+                      border: 'none',
+                      borderRadius: '16px',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                      background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%)',
+                      transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
+                    }}>
+                      <Card.Body style={{ padding: '24px' }}>
+                        <div className="stat-icon" style={{
+                          width: '56px',
+                          height: '56px',
+                          borderRadius: '12px',
+                          background: 'rgba(245, 158, 11, 0.1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginBottom: '16px'
+                        }}>
+                          <HiOutlineCurrencyDollar style={{ fontSize: '28px', color: '#f59e0b' }} />
                         </div>
-                        <h3 className="stat-number">{loading ? '...' : stats.unpaidFees}</h3>
-                        <p className="stat-label">No. of Class Fees to be Paid</p>
+                        <h3 className="stat-number" style={{ color: '#0f172a', marginBottom: '8px' }}>{loading ? '...' : stats.unpaidFees}</h3>
+                        <p className="stat-label" style={{ color: '#64748b', margin: 0 }}>No. of Class Fees to be Paid</p>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                  <Col xs={6} md={3}>
+                    <Card className="dashboard-stat-card h-100" style={{
+                      border: 'none',
+                      borderRadius: '16px',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                      background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(147, 51, 234, 0.05) 100%)',
+                      transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(168, 85, 247, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
+                    }}>
+                      <Card.Body style={{ padding: '24px' }}>
+                        <div className="stat-icon" style={{
+                          width: '56px',
+                          height: '56px',
+                          borderRadius: '12px',
+                          background: 'rgba(168, 85, 247, 0.1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginBottom: '16px'
+                        }}>
+                          <HiOutlineClipboardDocumentCheck style={{ fontSize: '28px', color: '#a855f7' }} />
+                        </div>
+                        <h3 className="stat-number" style={{ color: '#0f172a', marginBottom: '8px' }}>
+                          {loading ? '...' : `${stats.attendancePercentage.toFixed(1)}%`}
+                        </h3>
+                        <p className="stat-label" style={{ color: '#64748b', margin: 0 }}>Students Attendance (This Month)</p>
                       </Card.Body>
                     </Card>
                   </Col>
