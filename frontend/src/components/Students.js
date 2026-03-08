@@ -81,6 +81,25 @@ const Students = () => {
     };
   }, []);
 
+  // Filter students based on search query (name, Student ID, grade)
+  const filteredStudents = students.filter(student => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase().trim();
+    
+    // Search by name
+    const nameMatch = student.fullName?.toLowerCase().includes(query);
+    
+    // Search by Student ID
+    const idMatch = student.id?.toLowerCase().includes(query) || 
+                   student.id?.toString().includes(query);
+    
+    // Search by grade
+    const gradeMatch = student.grade?.toLowerCase().includes(query);
+    
+    return nameMatch || idMatch || gradeMatch;
+  });
+
   // Pagination
   const {
     currentPage,
@@ -424,9 +443,10 @@ const Students = () => {
         await fetchPayments();
         await fetchStudents();
         // Update selected student to reflect new payment status
-        const updatedStudents = await fetch(`${API_URL}/api/students`).then(res => res.json());
-        if (updatedStudents.success) {
-          const updatedStudent = updatedStudents.students.find(s => s.id === student.id);
+        const updatedStudentsResponse = await fetch(`${API_URL}/api/students`);
+        const updatedStudentsData = await updatedStudentsResponse.json();
+        if (updatedStudentsData.success) {
+          const updatedStudent = updatedStudentsData.students.find(s => s.id === student.id);
           if (updatedStudent) {
             setSelectedStudent(updatedStudent);
           }
@@ -453,25 +473,6 @@ const Students = () => {
     );
   };
 
-  // Filter students based on search query (name, Student ID, grade)
-  const filteredStudents = students.filter(student => {
-    if (!searchQuery.trim()) return true;
-    
-    const query = searchQuery.toLowerCase().trim();
-    
-    // Search by name
-    const nameMatch = student.fullName?.toLowerCase().includes(query);
-    
-    // Search by Student ID
-    const idMatch = student.id?.toLowerCase().includes(query) || 
-                   student.id?.toString().includes(query);
-    
-    // Search by grade
-    const gradeMatch = student.grade?.toLowerCase().includes(query);
-    
-    return nameMatch || idMatch || gradeMatch;
-  });
-
   const calculateMonthlyPayments = (student) => {
     const studentCourses = getStudentCourses(student.id);
     if (studentCourses.length === 0) {
@@ -480,7 +481,7 @@ const Students = () => {
 
     const enrollmentDate = new Date(student.createdAt);
     const currentDate = new Date();
-    const payments = [];
+    const monthlyPayments = [];
 
     // Start from the 1st of the enrollment month (month 1st is considered a new month)
     let currentMonth = new Date(enrollmentDate.getFullYear(), enrollmentDate.getMonth(), 1);
@@ -510,7 +511,7 @@ const Students = () => {
           const courseFee = parseFloat(course.courseFee) || 0;
           totalFee += courseFee;
           
-          // Check if this specific course is paid for this month
+          // Check if this specific course is paid for this month - use the payments state variable
           const coursePayment = payments.find(
             p => p.studentId === student.id && 
                  p.monthKey === monthKey && 
@@ -539,7 +540,7 @@ const Students = () => {
         // Check if all courses are paid
         const allPaid = courseDetails.length > 0 && courseDetails.every(c => c.isPaid);
         
-        payments.push({
+        monthlyPayments.push({
           month: monthName,
           monthKey: monthKey,
           totalFee: totalFee,
@@ -554,7 +555,7 @@ const Students = () => {
       currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
     }
 
-    return payments;
+    return monthlyPayments;
   };
 
 
