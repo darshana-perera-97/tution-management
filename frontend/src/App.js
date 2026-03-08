@@ -7,6 +7,7 @@ import Dashboard from './components/Dashboard';
 import OperatorDashboard from './components/OperatorDashboard';
 import TeacherDashboard from './components/TeacherDashboard';
 import StudentDashboard from './components/StudentDashboard';
+import MarkAttendance from './components/MarkAttendance';
 import './App.css';
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
           <Route path="/operator/dashboard" element={<OperatorDashboard />} />
           <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
           <Route path="/student/dashboard" element={<StudentDashboard />} />
+          <Route path="/mark-attendance" element={<MarkAttendance />} />
         </Routes>
       </div>
     </Router>
