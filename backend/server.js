@@ -1947,13 +1947,36 @@ app.post('/api/courses/:courseId/bulk-message', async (req, res) => {
       const filePath = path.join(uploadsPath, fileName);
       
       try {
-        image.mv(filePath);
-        imagePath = filePath;
+        // Ensure uploads directory exists
+        if (!fs.existsSync(uploadsPath)) {
+          fs.mkdirSync(uploadsPath, { recursive: true });
+        }
+        
+        // Save the file (mv can be used with callback or promise)
+        await new Promise((resolve, reject) => {
+          image.mv(filePath, (err) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+        
+        // Verify file was saved correctly
+        if (!fs.existsSync(filePath)) {
+          console.error('Image file was not saved:', filePath);
+          return res.status(500).json({
+            success: false,
+            message: 'Failed to save image file'
+          });
+        }
+        
+        // Use absolute path to avoid any path resolution issues
+        imagePath = path.resolve(filePath);
+        console.log(`✅ Bulk message image saved: ${imagePath}`);
       } catch (err) {
         console.error('Error saving bulk message image:', err);
         return res.status(500).json({
           success: false,
-          message: 'Failed to save image'
+          message: 'Failed to save image: ' + err.message
         });
       }
     }
@@ -1970,7 +1993,9 @@ app.post('/api/courses/:courseId/bulk-message', async (req, res) => {
       if (notificationNumbers.length > 0) {
         try {
           const bulkMessage = `📢 Message from ${course.courseName}\n\n${message}\n\nBest regards,\nTuition Management System`;
-          const sendResults = await sendWhatsAppToMultiple(notificationNumbers, bulkMessage, imagePath);
+          // Verify image still exists before sending
+          const finalImagePath = (imagePath && fs.existsSync(imagePath)) ? imagePath : null;
+          const sendResults = await sendWhatsAppToMultiple(notificationNumbers, bulkMessage, finalImagePath);
           const successCount = sendResults.filter(r => r.success).length;
           if (successCount > 0) {
             sentCount += successCount;
@@ -2000,7 +2025,7 @@ app.post('/api/courses/:courseId/bulk-message', async (req, res) => {
       }
     }
 
-    // Clean up image file after sending
+    // Clean up image file after sending (only if it still exists)
     if (imagePath && fs.existsSync(imagePath)) {
       try {
         fs.unlinkSync(imagePath);
@@ -4382,6 +4407,15 @@ const sendWhatsAppMessage = async (phoneNumber, message, imagePath = null) => {
     // Send message using the correct API
     try {
       if (imagePath) {
+        // Verify image file exists before trying to send
+        if (!fs.existsSync(imagePath)) {
+          console.error(`❌ Image file not found: ${imagePath}`);
+          // Fallback to text-only message if image doesn't exist
+          await whatsappState.client.sendMessage(formattedNumber, message);
+          console.log(`✅ WhatsApp message sent successfully to ${formattedNumber} (image not found, sent text only)`);
+          return { success: true, warning: 'Image file not found, sent text only' };
+        }
+        
         // Send message with image
         const media = MessageMedia.fromFilePath(imagePath);
         await whatsappState.client.sendMessage(formattedNumber, media, { caption: message });
