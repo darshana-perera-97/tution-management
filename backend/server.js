@@ -930,7 +930,8 @@ app.post('/api/students', (req, res) => {
               enrollmentsData.enrollments.push(enrollment);
               
               // Send WhatsApp notification to parent for course enrollment
-              const parentNumber = newStudent.contactNumber || newStudent.whatsappNumber;
+              // Priority: parentWhatsAppNumber > contactNumber
+              const parentNumber = newStudent.parentWhatsAppNumber || newStudent.contactNumber;
               if (parentNumber) {
                 const enrollmentMessage = `🎓 Course Enrollment Confirmation\n\nDear ${newStudent.parentName},\n\nYour child ${newStudent.fullName} has been successfully enrolled in:\n- Course: ${course.courseName} (${course.subject})\n- Grade: ${course.grade}\n- Course Fee: Rs ${parseFloat(course.courseFee || 0).toFixed(2)}\n\nWe look forward to having ${newStudent.fullName} in this course!\n\nBest regards,\nTuition Management System`;
                 sendWhatsAppMessage(parentNumber, enrollmentMessage).catch(err => {
@@ -1008,18 +1009,6 @@ app.post('/api/students', (req, res) => {
       
       // Build parent welcome message
       let parentMessage = `🎓 Welcome to our Tuition Center!\n\nDear ${newStudent.parentName},\n\nYour child ${newStudent.fullName} has been successfully registered as a student.\n\n`;
-      
-      // Parent Details
-      parentMessage += `📋 Parent Details:\n`;
-      parentMessage += `- Parent Name: ${newStudent.parentName}\n`;
-      parentMessage += `- Contact Number: ${newStudent.contactNumber}\n`;
-      if (newStudent.parentWhatsAppNumber) {
-        parentMessage += `- Parent WhatsApp: ${newStudent.parentWhatsAppNumber}\n`;
-      }
-      if (newStudent.studentWhatsAppNumber) {
-        parentMessage += `- Student WhatsApp: ${newStudent.studentWhatsAppNumber}\n`;
-      }
-      parentMessage += `\n`;
       
       // Student Details
       parentMessage += `👤 Student Details:\n`;
@@ -1861,13 +1850,14 @@ app.put('/api/courses/:id', (req, res) => {
       };
       enrollmentsData.enrollments.push(enrollment);
       
-      // Send WhatsApp notification to both student and parent
+      // Send WhatsApp notification to parent for course enrollment
       const student = studentsData.students.find(s => s.id === studentId);
       if (student) {
-        const notificationNumbers = getStudentNotificationNumbers(student);
-        if (notificationNumbers.length > 0) {
+        // Send enrollment notification to parent specifically
+        const parentNumber = student.parentWhatsAppNumber || student.contactNumber;
+        if (parentNumber) {
           const enrollmentMessage = `🎓 Course Enrollment Confirmation\n\nDear ${student.parentName},\n\nYour child ${student.fullName} has been successfully enrolled in:\n- Course: ${course.courseName} (${course.subject})\n- Grade: ${course.grade}\n- Course Fee: Rs ${parseFloat(course.courseFee).toFixed(2)}\n\nWe look forward to having ${student.fullName} in this course!\n\nBest regards,\nTuition Management System`;
-          sendWhatsAppToMultiple(notificationNumbers, enrollmentMessage).catch(err => {
+          sendWhatsAppMessage(parentNumber, enrollmentMessage).catch(err => {
             console.error('Failed to send enrollment notification:', err);
           });
         }

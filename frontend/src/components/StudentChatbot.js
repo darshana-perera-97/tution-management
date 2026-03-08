@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button, Card, Form, InputGroup, Badge, Spinner, Modal } from 'react-bootstrap';
-import { 
-  HiOutlineChatBubbleLeftRight, 
-  HiXMark, 
-  HiPaperAirplane, 
+import {
+  HiOutlineChatBubbleLeftRight,
+  HiXMark,
+  HiPaperAirplane,
   HiOutlineSparkles,
   HiOutlineCpuChip,
   HiOutlineLightBulb,
@@ -25,7 +25,7 @@ const StudentChatbot = ({ student }) => {
   const fileInputRef = useRef(null);
 
   const MAX_QUESTIONS = 15;
-  
+
   // Get storage keys based on student ID (only for chat history)
   const getStorageKey = () => student?.id ? `student_chatbot_${student.id}` : null;
 
@@ -43,9 +43,9 @@ const StudentChatbot = ({ student }) => {
     if (student && student.id) {
       const section = getGradeSection(student.grade);
       setGradeSection(section);
-      
+
       const storageKey = getStorageKey();
-      
+
       // Load chat history from localStorage
       if (storageKey) {
         const savedChat = localStorage.getItem(storageKey);
@@ -58,7 +58,7 @@ const StudentChatbot = ({ student }) => {
           }
         }
       }
-      
+
       // Clear uploaded images when modal opens
       setUploadedImages([]);
 
@@ -122,7 +122,7 @@ const StudentChatbot = ({ student }) => {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    
+
     if ((!inputMessage.trim() && uploadedImages.length === 0) || isLoading) return;
 
     // Check question limit from backend quota
@@ -194,7 +194,7 @@ const StudentChatbot = ({ student }) => {
         const updatedMessages = [...newMessages, assistantMessage];
         setMessages(updatedMessages);
         saveChatToStorage(updatedMessages);
-        
+
         // Update quota from backend response
         if (data.quota) {
           setQuota(data.quota);
@@ -204,7 +204,7 @@ const StudentChatbot = ({ student }) => {
         if (response.status === 429 && data.quota) {
           setQuota(data.quota);
         }
-        
+
         const errorMessage = {
           id: Date.now() + 1,
           role: 'assistant',
@@ -379,14 +379,14 @@ const StudentChatbot = ({ student }) => {
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                <h5 style={{ 
-                  margin: 0, 
-                  fontWeight: '700', 
+                <h5 style={{
+                  margin: 0,
+                  fontWeight: '700',
                   fontSize: '20px',
                   color: '#0f172a',
                   letterSpacing: '-0.5px'
                 }}>
-                  AI Study Assistant
+                  “Institute Name” AI Study Assistant
                 </h5>
                 <Badge style={{
                   background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
@@ -399,12 +399,12 @@ const StudentChatbot = ({ student }) => {
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px'
                 }}>
-                  AI Powered
+                  Powered By NexGen-AI
                 </Badge>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <small style={{ 
-                  color: '#64748b', 
+                <small style={{
+                  color: '#64748b',
                   fontSize: '13px',
                   fontWeight: '500',
                   display: 'flex',
@@ -470,9 +470,9 @@ const StudentChatbot = ({ student }) => {
             className="hide-scrollbar"
           >
             {messages.length === 0 ? (
-              <div style={{ 
-                textAlign: 'center', 
-                padding: '100px 20px', 
+              <div style={{
+                textAlign: 'center',
+                padding: '100px 20px',
                 color: '#64748b',
                 maxWidth: '700px',
                 margin: '0 auto'
@@ -482,8 +482,8 @@ const StudentChatbot = ({ student }) => {
                   display: 'inline-block',
                   marginBottom: '32px'
                 }}>
-                  <div style={{ 
-                    fontSize: '80px', 
+                  <div style={{
+                    fontSize: '80px',
                     marginBottom: '0',
                     opacity: 0.9,
                     background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
@@ -511,8 +511,8 @@ const StudentChatbot = ({ student }) => {
                     <HiOutlineSparkles size={12} color="white" />
                   </div>
                 </div>
-                <h3 style={{ 
-                  margin: '0 0 16px 0', 
+                <h3 style={{
+                  margin: '0 0 16px 0',
                   fontSize: '32px',
                   fontWeight: '700',
                   color: '#0f172a',
@@ -524,8 +524,8 @@ const StudentChatbot = ({ student }) => {
                 }}>
                   Welcome to AI Study Assistant
                 </h3>
-                <p style={{ 
-                  margin: '0 0 12px 0', 
+                <p style={{
+                  margin: '0 0 12px 0',
                   fontSize: '18px',
                   lineHeight: '1.7',
                   color: '#475569',
@@ -591,9 +591,9 @@ const StudentChatbot = ({ student }) => {
                   border: '1px solid #e2e8f0',
                   display: 'inline-block'
                 }}>
-                  <p style={{ 
-                    margin: '0', 
-                    fontSize: '14px', 
+                  <p style={{
+                    margin: '0',
+                    fontSize: '14px',
                     color: '#475569',
                     fontWeight: '500',
                     display: 'flex',
@@ -647,7 +647,7 @@ const StudentChatbot = ({ student }) => {
                         width: '36px',
                         height: '36px',
                         borderRadius: '50%',
-                        background: message.role === 'user' 
+                        background: message.role === 'user'
                           ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
                           : 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
                         display: 'flex',
@@ -655,7 +655,7 @@ const StudentChatbot = ({ student }) => {
                         justifyContent: 'center',
                         color: message.role === 'user' ? 'white' : '#6366f1',
                         flexShrink: 0,
-                        boxShadow: message.role === 'assistant' 
+                        boxShadow: message.role === 'assistant'
                           ? '0 2px 8px rgba(99, 102, 241, 0.15)'
                           : '0 2px 8px rgba(99, 102, 241, 0.3)',
                         border: message.role === 'assistant' ? '2px solid #e0f2fe' : 'none'
@@ -702,15 +702,15 @@ const StudentChatbot = ({ student }) => {
                         )}
                       </div>
                     </div>
-                    
+
                     {/* Message Bubble */}
                     <div
                       style={{
                         padding: '18px 24px',
-                        borderRadius: message.role === 'user' 
+                        borderRadius: message.role === 'user'
                           ? '24px 24px 6px 24px'
                           : '24px 24px 24px 6px',
-                        background: message.role === 'user' 
+                        background: message.role === 'user'
                           ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
                           : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
                         color: message.role === 'user' ? '#ffffff' : '#0f172a',
@@ -721,8 +721,8 @@ const StudentChatbot = ({ student }) => {
                         fontSize: '15px',
                         lineHeight: '1.7',
                         whiteSpace: 'pre-wrap',
-                        border: message.role === 'assistant' 
-                          ? '1px solid #e2e8f0' 
+                        border: message.role === 'assistant'
+                          ? '1px solid #e2e8f0'
                           : 'none',
                         position: 'relative',
                         transition: 'all 0.2s ease',
@@ -758,12 +758,12 @@ const StudentChatbot = ({ student }) => {
                               overflow: 'hidden',
                               maxWidth: '200px',
                               maxHeight: '200px',
-                              border: message.role === 'user' 
-                                ? '2px solid rgba(255, 255, 255, 0.3)' 
+                              border: message.role === 'user'
+                                ? '2px solid rgba(255, 255, 255, 0.3)'
                                 : '2px solid #e2e8f0'
                             }}>
-                              <img 
-                                src={img.data} 
+                              <img
+                                src={img.data}
                                 alt={img.name || 'Uploaded image'}
                                 style={{
                                   width: '100%',
@@ -792,8 +792,8 @@ const StudentChatbot = ({ student }) => {
               ))
             )}
             {isLoading && (
-              <div style={{ 
-                display: 'flex', 
+              <div style={{
+                display: 'flex',
                 justifyContent: 'flex-start',
                 width: '100%'
               }}>
@@ -913,8 +913,8 @@ const StudentChatbot = ({ student }) => {
                         overflow: 'hidden',
                         border: '2px solid #e2e8f0'
                       }}>
-                        <img 
-                          src={img.preview} 
+                        <img
+                          src={img.preview}
                           alt={img.name}
                           style={{
                             width: '100%',
@@ -949,7 +949,7 @@ const StudentChatbot = ({ student }) => {
                     ))}
                   </div>
                 )}
-                <div 
+                <div
                   className="gradient-input-container"
                   style={{
                     display: 'flex',
@@ -964,14 +964,14 @@ const StudentChatbot = ({ student }) => {
                     position: 'relative',
                     overflow: 'hidden'
                   }}
-                onFocus={(e) => {
-                  e.currentTarget.style.boxShadow = '0 0 0 6px rgba(99, 102, 241, 0.1), 0 4px 12px rgba(99, 102, 241, 0.15)';
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.04)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.boxShadow = '0 0 0 6px rgba(99, 102, 241, 0.1), 0 4px 12px rgba(99, 102, 241, 0.15)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.04)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
                 >
                   <div style={{
                     position: 'absolute',
@@ -1114,8 +1114,8 @@ const StudentChatbot = ({ student }) => {
                   marginTop: '12px',
                   padding: '0 8px'
                 }}>
-                  <small style={{ 
-                    color: '#94a3b8', 
+                  <small style={{
+                    color: '#94a3b8',
                     fontSize: '12px',
                     fontWeight: '500'
                   }}>
