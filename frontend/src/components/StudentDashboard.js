@@ -1218,14 +1218,14 @@ const StudentDashboard = () => {
                         
                         // Matching subject badge colors
                         const badgeColors = [
-                          { bg: '#fee2e2', text: '#991b1b' }, // Red
-                          { bg: '#dcfce7', text: '#166534' }, // Green
-                          { bg: '#dbeafe', text: '#1e40af' }, // Blue
-                          { bg: '#f3e8ff', text: '#6b21a8' }, // Purple
-                          { bg: '#fef3c7', text: '#92400e' }, // Yellow
-                          { bg: '#cffafe', text: '#164e63' }, // Cyan
-                          { bg: '#fce7f3', text: '#9f1239' }, // Pink
-                          { bg: '#ede9fe', text: '#5b21b6' }  // Indigo
+                          { bg: '#fee2e2', text: 'white' }, // Red
+                          { bg: '#dcfce7', text: 'white' }, // Green
+                          { bg: '#dbeafe', text: 'white' }, // Blue
+                          { bg: '#f3e8ff', text: 'white' }, // Purple
+                          { bg: '#fef3c7', text: 'white' }, // Yellow
+                          { bg: '#cffafe', text: 'white' }, // Cyan
+                          { bg: '#fce7f3', text: 'white' }, // Pink
+                          { bg: '#ede9fe', text: 'white' }  // Indigo
                         ];
                         
                         const cardColor = lightColors[index % lightColors.length];
