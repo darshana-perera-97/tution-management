@@ -306,29 +306,93 @@ const StudentChatbot = ({ student, isOpen: externalIsOpen, onIsOpenChange }) => 
             position: 'fixed',
             bottom: '20px',
             right: '20px',
-            width: '60px',
-            height: '60px',
-            borderRadius: '50%',
+            padding: '12px 16px',
+            borderRadius: '12px',
             background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+            backgroundSize: '200% 200%',
             border: 'none',
             boxShadow: '0 4px 12px rgba(99, 102, 241, 0.4)',
-            zIndex: 1000,
+            zIndex: 9999,
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease',
+            minWidth: '140px',
+            animation: 'floatBounce 3s ease-in-out infinite, pulseGlow 2s ease-in-out infinite',
+            overflow: 'hidden'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-4px) scale(1.05)';
+            e.currentTarget.style.boxShadow = '0 8px 24px rgba(99, 102, 241, 0.7), 0 0 0 4px rgba(99, 102, 241, 0.2)';
+            e.currentTarget.style.animation = 'none';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.4)';
+            e.currentTarget.style.animation = 'floatBounce 3s ease-in-out infinite, pulseGlow 2s ease-in-out infinite';
+          }}
+        >
+          {/* Shimmer Effect Overlay */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: '-100%',
+            width: '100%',
+            height: '100%',
+            background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent)',
+            animation: 'shimmerButton 3s infinite',
+            pointerEvents: 'none'
+          }} />
+          
+          {/* Teacher Avatar */}
+          <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '50%',
+            background: 'white',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'all 0.3s ease'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'scale(1.1)';
-            e.currentTarget.style.boxShadow = '0 6px 20px rgba(99, 102, 241, 0.6)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.4)';
-          }}
-        >
-          <HiOutlineChatBubbleLeftRight size={24} color="white" />
+            border: '2px solid rgba(255, 255, 255, 0.5)',
+            flexShrink: 0,
+            position: 'relative',
+            zIndex: 1,
+            animation: 'iconPulse 2s ease-in-out infinite'
+          }}>
+            <HiOutlineAcademicCap size={20} color="#6366f1" />
+          </div>
+          
+          {/* Text Content */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            gap: '2px',
+            color: 'white',
+            position: 'relative',
+            zIndex: 1
+          }}>
+            <div style={{
+              fontSize: '12px',
+              fontWeight: '600',
+              lineHeight: '1.2',
+              textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
+            }}>
+              "Institute Name"
+            </div>
+            <div style={{
+              fontSize: '11px',
+              fontWeight: '500',
+              lineHeight: '1.2',
+              opacity: 0.95,
+              textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
+            }}>
+              AI Teacher
+            </div>
+          </div>
         </Button>
       )}
 

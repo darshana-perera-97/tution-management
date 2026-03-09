@@ -827,13 +827,50 @@ const sendWhatsAppToMultiple = async (phoneNumbers, message, imagePath = null) =
   const results = [];
   const uniqueNumbers = [...new Set(phoneNumbers.filter(num => num && num.trim()))];
   
+  // Check if WhatsApp is connected before attempting to send
+  if (!whatsappState.client || !whatsappState.connected) {
+    console.error('❌ WhatsApp not connected. Skipping all messages.');
+    return uniqueNumbers.map(phoneNumber => ({
+      phoneNumber,
+      success: false,
+      error: 'WhatsApp not connected. Please reconnect by scanning QR code.'
+    }));
+  }
+  
   for (const phoneNumber of uniqueNumbers) {
     try {
-      const result = await sendWhatsAppMessage(phoneNumber, message, imagePath);
-      results.push({ phoneNumber, success: result.success, error: result.error });
+      // Check if image path is provided and verify it exists before sending
+      let finalImagePath = imagePath;
+      if (imagePath && !fs.existsSync(imagePath)) {
+        console.warn(`⚠️  Image file not found: ${imagePath}. Sending text-only message to ${phoneNumber}`);
+        finalImagePath = null; // Set to null so it sends text-only
+      }
+      
+      const result = await sendWhatsAppMessage(phoneNumber, message, finalImagePath);
+      results.push({ phoneNumber, success: result.success, error: result.error, warning: result.warning });
+      
+      // If we get a detached frame error, stop sending to prevent spam
+      if (result.requiresReconnect) {
+        console.error('❌ WhatsApp session is detached. Stopping bulk message sending.');
+        // Mark remaining numbers as failed
+        const remainingNumbers = uniqueNumbers.slice(uniqueNumbers.indexOf(phoneNumber) + 1);
+        remainingNumbers.forEach(num => {
+          results.push({
+            phoneNumber: num,
+            success: false,
+            error: 'WhatsApp session is invalid. Please reconnect.'
+          });
+        });
+        break; // Stop sending to remaining numbers
+      }
+      
+      // Add a small delay between messages to avoid rate limiting
+      if (uniqueNumbers.indexOf(phoneNumber) < uniqueNumbers.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+      }
     } catch (err) {
-      console.error(`Error sending WhatsApp to ${phoneNumber}:`, err);
-      results.push({ phoneNumber, success: false, error: err.message });
+      console.error(`Error sending WhatsApp to ${phoneNumber}:`, err.message || err);
+      results.push({ phoneNumber, success: false, error: err.message || 'Unknown error' });
     }
   }
   
@@ -3686,7 +3723,11 @@ let whatsappState = {
   connected: false,
   phoneNumber: null,
   qrCode: null,
-  client: null
+  client: null,
+  keepAliveInterval: null,
+  restartInterval: null,
+  lastActivity: null,
+  lastRestart: null
 };
 
 // Temporary attendance queue (in-memory storage for real-time notifications)
@@ -4362,6 +4403,53 @@ const formatPhoneNumber = (phoneNumber) => {
   return cleaned + '@c.us';
 };
 
+// Helper function to check WhatsApp connection health
+const checkWhatsAppConnection = async () => {
+  try {
+    if (!whatsappState.client) {
+      return { connected: false, reason: 'Client not initialized' };
+    }
+
+    // Check if client has info (means it's authenticated)
+    if (whatsappState.client.info && whatsappState.client.info.wid) {
+      // Try to get client state to verify it's still active
+      try {
+        const state = await whatsappState.client.getState();
+        if (state === 'CONNECTED' || state === 'OPENING') {
+          whatsappState.connected = true;
+          whatsappState.phoneNumber = whatsappState.client.info.wid.user;
+          return { connected: true };
+        } else {
+          whatsappState.connected = false;
+          return { connected: false, reason: `Client state: ${state}` };
+        }
+      } catch (stateError) {
+        // If we can't get state, try a simple operation to verify connection
+        try {
+          // Try to get a simple property to verify connection
+          const info = whatsappState.client.info;
+          if (info && info.wid) {
+            whatsappState.connected = true;
+            return { connected: true };
+          } else {
+            whatsappState.connected = false;
+            return { connected: false, reason: 'No client info available' };
+          }
+        } catch (verifyError) {
+          whatsappState.connected = false;
+          return { connected: false, reason: verifyError.message };
+        }
+      }
+    } else {
+      whatsappState.connected = false;
+      return { connected: false, reason: 'Client not authenticated' };
+    }
+  } catch (error) {
+    whatsappState.connected = false;
+    return { connected: false, reason: error.message };
+  }
+};
+
 // Helper function to send WhatsApp message
 const sendWhatsAppMessage = async (phoneNumber, message, imagePath = null) => {
   try {
@@ -4371,28 +4459,16 @@ const sendWhatsAppMessage = async (phoneNumber, message, imagePath = null) => {
       return { success: false, error: 'WhatsApp client not initialized. Please generate QR code first.' };
     }
 
-    // Check if client is ready/connected by checking client state
-    let isReady = false;
-    try {
-      // Check if client has info (means it's authenticated)
-      if (whatsappState.client.info && whatsappState.client.info.wid) {
-        isReady = true;
-        // Update state if not already set
-        if (!whatsappState.connected) {
-          whatsappState.connected = true;
-          whatsappState.phoneNumber = whatsappState.client.info.wid.user;
-        }
-      } else if (whatsappState.connected) {
-        // If state says connected but no info, try to verify
-        isReady = true;
-      }
-    } catch (stateError) {
-      console.log('Error checking client state:', stateError.message);
-    }
-
-    if (!isReady && !whatsappState.connected) {
-      console.log('❌ WhatsApp not connected. Please scan QR code first.');
-      return { success: false, error: 'WhatsApp not connected. Please go to WhatsApp Link page and scan the QR code to connect.' };
+    // Verify connection health before sending
+    const connectionCheck = await checkWhatsAppConnection();
+    if (!connectionCheck.connected) {
+      console.log(`❌ WhatsApp connection check failed: ${connectionCheck.reason}`);
+      whatsappState.connected = false;
+      return { 
+        success: false, 
+        error: 'WhatsApp connection is not active. Please reconnect by scanning QR code.',
+        requiresReconnect: true
+      };
     }
 
     // Format phone number
@@ -4406,44 +4482,166 @@ const sendWhatsAppMessage = async (phoneNumber, message, imagePath = null) => {
 
     // Send message using the correct API
     try {
+      // Check if image path is provided and verify it exists
       if (imagePath) {
         // Verify image file exists before trying to send
         if (!fs.existsSync(imagePath)) {
           console.error(`❌ Image file not found: ${imagePath}`);
+          console.log(`⚠️  Falling back to text-only message for ${formattedNumber}`);
           // Fallback to text-only message if image doesn't exist
-          await whatsappState.client.sendMessage(formattedNumber, message);
-          console.log(`✅ WhatsApp message sent successfully to ${formattedNumber} (image not found, sent text only)`);
-          return { success: true, warning: 'Image file not found, sent text only' };
+          try {
+            await whatsappState.client.sendMessage(formattedNumber, message);
+            console.log(`✅ WhatsApp message sent successfully to ${formattedNumber} (image not found, sent text only)`);
+            return { success: true, warning: 'Image file not found, sent text only' };
+          } catch (textOnlyError) {
+            // If text-only also fails, handle the error below
+            throw textOnlyError;
+          }
         }
         
         // Send message with image
-        const media = MessageMedia.fromFilePath(imagePath);
-        await whatsappState.client.sendMessage(formattedNumber, media, { caption: message });
-        console.log(`✅ WhatsApp message with image sent successfully to ${formattedNumber}`);
+        try {
+          const media = MessageMedia.fromFilePath(imagePath);
+          await whatsappState.client.sendMessage(formattedNumber, media, { caption: message });
+          console.log(`✅ WhatsApp message with image sent successfully to ${formattedNumber}`);
+          return { success: true };
+        } catch (mediaError) {
+          // If sending with image fails, try text-only as fallback
+          if (mediaError.message && !mediaError.message.includes('detached Frame')) {
+            console.error(`❌ Error sending image message: ${mediaError.message}`);
+            console.log(`⚠️  Attempting to send text-only message as fallback for ${formattedNumber}`);
+            try {
+              await whatsappState.client.sendMessage(formattedNumber, message);
+              console.log(`✅ WhatsApp message sent successfully to ${formattedNumber} (image failed, sent text only)`);
+              return { success: true, warning: 'Image send failed, sent text only' };
+            } catch (fallbackError) {
+              throw fallbackError;
+            }
+          } else {
+            throw mediaError;
+          }
+        }
       } else {
         // Send text message only
         await whatsappState.client.sendMessage(formattedNumber, message);
         console.log(`✅ WhatsApp message sent successfully to ${formattedNumber}`);
+        // Update last activity timestamp
+        whatsappState.lastActivity = Date.now();
+        return { success: true };
       }
-      return { success: true };
     } catch (sendError) {
-      console.error('❌ Error sending message:', sendError.message);
+      const errorMessage = sendError.message || sendError.toString() || 'Unknown error';
+      console.error('❌ Error sending message:', errorMessage);
+      
+      // Handle detached Frame error - this means the WhatsApp session is invalid
+      if (errorMessage.includes('detached Frame') || errorMessage.includes('detached')) {
+        console.error('❌ WhatsApp session is detached. Client may need to be reconnected.');
+        whatsappState.connected = false;
+        return { 
+          success: false, 
+          error: 'WhatsApp session is invalid. Please reconnect by scanning QR code.',
+          requiresReconnect: true
+        };
+      }
       
       // Provide more specific error messages
-      if (sendError.message && sendError.message.includes('not registered')) {
+      if (errorMessage.includes('not registered')) {
         return { success: false, error: `Phone number ${phoneNumber} is not registered on WhatsApp` };
-      } else if (sendError.message && sendError.message.includes('timeout')) {
+      } else if (errorMessage.includes('timeout')) {
         return { success: false, error: 'Request timeout. Please try again.' };
-      } else if (sendError.message && sendError.message.includes('disconnected')) {
+      } else if (errorMessage.includes('disconnected') || errorMessage.includes('Connection closed')) {
         whatsappState.connected = false;
         return { success: false, error: 'WhatsApp disconnected. Please reconnect by scanning QR code.' };
+      } else if (errorMessage.includes('ENOENT') || errorMessage.includes('no such file')) {
+        // File not found error - try sending text only
+        console.log(`⚠️  File not found error. Attempting to send text-only message to ${formattedNumber}`);
+        try {
+          await whatsappState.client.sendMessage(formattedNumber, message);
+          console.log(`✅ WhatsApp message sent successfully to ${formattedNumber} (file error, sent text only)`);
+          return { success: true, warning: 'File not found, sent text only' };
+        } catch (textError) {
+          return { success: false, error: 'File not found and text message also failed: ' + textError.message };
+        }
       }
       
-      return { success: false, error: sendError.message || 'Failed to send message' };
+      return { success: false, error: errorMessage || 'Failed to send message' };
     }
   } catch (error) {
     console.error('❌ Unexpected error sending WhatsApp message:', error);
     return { success: false, error: error.message || 'Unknown error occurred while sending message' };
+  }
+};
+
+// Helper function to restart WhatsApp connection gracefully (without disconnecting)
+const restartWhatsAppConnection = async () => {
+  try {
+    console.log('\n========================================');
+    console.log('🔄 Scheduled WhatsApp connection restart (every 2 hours)');
+    console.log('========================================\n');
+    
+    // Store current connection state
+    const wasConnected = whatsappState.connected;
+    const phoneNumber = whatsappState.phoneNumber;
+    
+    // Clear keep-alive interval
+    if (whatsappState.keepAliveInterval) {
+      clearInterval(whatsappState.keepAliveInterval);
+      whatsappState.keepAliveInterval = null;
+    }
+    
+    // Clear restart interval temporarily
+    if (whatsappState.restartInterval) {
+      clearInterval(whatsappState.restartInterval);
+      whatsappState.restartInterval = null;
+    }
+    
+    // Properly destroy the existing client if it exists
+    if (whatsappState.client) {
+      try {
+        console.log('📴 Gracefully disconnecting existing WhatsApp client...');
+        // Remove all event listeners to prevent errors
+        whatsappState.client.removeAllListeners();
+        
+        // Destroy the client
+        await whatsappState.client.destroy();
+        console.log('✅ Existing WhatsApp client destroyed');
+      } catch (destroyError) {
+        console.error('⚠️  Error destroying existing client:', destroyError.message);
+        // Continue even if destroy fails
+      }
+    }
+    
+    // Clear client reference
+    whatsappState.client = null;
+    whatsappState.connected = false;
+    whatsappState.qrCode = null;
+    
+    // Wait a moment before reinitializing to ensure clean state
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Reinitialize the connection
+    console.log('🔄 Reinitializing WhatsApp connection...');
+    await initializeWhatsApp();
+    
+    // Update restart timestamp
+    whatsappState.lastRestart = Date.now();
+    
+    console.log('\n========================================');
+    console.log('✅ WhatsApp connection restart completed');
+    if (wasConnected) {
+      console.log(`📱 Previous connection: ${phoneNumber || 'Unknown'}`);
+      console.log('⏳ Waiting for automatic reconnection...');
+    }
+    console.log('========================================\n');
+    
+  } catch (error) {
+    console.error('❌ Error restarting WhatsApp connection:', error);
+    // Try to reinitialize anyway
+    try {
+      await initializeWhatsApp();
+    } catch (reinitError) {
+      console.error('❌ Failed to reinitialize after restart error:', reinitError);
+    }
   }
 };
 
@@ -4504,10 +4702,29 @@ const initializeWhatsApp = async () => {
       whatsappState.connected = true;
       whatsappState.phoneNumber = client.info.wid.user;
       whatsappState.qrCode = null; // Clear QR code when connected
+      whatsappState.lastActivity = Date.now(); // Track last activity
       console.log('\n========================================');
       console.log('✅ WhatsApp client is ready!');
       console.log('Connected phone number:', whatsappState.phoneNumber);
       console.log('========================================\n');
+      
+      // Set up scheduled restart every 2 hours (7200000 milliseconds)
+      // Clear any existing restart interval first
+      if (whatsappState.restartInterval) {
+        clearInterval(whatsappState.restartInterval);
+      }
+      
+      // Set up new restart interval
+      whatsappState.restartInterval = setInterval(async () => {
+        try {
+          console.log('⏰ 2-hour restart timer triggered. Restarting WhatsApp connection...');
+          await restartWhatsAppConnection();
+        } catch (error) {
+          console.error('❌ Error in scheduled restart:', error);
+        }
+      }, 2 * 60 * 60 * 1000); // 2 hours = 7200000 milliseconds
+      
+      console.log('⏰ Scheduled WhatsApp restart configured: every 2 hours');
     });
 
     client.on('authenticated', () => {
@@ -4525,11 +4742,87 @@ const initializeWhatsApp = async () => {
       whatsappState.connected = false;
       whatsappState.phoneNumber = null;
       whatsappState.qrCode = null;
-      whatsappState.client = null;
+      
+      // Clear keep-alive interval if it exists
+      if (whatsappState.keepAliveInterval) {
+        clearInterval(whatsappState.keepAliveInterval);
+        whatsappState.keepAliveInterval = null;
+      }
+      
+      // Clear restart interval if it exists
+      if (whatsappState.restartInterval) {
+        clearInterval(whatsappState.restartInterval);
+        whatsappState.restartInterval = null;
+      }
+      
+      // Attempt to reconnect if disconnected unexpectedly
+      if (reason !== 'LOGOUT') {
+        console.log('⚠️  Attempting to reconnect WhatsApp in 5 seconds...');
+        setTimeout(async () => {
+          try {
+            if (!whatsappState.connected && !whatsappState.client) {
+              console.log('🔄 Reconnecting WhatsApp...');
+              await initializeWhatsApp();
+            }
+          } catch (reconnectError) {
+            console.error('❌ Failed to reconnect WhatsApp:', reconnectError);
+          }
+        }, 5000);
+      } else {
+        whatsappState.client = null;
+      }
     });
 
     // Initialize the client
     await client.initialize();
+    
+    // Set up keep-alive mechanism to prevent idle disconnections
+    // Check connection health periodically
+    if (whatsappState.keepAliveInterval) {
+      clearInterval(whatsappState.keepAliveInterval);
+    }
+    
+    whatsappState.keepAliveInterval = setInterval(async () => {
+      try {
+        if (whatsappState.client && whatsappState.connected) {
+          const connectionCheck = await checkWhatsAppConnection();
+          if (!connectionCheck.connected) {
+            console.log('⚠️  WhatsApp connection lost during keep-alive check. Attempting to reconnect...');
+            clearInterval(whatsappState.keepAliveInterval);
+            whatsappState.keepAliveInterval = null;
+            whatsappState.connected = false;
+            
+            // Attempt to reconnect
+            setTimeout(async () => {
+              try {
+                if (!whatsappState.connected) {
+                  console.log('🔄 Reconnecting WhatsApp after keep-alive check...');
+                  await initializeWhatsApp();
+                }
+              } catch (reconnectError) {
+                console.error('❌ Failed to reconnect WhatsApp:', reconnectError);
+              }
+            }, 3000);
+          } else {
+            // Connection is healthy, update last activity
+            whatsappState.lastActivity = Date.now();
+            // Log periodically (every 10th check = ~5 minutes)
+            if (Math.random() < 0.1) {
+              console.log('✅ WhatsApp connection is healthy');
+            }
+          }
+        } else {
+          // Client not connected, clear interval
+          if (whatsappState.keepAliveInterval) {
+            clearInterval(whatsappState.keepAliveInterval);
+            whatsappState.keepAliveInterval = null;
+          }
+        }
+      } catch (error) {
+        console.error('Error in WhatsApp keep-alive check:', error);
+        // Don't clear interval on error, let it retry
+      }
+    }, 30000); // Check every 30 seconds
     
   } catch (error) {
     console.error('Error initializing WhatsApp:', error);
@@ -4649,10 +4942,30 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
         whatsappState.connected = true;
         whatsappState.phoneNumber = client.info.wid.user;
         whatsappState.qrCode = null; // Clear QR code when connected
+        whatsappState.lastActivity = Date.now(); // Track last activity
         console.log('\n========================================');
         console.log('WhatsApp client is ready!');
         console.log('Connected phone number:', whatsappState.phoneNumber);
         console.log('========================================\n');
+        
+        // Set up scheduled restart every 2 hours (7200000 milliseconds)
+        // Clear any existing restart interval first
+        if (whatsappState.restartInterval) {
+          clearInterval(whatsappState.restartInterval);
+        }
+        
+        // Set up new restart interval
+        whatsappState.restartInterval = setInterval(async () => {
+          try {
+            console.log('⏰ 2-hour restart timer triggered. Restarting WhatsApp connection...');
+            await restartWhatsAppConnection();
+          } catch (error) {
+            console.error('❌ Error in scheduled restart:', error);
+          }
+        }, 2 * 60 * 60 * 1000); // 2 hours = 7200000 milliseconds
+        
+        console.log('⏰ Scheduled WhatsApp restart configured: every 2 hours');
+        
         if (!qrResolved) {
           qrResolved = true;
           resolve(null);
@@ -4677,7 +4990,29 @@ app.post('/api/whatsapp/generate-qr', async (req, res) => {
         whatsappState.connected = false;
         whatsappState.phoneNumber = null;
         whatsappState.qrCode = null;
-        whatsappState.client = null;
+        
+        // Clear keep-alive interval if it exists
+        if (whatsappState.keepAliveInterval) {
+          clearInterval(whatsappState.keepAliveInterval);
+          whatsappState.keepAliveInterval = null;
+        }
+        
+        // Attempt to reconnect if disconnected unexpectedly
+        if (reason !== 'LOGOUT') {
+          console.log('⚠️  Attempting to reconnect WhatsApp in 5 seconds...');
+          setTimeout(async () => {
+            try {
+              if (!whatsappState.connected && !whatsappState.client) {
+                console.log('🔄 Reconnecting WhatsApp...');
+                await initializeWhatsApp();
+              }
+            } catch (reconnectError) {
+              console.error('❌ Failed to reconnect WhatsApp:', reconnectError);
+            }
+          }, 5000);
+        } else {
+          whatsappState.client = null;
+        }
       });
     });
 

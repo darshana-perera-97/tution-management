@@ -117,6 +117,23 @@ const Payments = () => {
     };
   }, []);
 
+  // Update selected student when payments change (for real-time updates in modal)
+  useEffect(() => {
+    if (selectedStudent && showPaymentDetailsModal && students.length > 0) {
+      // Find the updated student from the current students state
+      const updatedStudent = students.find(s => s.id === selectedStudent.id);
+      if (updatedStudent && updatedStudent.id === selectedStudent.id) {
+        // Only update if there's a meaningful change to prevent unnecessary re-renders
+        // The calculateMonthlyPayments function will use the updated payments state
+        // So we just need to ensure the student reference is current
+        if (JSON.stringify(updatedStudent) !== JSON.stringify(selectedStudent)) {
+          setSelectedStudent(updatedStudent);
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payments]); // Only watch payments changes for real-time updates
+
   // Handle QR Scanner lifecycle
   useEffect(() => {
     let html5QrCode = null;
@@ -209,6 +226,11 @@ const Payments = () => {
       const data = await response.json();
       if (data.success) {
         setPayments(data.payments);
+        // If modal is open and student is selected, update selected student to trigger re-render
+        if (selectedStudent && showPaymentDetailsModal) {
+          // Force re-render by updating selected student reference
+          setSelectedStudent({ ...selectedStudent });
+        }
       }
     } catch (err) {
       console.error('Error fetching payments:', err);
@@ -370,12 +392,32 @@ const Payments = () => {
 
       if (data.success) {
         setSuccess(`Payment for ${courseName || 'month'} marked as paid successfully!`);
-        fetchPayments();
-        // Refresh student data
-        const updatedStudent = students.find(s => s.id === student.id);
-        if (updatedStudent) {
-          setSelectedStudent(updatedStudent);
+        
+        // Refresh payments, students, and courses data in parallel to get latest data
+        await Promise.all([
+          fetchPayments(),
+          fetchStudents(),
+          fetchCourses() // Also refresh courses in case enrollment changed
+        ]);
+        
+        // Fetch updated student data to ensure we have the latest information
+        // This ensures the modal updates with the latest payment status
+        try {
+          const studentResponse = await fetch(`${API_URL}/api/students`);
+          const studentData = await studentResponse.json();
+          if (studentData.success) {
+            const updatedStudent = studentData.students.find(s => s.id === student.id);
+            if (updatedStudent) {
+              setSelectedStudent(updatedStudent);
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching updated student:', err);
+          // Fallback: update selected student from current students state
+          // This will trigger a re-render even if the API call fails
+          setSelectedStudent({ ...student });
         }
+        
         setTimeout(() => setSuccess(''), 3000);
       } else {
         setError(data.message || 'Failed to mark payment as paid');

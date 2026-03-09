@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Container, Row, Col, Card, Table, Alert, Button, Nav, Tab, Form, Spinner, OverlayTrigger, Tooltip, Modal } from 'react-bootstrap';
+import { Container, Row, Col, Card, Table, Alert, Button, Nav, Tab, Form, Spinner, OverlayTrigger, Tooltip, Modal, Badge } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { 
   HiOutlineBookOpen, 
@@ -13,7 +13,13 @@ import {
   HiOutlinePhone,
   HiOutlineEnvelope,
   HiOutlineIdentification,
-  HiOutlineArrowTrendingDown
+  HiOutlineArrowTrendingDown,
+  HiOutlineEye,
+  HiOutlineArrowTrendingUp,
+  HiOutlineChartBar,
+  HiOutlineDocumentArrowDown,
+  HiOutlineCalendar,
+  HiOutlineClock
 } from 'react-icons/hi2';
 import TeacherSidebar from './TeacherSidebar';
 import TeacherTopNavbar from './TeacherTopNavbar';
@@ -22,6 +28,7 @@ import '../App.css';
 import API_URL from '../config';
 import { usePagination } from '../hooks/usePagination';
 import Pagination from './Pagination';
+import jsPDF from 'jspdf';
 
 const TeacherDashboard = () => {
   const navigate = useNavigate();
@@ -65,6 +72,7 @@ const TeacherDashboard = () => {
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [studentSearchQuery, setStudentSearchQuery] = useState('');
   const [showCourseSelectModal, setShowCourseSelectModal] = useState(false);
+  const [pendingPaymentsPage, setPendingPaymentsPage] = useState(1);
 
   useEffect(() => {
     const isAuthenticated = localStorage.getItem('isTeacherAuthenticated');
@@ -587,7 +595,7 @@ const TeacherDashboard = () => {
                               textAlign: 'left'
                             }}>
                               Course Name
-                            </div>
+                          </div>
                             <div style={{ 
                               fontSize: '16px',
                               fontWeight: '600',
@@ -595,7 +603,7 @@ const TeacherDashboard = () => {
                               textAlign: 'left'
                             }}>
                               {selectedCourse.courseName}
-                            </div>
+                          </div>
                           </div>
                           <div style={{ marginBottom: '20px', textAlign: 'left' }}>
                             <div style={{ 
@@ -681,7 +689,7 @@ const TeacherDashboard = () => {
                               textAlign: 'left'
                             }}>
                               {selectedCourse.teacherPaymentPercentage ? `${selectedCourse.teacherPaymentPercentage}%` : '-'}
-                            </div>
+                          </div>
                           </div>
                           <div style={{ marginBottom: '20px', textAlign: 'left' }}>
                             <div style={{ 
@@ -704,7 +712,7 @@ const TeacherDashboard = () => {
                               {selectedCourse.courseFee && selectedCourse.teacherPaymentPercentage 
                                 ? `Rs ${((parseFloat(selectedCourse.courseFee) * parseFloat(selectedCourse.teacherPaymentPercentage)) / 100).toFixed(2)}` 
                                 : '-'}
-                            </div>
+                          </div>
                           </div>
                           <div style={{ marginBottom: '20px', textAlign: 'left' }}>
                             <div style={{ 
@@ -725,7 +733,7 @@ const TeacherDashboard = () => {
                               textAlign: 'left'
                             }}>
                               {selectedCourse.enrolledStudents ? selectedCourse.enrolledStudents.length : 0}
-                            </div>
+                          </div>
                           </div>
                           <div style={{ marginBottom: '20px', textAlign: 'left' }}>
                             <div style={{ 
@@ -761,71 +769,246 @@ const TeacherDashboard = () => {
                             Enrolled Students ({getCourseStudents().length} {getCourseStudents().length === 1 ? 'student' : 'students'})
                           </h3>
                         </div>
-                        {getCourseStudents().length > 0 ? (
+                      {getCourseStudents().length > 0 ? (
+                        <>
                           <div className="table-responsive" style={{ marginTop: '16px' }}>
-                            <Table className="operators-table" style={{ margin: 0 }}>
-                              <thead>
-                                <tr>
+                            <Table className="operators-table d-none d-lg-table" style={{ margin: 0 }}>
+                            <thead>
+                              <tr>
                                   <th style={{ width: '60px' }} className="text-start">#</th>
-                                  <th className="text-start">Student ID</th>
                                   <th className="text-start">Full Name</th>
-                                  <th className="text-start">Grade</th>
+                                  <th style={{ width: '180px' }} className="text-start">Grade</th>
                                   <th className="text-start">Contact Number</th>
                                   <th className="text-start">Parent Name</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {getCourseStudents().map((student, index) => (
-                                  <tr key={student.id}>
-                                    <td>{index + 1}</td>
-                                    <td><code style={{ 
+                                  <th className="text-start">Student ID</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {getCourseStudents().map((student, index) => (
+                                <tr key={student.id} style={{ transition: 'all 0.2s ease' }}>
+                                  <td style={{ 
+                                    padding: '16px 24px',
+                                    fontSize: '13px',
+                                    fontWeight: '600',
+                                    color: '#64748b',
+                                    textAlign: 'left'
+                                  }}>
+                                    {index + 1}
+                                  </td>
+                                  <td style={{ padding: '16px 24px', textAlign: 'left' }}>
+                                    <div style={{ 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      gap: '12px' 
+                                    }}>
+                                      {student.imageUrl ? (
+                                        <img
+                                          src={`${API_URL}${student.imageUrl}`}
+                                          alt={student.fullName}
+                                          style={{
+                                            width: '40px',
+                                            height: '40px',
+                                            borderRadius: '10px',
+                                            objectFit: 'cover',
+                                            border: '2px solid #e2e8f0',
+                                            flexShrink: 0
+                                          }}
+                                          onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            if (e.target.nextSibling) {
+                                              e.target.nextSibling.style.display = 'flex';
+                                            }
+                                          }}
+                                        />
+                                      ) : null}
+                                      <div style={{
+                                        width: '40px',
+                                        height: '40px',
+                                        borderRadius: '10px',
+                                        background: student.imageUrl ? 'transparent' : 'rgba(59, 130, 246, 0.1)',
+                                        display: student.imageUrl ? 'none' : 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: '#3b82f6',
+                                        flexShrink: 0
+                                      }}>
+                                        <HiOutlineUser size={20} />
+                                      </div>
+                                      <div>
+                                        <div style={{ 
+                                          fontSize: '15px', 
+                                          fontWeight: '700', 
+                                          color: '#0f172a',
+                                          marginBottom: '2px'
+                                        }}>
+                                          {student.fullName}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '16px 24px', textAlign: 'left' }}>
+                                    <div style={{ 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      gap: '8px',
+                                      fontSize: '14px',
+                                      fontWeight: '600',
+                                      color: '#475569'
+                                    }}>
+                                      <HiOutlineAcademicCap size={16} style={{ color: '#94a3b8' }} />
+                                      <span>{student.grade}</span>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '16px 24px', textAlign: 'left' }}>
+                                    <div style={{ 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      gap: '8px',
+                                      fontSize: '14px',
+                                      color: '#475569'
+                                    }}>
+                                      <HiOutlinePhone size={16} style={{ color: '#94a3b8' }} />
+                                      <span>{student.contactNumber}</span>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '16px 24px', textAlign: 'left' }}>
+                                    <div style={{ 
+                                      fontSize: '14px',
+                                      color: '#475569'
+                                    }}>
+                                      {student.parentName || 'N/A'}
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '16px 24px', textAlign: 'left' }}>
+                                    <code style={{ 
                                       background: '#f1f5f9',
                                       padding: '4px 8px',
                                       borderRadius: '4px',
                                       fontSize: '13px',
-                                      color: '#475569'
-                                    }}>{student.id}</code></td>
-                                    <td>{student.fullName}</td>
-                                    <td>{student.grade}</td>
-                                    <td>{student.contactNumber}</td>
-                                    <td>{student.parentName}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </Table>
+                                      color: '#475569',
+                                      fontWeight: '600'
+                                    }}>
+                                      {student.id}
+                                    </code>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </Table>
+                        </div>
+
+                        {/* Mobile Card View */}
+                        <div className="d-lg-none" style={{ marginTop: '16px' }}>
+                          <div className="student-cards-container">
+                            {getCourseStudents().map((student, index) => (
+                              <Card key={student.id} className="student-card mb-3">
+                                <Card.Body>
+                                  <div className="student-card-header mb-3" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    {student.imageUrl ? (
+                                      <img
+                                        src={`${API_URL}${student.imageUrl}`}
+                                        alt={student.fullName}
+                                        style={{
+                                          width: '40px',
+                                          height: '40px',
+                                          borderRadius: '10px',
+                                          objectFit: 'cover',
+                                          border: '2px solid #e2e8f0',
+                                          flexShrink: 0
+                                        }}
+                                        onError={(e) => {
+                                          e.target.style.display = 'none';
+                                          if (e.target.nextSibling) {
+                                            e.target.nextSibling.style.display = 'flex';
+                                          }
+                                        }}
+                                      />
+                                    ) : null}
+                                    <div style={{
+                                      width: '40px',
+                                      height: '40px',
+                                      borderRadius: '10px',
+                                      background: student.imageUrl ? 'transparent' : 'rgba(59, 130, 246, 0.1)',
+                                      display: student.imageUrl ? 'none' : 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      color: '#3b82f6',
+                                      flexShrink: 0
+                                    }}>
+                                      <HiOutlineUser size={20} />
+                                    </div>
+                                    <h5 className="student-card-name mb-0">{student.fullName}</h5>
+                                  </div>
+                                  <div style={{ 
+                                    display: 'flex', 
+                                    flexDirection: 'column', 
+                                    gap: '12px',
+                                    paddingTop: '12px',
+                                    borderTop: '1px solid #e2e8f0'
+                                  }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <HiOutlineAcademicCap size={16} style={{ color: '#94a3b8' }} />
+                                      <span style={{ fontSize: '14px', color: '#475569', fontWeight: '500' }}>Grade: {student.grade}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <HiOutlinePhone size={16} style={{ color: '#94a3b8' }} />
+                                      <span style={{ fontSize: '14px', color: '#475569' }}>{student.contactNumber}</span>
+                                    </div>
+                                    {student.parentName && (
+                                      <div style={{ fontSize: '14px', color: '#475569' }}>
+                                        <strong>Parent:</strong> {student.parentName}
+                                      </div>
+                                    )}
+                                    <div style={{ fontSize: '13px', color: '#64748b' }}>
+                                      <strong>Student ID:</strong> <code style={{ 
+                                        background: '#f1f5f9',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '12px',
+                                        color: '#475569',
+                                        fontWeight: '600'
+                                      }}>{student.id}</code>
+                                    </div>
+                                  </div>
+                                </Card.Body>
+                              </Card>
+                            ))}
                           </div>
-                        ) : (
-                          <Card style={{
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '12px',
-                            marginTop: '16px',
-                            background: '#fafbfc'
-                          }}>
-                            <Card.Body style={{ padding: '48px 24px' }}>
-                              <div style={{ 
-                                textAlign: 'center', 
-                                color: '#64748b'
-                              }}>
-                                <HiOutlineUserGroup size={48} style={{ opacity: 0.3, marginBottom: '16px' }} />
-                                <p style={{ 
-                                  margin: 0, 
-                                  fontSize: '16px',
-                                  fontWeight: '500',
-                                  color: '#64748b'
-                                }}>
-                                  No students enrolled in this course.
-                                </p>
-                                <p style={{ 
-                                  margin: '8px 0 0 0', 
-                                  fontSize: '14px',
-                                  color: '#94a3b8'
-                                }}>
-                                  Students will appear here once they are enrolled.
-                                </p>
-                              </div>
-                            </Card.Body>
-                          </Card>
-                        )}
+                        </div>
+                        </>
+                      ) : (
+                        <div className="table-responsive" style={{ marginTop: '16px' }}>
+                          <Table className="operators-table" style={{ margin: 0 }}>
+                            <thead>
+                              <tr>
+                                <th style={{ width: '60px' }} className="text-start">#</th>
+                                <th className="text-start">Full Name</th>
+                                <th style={{ width: '180px' }} className="text-start">Grade</th>
+                                <th className="text-start">Contact Number</th>
+                                <th className="text-start">Parent Name</th>
+                                <th className="text-start">Student ID</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr>
+                                <td colSpan="6" className="text-center py-5" style={{ color: '#64748b' }}>
+                                  <div style={{ 
+                                    display: 'flex', 
+                                    flexDirection: 'column', 
+                                    alignItems: 'center', 
+                                    gap: '12px' 
+                                  }}>
+                                    <HiOutlineUser size={48} style={{ opacity: 0.3 }} />
+                                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '500' }}>
+                                      No students enrolled in this course.
+                                    </p>
+                                  </div>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </Table>
+                        </div>
+                      )}
                       </div>
                     </div>
                   </Card.Body>
@@ -966,7 +1149,7 @@ const TeacherDashboard = () => {
                         Learning Materials ({lmsContent.length} {lmsContent.length === 1 ? 'item' : 'items'})
                       </h3>
                     </div>
-                    {lmsContent.length === 0 ? (
+                  {lmsContent.length === 0 ? (
                       <div style={{ 
                         textAlign: 'center', 
                         padding: '48px 24px',
@@ -975,10 +1158,10 @@ const TeacherDashboard = () => {
                         <HiOutlineBookOpen size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
                         <p style={{ margin: 0 }}>No learning materials uploaded yet.</p>
                       </div>
-                    ) : (
+                  ) : (
                       <Row className="g-3 mt-3">
-                        {lmsContent.map((content, index) => (
-                          <Col key={content.id} xs={12} sm={6} md={4} lg={3}>
+                      {lmsContent.map((content, index) => (
+                        <Col key={content.id} xs={12} sm={6} md={4} lg={3}>
                             <Card style={{
                               border: 'none',
                               borderRadius: '16px',
@@ -1006,10 +1189,10 @@ const TeacherDashboard = () => {
                                   }}>
                                     {content.title}
                                   </h6>
-                                  <Button
-                                    variant="danger"
-                                    size="sm"
-                                    onClick={() => handleDeleteLmsContent(content.id)}
+                                <Button
+                                  variant="danger"
+                                  size="sm"
+                                  onClick={() => handleDeleteLmsContent(content.id)}
                                     style={{ 
                                       flexShrink: 0,
                                       borderRadius: '8px',
@@ -1017,10 +1200,10 @@ const TeacherDashboard = () => {
                                       fontSize: '18px',
                                       lineHeight: '1'
                                     }}
-                                  >
-                                    ×
-                                  </Button>
-                                </div>
+                                >
+                                  ×
+                                </Button>
+                              </div>
                                 <div style={{ marginBottom: '12px' }}>
                                   <span style={{
                                     display: 'inline-block',
@@ -1039,9 +1222,9 @@ const TeacherDashboard = () => {
                                            content.type === 'pdf' ? '#ef4444' :
                                            '#8b5cf6'
                                   }}>
-                                    {content.type.toUpperCase()}
-                                  </span>
-                                </div>
+                                  {content.type.toUpperCase()}
+                                </span>
+                              </div>
                               <div className="flex-grow-1">
                                 {content.type === 'text' && (
                                   <p className="text-muted small mb-2" style={{
@@ -1104,8 +1287,8 @@ const TeacherDashboard = () => {
                           </Card>
                         </Col>
                       ))}
-                      </Row>
-                    )}
+                    </Row>
+                  )}
                   </div>
                 </div>
               </Tab.Pane>
@@ -1298,58 +1481,208 @@ const TeacherDashboard = () => {
               </div>
             </div>
           </div>
-          <Table striped bordered hover className="operators-table d-none d-lg-table">
+          <div className="table-responsive">
+            <Table className="operators-table d-none d-lg-table" style={{ margin: 0 }}>
             <thead>
               <tr>
-                <th style={{ textAlign: 'left' }}>#</th>
-                <th style={{ textAlign: 'left' }}>Full Name</th>
-                <th style={{ textAlign: 'left' }}>Grade</th>
-                <th style={{ textAlign: 'left' }}>Contact Number</th>
-                <th style={{ textAlign: 'left' }}>Parent Name</th>
+                  <th style={{ width: '60px' }} className="text-start">#</th>
+                  <th className="text-start">Full Name</th>
+                  <th style={{ width: '180px' }} className="text-start">Grade</th>
+                  <th className="text-start">Contact Number</th>
+                  <th className="text-start">Parent Name</th>
               </tr>
             </thead>
             <tbody>
               {paginatedStudents.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="text-center text-muted py-4">
-                    No students enrolled in your courses.
+                    <td colSpan="5" className="text-center py-5" style={{ color: '#64748b' }}>
+                      <div style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignItems: 'center', 
+                        gap: '12px' 
+                      }}>
+                        <HiOutlineUser size={48} style={{ opacity: 0.3 }} />
+                        <p style={{ margin: 0, fontSize: '14px', fontWeight: '500' }}>
+                          {filteredMyStudents.length === 0 ? 'No students enrolled in your courses.' : 'No students match your search criteria.'}
+                        </p>
+                      </div>
                   </td>
                 </tr>
               ) : (
                 paginatedStudents.map((student, index) => (
-                  <tr key={student.id}>
-                    <td style={{ textAlign: 'left', padding: '16px 32px' }}>{studentsStartIndex + index + 1}</td>
-                    <td style={{ textAlign: 'left', padding: '16px 32px' }}>{student.fullName}</td>
-                    <td style={{ textAlign: 'left', padding: '16px 32px' }}>{student.grade}</td>
-                    <td style={{ textAlign: 'left', padding: '16px 32px' }}>{student.contactNumber}</td>
-                    <td style={{ textAlign: 'left', padding: '16px 32px' }}>{student.parentName}</td>
+                    <tr key={student.id} style={{ transition: 'all 0.2s ease' }}>
+                      <td style={{ 
+                        padding: '16px 24px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#64748b',
+                        textAlign: 'left'
+                      }}>
+                        {studentsStartIndex + index + 1}
+                      </td>
+                      <td style={{ padding: '16px 24px', textAlign: 'left' }}>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '12px' 
+                        }}>
+                          {student.imageUrl ? (
+                            <img
+                              src={`${API_URL}${student.imageUrl}`}
+                              alt={student.fullName}
+                              style={{
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '10px',
+                                objectFit: 'cover',
+                                border: '2px solid #e2e8f0',
+                                flexShrink: 0
+                              }}
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                if (e.target.nextSibling) {
+                                  e.target.nextSibling.style.display = 'flex';
+                                }
+                              }}
+                            />
+                          ) : null}
+                          <div style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '10px',
+                            background: student.imageUrl ? 'transparent' : 'rgba(59, 130, 246, 0.1)',
+                            display: student.imageUrl ? 'none' : 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#3b82f6',
+                            flexShrink: 0
+                          }}>
+                            <HiOutlineUser size={20} />
+                          </div>
+                          <div>
+                            <div style={{ 
+                              fontSize: '15px', 
+                              fontWeight: '700', 
+                              color: '#0f172a',
+                              marginBottom: '2px'
+                            }}>
+                              {student.fullName}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px 24px', textAlign: 'left' }}>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '8px',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          color: '#475569'
+                        }}>
+                          <HiOutlineAcademicCap size={16} style={{ color: '#94a3b8' }} />
+                          <span>{student.grade}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px 24px', textAlign: 'left' }}>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '8px',
+                          fontSize: '14px',
+                          color: '#475569'
+                        }}>
+                          <HiOutlinePhone size={16} style={{ color: '#94a3b8' }} />
+                          <span>{student.contactNumber}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px 24px', textAlign: 'left' }}>
+                        <div style={{ 
+                          fontSize: '14px',
+                          color: '#475569'
+                        }}>
+                          {student.parentName || 'N/A'}
+                        </div>
+                      </td>
                   </tr>
                 ))
               )}
             </tbody>
           </Table>
+          </div>
 
+          {/* Mobile Card View */}
           <div className="d-lg-none">
             {paginatedStudents.length === 0 ? (
               <div className="text-center text-muted py-5">
-                <p>No students enrolled in your courses.</p>
+                <p>{filteredMyStudents.length === 0 ? 'No students enrolled in your courses.' : 'No students match your search criteria.'}</p>
               </div>
             ) : (
               <div className="student-cards-container">
                 {paginatedStudents.map((student, index) => (
                   <Card key={student.id} className="student-card mb-3">
                     <Card.Body>
-                      <div className="student-card-header mb-2">
-                        <h5 className="student-card-name mb-1">{student.fullName}</h5>
-                        <p className="text-muted small mb-1">
-                          <strong>Grade:</strong> {student.grade}
-                        </p>
-                        <p className="text-muted small mb-1">
-                          <strong>Contact:</strong> {student.contactNumber}
-                        </p>
-                        <p className="text-muted small mb-0">
+                      <div className="student-card-header mb-0" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {student.imageUrl ? (
+                          <img
+                            src={`${API_URL}${student.imageUrl}`}
+                            alt={student.fullName}
+                            style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '10px',
+                              objectFit: 'cover',
+                              border: '2px solid #e2e8f0',
+                              flexShrink: 0
+                            }}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              if (e.target.nextSibling) {
+                                e.target.nextSibling.style.display = 'flex';
+                              }
+                            }}
+                          />
+                        ) : null}
+                        <div style={{
+                          width: '40px',
+                          height: '40px',
+                          borderRadius: '10px',
+                          background: student.imageUrl ? 'transparent' : 'rgba(59, 130, 246, 0.1)',
+                          display: student.imageUrl ? 'none' : 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#3b82f6',
+                          flexShrink: 0
+                        }}>
+                          <HiOutlineUser size={20} />
+                        </div>
+                        <h5 className="student-card-name mb-0">{student.fullName}</h5>
+                      </div>
+                      <div style={{ 
+                        marginTop: '16px',
+                        paddingTop: '16px',
+                        borderTop: '1px solid #e2e8f0'
+                      }}>
+                        <div style={{ 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          gap: '12px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <HiOutlineAcademicCap size={16} style={{ color: '#94a3b8' }} />
+                            <span style={{ fontSize: '14px', color: '#475569', fontWeight: '500' }}>Grade: {student.grade}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <HiOutlinePhone size={16} style={{ color: '#94a3b8' }} />
+                            <span style={{ fontSize: '14px', color: '#475569' }}>{student.contactNumber}</span>
+                          </div>
+                          {student.parentName && (
+                            <div style={{ fontSize: '14px', color: '#475569' }}>
                           <strong>Parent:</strong> {student.parentName}
-                        </p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </Card.Body>
                   </Card>
@@ -1376,15 +1709,217 @@ const TeacherDashboard = () => {
   };
 
   const renderIncome = () => {
+    // Calculate monthly earnings (paid)
+    const monthlyEarnings = {};
+    payments.forEach(payment => {
+      if (payment.monthKey) {
+        const course = myCourses.find(c => c.id === payment.courseId);
+        if (course && course.teacherPaymentPercentage) {
+          const paymentAmount = parseFloat(payment.amount || 0);
+          const teacherPercentage = parseFloat(course.teacherPaymentPercentage) || 0;
+          const teacherPayment = (paymentAmount * teacherPercentage) / 100;
+          monthlyEarnings[payment.monthKey] = (monthlyEarnings[payment.monthKey] || 0) + teacherPayment;
+        }
+      }
+    });
+
+    // Calculate student pending payments
+    const allStudentPendingPayments = [];
+    myCourses.forEach(course => {
+      const enrolledStudents = course.enrolledStudents || [];
+      enrolledStudents.forEach(studentId => {
+        const student = students.find(s => s.id === studentId);
+        if (student) {
+          const currentDate = new Date();
+          const enrollmentDate = new Date(student.createdAt);
+          const courseCreatedDate = new Date(course.createdAt);
+          const enrollmentDateForCourse = courseCreatedDate < enrollmentDate ? enrollmentDate : courseCreatedDate;
+          
+          let currentMonth = new Date(enrollmentDateForCourse.getFullYear(), enrollmentDateForCourse.getMonth(), 1);
+          const lastDayOfCurrentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+          
+          let pendingAmount = 0;
+          let pendingMonths = [];
+          
+          while (currentMonth <= lastDayOfCurrentMonth) {
+            const monthKey = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+            const lastDayOfPaymentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+            
+            if (enrollmentDateForCourse <= lastDayOfPaymentMonth) {
+              const isPaid = payments.some(
+                p => p.studentId === studentId && 
+                     p.monthKey === monthKey && 
+                     p.courseId === course.id &&
+                     p.status === 'Paid'
+              );
+              
+              if (!isPaid) {
+                const courseFee = parseFloat(course.courseFee) || 0;
+                const teacherPercentage = parseFloat(course.teacherPaymentPercentage) || 0;
+                const teacherPayment = (courseFee * teacherPercentage) / 100;
+                pendingAmount += teacherPayment;
+                pendingMonths.push(monthKey);
+              }
+            }
+            
+            currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+          }
+          
+          if (pendingAmount > 0) {
+            allStudentPendingPayments.push({
+              studentId: student.id,
+              studentName: student.fullName,
+              courseId: course.id,
+              courseName: course.courseName,
+              pendingAmount: pendingAmount,
+              pendingMonths: pendingMonths.length
+            });
+          }
+        }
+      });
+    });
+
+    // Manual pagination for student pending payments (6 items per page)
+    const itemsPerPage = 6;
+    const pendingPaymentsTotalPages = Math.ceil(allStudentPendingPayments.length / itemsPerPage);
+    const pendingPaymentsStartIndex = (pendingPaymentsPage - 1) * itemsPerPage;
+    const pendingPaymentsEndIndex = pendingPaymentsStartIndex + itemsPerPage;
+    const paginatedPendingPayments = allStudentPendingPayments.slice(pendingPaymentsStartIndex, pendingPaymentsEndIndex);
+    const pendingPaymentsTotalItems = allStudentPendingPayments.length;
+
+    const goToPendingPaymentsPage = (page) => {
+      if (page >= 1 && page <= pendingPaymentsTotalPages) {
+        setPendingPaymentsPage(page);
+      }
+    };
+
+    const nextPendingPaymentsPage = () => {
+      if (pendingPaymentsPage < pendingPaymentsTotalPages) {
+        setPendingPaymentsPage(pendingPaymentsPage + 1);
+      }
+    };
+
+    const prevPendingPaymentsPage = () => {
+      if (pendingPaymentsPage > 1) {
+        setPendingPaymentsPage(pendingPaymentsPage - 1);
+      }
+    };
+
+    // Calculate conversion/retention rate (simplified)
+    const totalEnrolled = myStudents.length;
+    const paidStudents = new Set(payments.map(p => p.studentId)).size;
+    const retentionRate = totalEnrolled > 0 ? ((paidStudents / totalEnrolled) * 100).toFixed(1) : 0;
+
+    // Prepare payment history
+    const paymentHistory = payments.map(payment => {
+      const course = myCourses.find(c => c.id === payment.courseId);
+      const student = students.find(s => s.id === payment.studentId);
+      let teacherPayment = 0;
+      if (course && course.teacherPaymentPercentage) {
+        const paymentAmount = parseFloat(payment.amount || 0);
+        const teacherPercentage = parseFloat(course.teacherPaymentPercentage) || 0;
+        teacherPayment = (paymentAmount * teacherPercentage) / 100;
+      }
+      return {
+        ...payment,
+        courseName: course ? course.courseName : 'N/A',
+        studentName: student ? student.fullName : 'N/A',
+        teacherPayment: teacherPayment
+      };
+    }).sort((a, b) => new Date(b.paymentDate || b.createdAt) - new Date(a.paymentDate || a.createdAt));
+
+    // Download payslip function
+    const downloadPayslip = async (monthKey, amount) => {
+      try {
+        const [year, month] = monthKey.split('-');
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'];
+        const monthName = monthNames[parseInt(month) - 1];
+        
+        // Get payments for this month
+        const monthPayments = paymentHistory.filter(p => p.monthKey === monthKey);
+        
+        // Create PDF
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        
+        // Header
+        pdf.setFontSize(20);
+        pdf.setTextColor(99, 102, 241); // Indigo color
+        pdf.text('PAYSLIP', 105, 20, { align: 'center' });
+        
+        // Teacher Info
+        pdf.setFontSize(12);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text(`Teacher: ${teacher ? teacher.name : 'N/A'}`, 20, 35);
+        pdf.text(`Teacher ID: ${teacher ? teacher.teacherId : 'N/A'}`, 20, 42);
+        pdf.text(`Email: ${teacher ? teacher.email : 'N/A'}`, 20, 49);
+        
+        // Period
+        pdf.setFontSize(14);
+        pdf.text(`Period: ${monthName} ${year}`, 20, 60);
+        
+        // Line
+        pdf.setDrawColor(200, 200, 200);
+        pdf.line(20, 65, 190, 65);
+        
+        // Earnings Summary
+        pdf.setFontSize(12);
+        pdf.text('Earnings Summary', 20, 75);
+        
+        pdf.setFontSize(10);
+        pdf.text(`Total Earnings for ${monthName} ${year}:`, 25, 85);
+        pdf.setFontSize(14);
+        pdf.setTextColor(16, 185, 129); // Green color
+        pdf.text(`Rs ${amount.toFixed(2)}`, 180, 85, { align: 'right' });
+        
+        // Payment Details
+        if (monthPayments.length > 0) {
+          pdf.setFontSize(12);
+          pdf.setTextColor(0, 0, 0);
+          pdf.text('Payment Details', 20, 100);
+          
+          let yPos = 110;
+          pdf.setFontSize(9);
+          monthPayments.forEach((payment, index) => {
+            if (yPos > 270) {
+              pdf.addPage();
+              yPos = 20;
+            }
+            pdf.text(`${index + 1}. ${payment.studentName} - ${payment.courseName}`, 25, yPos);
+            pdf.text(`   Amount: Rs ${payment.teacherPayment.toFixed(2)}`, 30, yPos + 6);
+            yPos += 15;
+          });
+        }
+        
+        // Footer
+        const pageCount = pdf.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+          pdf.setPage(i);
+          pdf.setFontSize(8);
+          pdf.setTextColor(128, 128, 128);
+          pdf.text(`Generated on ${new Date().toLocaleDateString()}`, 105, 285, { align: 'center' });
+          pdf.text(`Page ${i} of ${pageCount}`, 105, 290, { align: 'center' });
+        }
+        
+        // Download
+        const filename = `Payslip_${teacher ? teacher.name.replace(/\s+/g, '_') : 'Teacher'}_${monthName}_${year}.pdf`;
+        pdf.save(filename);
+      } catch (error) {
+        console.error('Error generating payslip:', error);
+        alert('Failed to generate payslip. Please try again.');
+      }
+    };
+
     return (
       <div>
-        <div className="operators-header mb-4">
-          <div>
-            <h2 className="dashboard-title">Income</h2>
-            <p className="dashboard-subtitle">Your payment and income information</p>
+        <div className="operators-header mb-4" style={{ textAlign: 'left' }}>
+          <div style={{ textAlign: 'left' }}>
+            <h2 className="dashboard-title" style={{ textAlign: 'left' }}>Income</h2>
+            <p className="dashboard-subtitle" style={{ textAlign: 'left' }}>Your payment and income information</p>
           </div>
         </div>
 
+        {/* Summary Cards */}
         <Row className="g-3 mb-4" style={{ display: 'flex', flexWrap: 'wrap' }}>
           <Col xs={12} md style={{ flex: '1 1 0', minWidth: '200px' }}>
             <Card className="dashboard-stat-card h-100">
@@ -1420,6 +1955,461 @@ const TeacherDashboard = () => {
             </Card>
           </Col>
         </Row>
+
+        {/* Total Monthly Earnings - Paid */}
+        <Card style={{
+          border: 'none',
+          borderRadius: '16px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+          background: 'white',
+          marginBottom: '24px'
+        }}>
+          <Card.Body style={{ padding: '24px', textAlign: 'left' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', textAlign: 'left' }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white'
+              }}>
+                <HiOutlineArrowTrendingUp size={24} />
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#1e293b', textAlign: 'left' }}>
+                  Total Monthly Earnings - Paid
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748b', textAlign: 'left' }}>
+                  Breakdown of your paid earnings by month
+                </p>
+              </div>
+            </div>
+            {Object.keys(monthlyEarnings).length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                <HiOutlineCurrencyDollar size={48} style={{ opacity: 0.3, marginBottom: '16px' }} />
+                <p style={{ margin: 0, fontSize: '14px' }}>No monthly earnings recorded yet.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
+                {Object.entries(monthlyEarnings).sort((a, b) => b[0].localeCompare(a[0])).map(([monthKey, amount]) => {
+                  const [year, month] = monthKey.split('-');
+                  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'];
+                  const monthName = monthNames[parseInt(month) - 1];
+                  return (
+                    <div key={monthKey} style={{
+                      padding: '16px',
+                      background: '#f8fafc',
+                      borderRadius: '12px',
+                      border: '1px solid #e2e8f0',
+                      textAlign: 'left'
+                    }}>
+                      <div style={{ fontSize: '12px', fontWeight: '600', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', textAlign: 'left' }}>
+                        {monthName} {year}
+                      </div>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: '#10b981', textAlign: 'left' }}>
+                        Rs {amount.toFixed(2)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card.Body>
+        </Card>
+
+        {/* Student Pending Payments */}
+        <Card style={{
+          border: 'none',
+          borderRadius: '16px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+          background: 'white',
+          marginBottom: '24px'
+        }}>
+          <Card.Body style={{ padding: '24px', textAlign: 'left' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', textAlign: 'left' }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white'
+              }}>
+                <HiOutlineClock size={24} />
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#1e293b', textAlign: 'left' }}>
+                  Student Pending Payments
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748b', textAlign: 'left' }}>
+                  Students with outstanding payment obligations
+                </p>
+              </div>
+            </div>
+            {allStudentPendingPayments.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                <HiOutlineUserGroup size={48} style={{ opacity: 0.3, marginBottom: '16px' }} />
+                <p style={{ margin: 0, fontSize: '14px' }}>No pending payments from students.</p>
+              </div>
+            ) : (
+              <>
+                <div style={{ overflowX: 'auto' }}>
+                  <Table responsive hover style={{ margin: 0 }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                        <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', border: 'none', textAlign: 'left' }}>Student</th>
+                        <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', border: 'none', textAlign: 'left' }}>Course</th>
+                        <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', border: 'none', textAlign: 'left' }}>Pending Months</th>
+                        <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', border: 'none', textAlign: 'left' }}>Pending Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedPendingPayments.map((item, index) => (
+                        <tr key={`${item.studentId}-${item.courseId}`} style={{ borderBottom: '1px solid #e2e8f0', transition: 'background 0.2s ease' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                          <td style={{ padding: '16px', fontSize: '14px', fontWeight: '600', color: '#1e293b', border: 'none', textAlign: 'left' }}>
+                            {item.studentName}
+                          </td>
+                          <td style={{ padding: '16px', fontSize: '14px', color: '#475569', border: 'none', textAlign: 'left' }}>
+                            {item.courseName}
+                          </td>
+                          <td style={{ padding: '16px', fontSize: '14px', color: '#475569', border: 'none', textAlign: 'left' }}>
+                            {item.pendingMonths} {item.pendingMonths === 1 ? 'month' : 'months'}
+                          </td>
+                          <td style={{ padding: '16px', fontSize: '16px', fontWeight: '700', color: '#ef4444', textAlign: 'left', border: 'none' }}>
+                            Rs {item.pendingAmount.toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+                {allStudentPendingPayments.length > 6 && (
+                  <Pagination
+                    currentPage={pendingPaymentsPage}
+                    totalPages={pendingPaymentsTotalPages}
+                    onPageChange={goToPendingPaymentsPage}
+                    onNext={nextPendingPaymentsPage}
+                    onPrev={prevPendingPaymentsPage}
+                    totalItems={pendingPaymentsTotalItems}
+                    startIndex={pendingPaymentsStartIndex}
+                    endIndex={pendingPaymentsEndIndex}
+                  />
+                )}
+              </>
+            )}
+          </Card.Body>
+        </Card>
+
+        {/* Student Conversion/Retention Rate Graph */}
+        <Card style={{
+          border: 'none',
+          borderRadius: '16px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+          background: 'white',
+          marginBottom: '24px'
+        }}>
+          <Card.Body style={{ padding: '24px', textAlign: 'left' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', textAlign: 'left' }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white'
+              }}>
+                <HiOutlineChartBar size={24} />
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#1e293b', textAlign: 'left' }}>
+                  Student Conversion/Retention Rate
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748b', textAlign: 'left' }}>
+                  Percentage of enrolled students who have made payments
+                </p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <div style={{ 
+                  height: '200px', 
+                  background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative',
+                  border: '1px solid #e2e8f0'
+                }}>
+                  <div style={{ textAlign: 'left', paddingLeft: '20px' }}>
+                    <div style={{ fontSize: '48px', fontWeight: '700', color: '#6366f1', marginBottom: '8px', textAlign: 'left' }}>
+                      {retentionRate}%
+                    </div>
+                    <div style={{ fontSize: '14px', color: '#64748b', fontWeight: '500', textAlign: 'left' }}>
+                      Retention Rate
+                    </div>
+                  </div>
+                  {/* Simple bar visualization */}
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '20px',
+                    left: '20px',
+                    right: '20px',
+                    height: '8px',
+                    background: '#e2e8f0',
+                    borderRadius: '4px',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      width: `${retentionRate}%`,
+                      height: '100%',
+                      background: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%)',
+                      transition: 'width 0.5s ease'
+                    }} />
+                  </div>
+                </div>
+              </div>
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'left' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', textAlign: 'left' }}>
+                      Total Enrolled
+                    </div>
+                    <div style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', textAlign: 'left' }}>
+                      {totalEnrolled} Students
+                    </div>
+                  </div>
+                  <div style={{ padding: '16px', background: '#f0fdf4', borderRadius: '12px', border: '1px solid #bbf7d0', textAlign: 'left' }}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', textAlign: 'left' }}>
+                      Paid Students
+                    </div>
+                    <div style={{ fontSize: '24px', fontWeight: '700', color: '#10b981', textAlign: 'left' }}>
+                      {paidStudents} Students
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card.Body>
+        </Card>
+
+        {/* Payment History Table */}
+        <Card style={{
+          border: 'none',
+          borderRadius: '16px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+          background: 'white',
+          marginBottom: '24px'
+        }}>
+          <Card.Body style={{ padding: '24px', textAlign: 'left' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', textAlign: 'left' }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white'
+              }}>
+                <HiOutlineCalendar size={24} />
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#1e293b', textAlign: 'left' }}>
+                  Payment History
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748b', textAlign: 'left' }}>
+                  Complete record of all received payments
+                </p>
+              </div>
+            </div>
+            {paymentHistory.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                <HiOutlineCurrencyDollar size={48} style={{ opacity: 0.3, marginBottom: '16px' }} />
+                <p style={{ margin: 0, fontSize: '14px' }}>No payment history available.</p>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <Table responsive hover style={{ margin: 0 }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                      <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', border: 'none', textAlign: 'left' }}>Date</th>
+                      <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', border: 'none', textAlign: 'left' }}>Student</th>
+                      <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', border: 'none', textAlign: 'left' }}>Course</th>
+                      <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', border: 'none', textAlign: 'left' }}>Month</th>
+                      <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', border: 'none', textAlign: 'left' }}>Total Amount</th>
+                      <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', border: 'none', textAlign: 'left' }}>Your Earnings</th>
+                      <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', border: 'none', textAlign: 'left' }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentHistory.map((payment) => {
+                      const [year, month] = payment.monthKey ? payment.monthKey.split('-') : ['', ''];
+                      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+                      const monthName = monthNames[parseInt(month) - 1];
+                      const formattedDate = payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
+                      return (
+                        <tr key={payment.id} style={{ borderBottom: '1px solid #e2e8f0', transition: 'background 0.2s ease' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                          <td style={{ padding: '16px', fontSize: '14px', color: '#1e293b', fontWeight: '500', border: 'none', textAlign: 'left' }}>
+                            {formattedDate}
+                          </td>
+                          <td style={{ padding: '16px', fontSize: '14px', color: '#1e293b', fontWeight: '500', border: 'none', textAlign: 'left' }}>
+                            {payment.studentName}
+                          </td>
+                          <td style={{ padding: '16px', fontSize: '14px', color: '#475569', border: 'none', textAlign: 'left' }}>
+                            {payment.courseName}
+                          </td>
+                          <td style={{ padding: '16px', fontSize: '14px', color: '#475569', border: 'none', textAlign: 'left' }}>
+                            {monthName} {year}
+                          </td>
+                          <td style={{ padding: '16px', fontSize: '14px', color: '#1e293b', border: 'none', textAlign: 'left' }}>
+                            Rs {parseFloat(payment.amount || 0).toFixed(2)}
+                          </td>
+                          <td style={{ padding: '16px', fontSize: '16px', fontWeight: '700', color: '#10b981', textAlign: 'left', border: 'none' }}>
+                            Rs {payment.teacherPayment.toFixed(2)}
+                          </td>
+                          <td style={{ padding: '16px', textAlign: 'left', border: 'none' }}>
+                            <Badge style={{
+                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              border: 'none'
+                            }}>
+                              {payment.status || 'Paid'}
+                            </Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </Table>
+              </div>
+            )}
+          </Card.Body>
+        </Card>
+
+        {/* Downloadable Payslips */}
+        <Card style={{
+          border: 'none',
+          borderRadius: '16px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+          background: 'white',
+          marginBottom: '24px'
+        }}>
+          <Card.Body style={{ padding: '24px', textAlign: 'left' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', textAlign: 'left' }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white'
+              }}>
+                <HiOutlineDocumentArrowDown size={24} />
+              </div>
+              <div style={{ flex: 1, textAlign: 'left' }}>
+                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#1e293b', textAlign: 'left' }}>
+                  Downloadable Payslips
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748b', textAlign: 'left' }}>
+                  Download your payslips sorted by month, course, or individual payments
+                </p>
+              </div>
+            </div>
+
+            {/* Payslip List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {Object.entries(monthlyEarnings).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 6).map(([monthKey, amount]) => {
+                const [year, month] = monthKey.split('-');
+                const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                  'July', 'August', 'September', 'October', 'November', 'December'];
+                const monthName = monthNames[parseInt(month) - 1];
+                return (
+                  <div key={monthKey} style={{
+                    padding: '16px',
+                    background: '#f8fafc',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#f1f5f9';
+                    e.currentTarget.style.borderColor = '#6366f1';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#f8fafc';
+                    e.currentTarget.style.borderColor = '#e2e8f0';
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '8px',
+                        background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white'
+                      }}>
+                        <HiOutlineDocumentArrowDown size={20} />
+                      </div>
+                      <div style={{ textAlign: 'left' }}>
+                        <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', textAlign: 'left' }}>
+                          Payslip - {monthName} {year}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px', textAlign: 'left' }}>
+                          Rs {amount.toFixed(2)} • Monthly Summary
+                        </div>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="outline-primary" 
+                      size="sm"
+                      onClick={() => downloadPayslip(monthKey, amount)}
+                      style={{
+                        borderColor: '#6366f1',
+                        color: '#6366f1',
+                        borderRadius: '8px',
+                        fontWeight: '600'
+                      }}
+                    >
+                      <HiOutlineDocumentArrowDown size={16} style={{ marginRight: '6px' }} />
+                      Download
+                    </Button>
+                  </div>
+                );
+              })}
+              {Object.keys(monthlyEarnings).length === 0 && (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                  <HiOutlineDocumentArrowDown size={48} style={{ opacity: 0.3, marginBottom: '16px' }} />
+                  <p style={{ margin: 0, fontSize: '14px' }}>No payslips available for download.</p>
+                </div>
+              )}
+            </div>
+          </Card.Body>
+        </Card>
 
       </div>
     );
@@ -1479,7 +2469,7 @@ const TeacherDashboard = () => {
                           objectFit: 'contain'
                         }}
                       />
-                    </div>
+                        </div>
                     {/* Teacher ID Card */}
                     <Card className="h-100" style={{ 
                       border: 'none',
@@ -1696,12 +2686,12 @@ const TeacherDashboard = () => {
                               marginBottom: '16px'
                             }}>
                               <HiOutlineBookOpen style={{ fontSize: '28px', color: '#3b82f6' }} />
-                            </div>
+                        </div>
                             <h3 className="stat-number" style={{ color: '#0f172a', marginBottom: '8px' }}>{loading ? '...' : stats.myCourses}</h3>
                             <p className="stat-label" style={{ color: '#64748b', margin: 0 }}>My Courses</p>
-                          </Card.Body>
-                        </Card>
-                      </Col>
+                      </Card.Body>
+                    </Card>
+                  </Col>
                       <Col xs={6} md={6}>
                         <Card className="dashboard-stat-card h-100" style={{
                           border: 'none',
@@ -1730,7 +2720,7 @@ const TeacherDashboard = () => {
                               marginBottom: '16px'
                             }}>
                               <HiOutlineUserGroup style={{ fontSize: '28px', color: '#10b981' }} />
-                            </div>
+                        </div>
                             <h3 className="stat-number" style={{ color: '#0f172a', marginBottom: '8px' }}>{loading ? '...' : stats.myStudents}</h3>
                             <p className="stat-label" style={{ color: '#64748b', margin: 0 }}>My Students</p>
                           </Card.Body>
@@ -1767,16 +2757,16 @@ const TeacherDashboard = () => {
                             </div>
                             <h3 className="stat-number" style={{ color: '#0f172a', marginBottom: '8px' }}>{loading ? '...' : `Rs ${stats.amountToBePaid.toFixed(2)}`}</h3>
                             <p className="stat-label" style={{ color: '#64748b', margin: 0 }}>Amount to be Paid</p>
-                            {!loading && (
-                              <div className="mt-2">
+                        {!loading && (
+                          <div className="mt-2">
                                 <small style={{ color: '#64748b', display: 'block', fontSize: '12px' }}>
-                                  Rs {stats.paidIncome.toFixed(2)} Amount taken by teacher
-                                </small>
-                              </div>
-                            )}
-                          </Card.Body>
-                        </Card>
-                      </Col>
+                              Rs {stats.paidIncome.toFixed(2)} Amount taken by teacher
+                            </small>
+                          </div>
+                        )}
+                      </Card.Body>
+                    </Card>
+                  </Col>
                       <Col xs={6} md={6}>
                         <Card className="dashboard-stat-card h-100" style={{
                           border: 'none',
@@ -1805,13 +2795,13 @@ const TeacherDashboard = () => {
                               marginBottom: '16px'
                             }}>
                               <HiOutlineCurrencyDollar style={{ fontSize: '28px', color: '#ec4899' }} />
-                            </div>
+                        </div>
                             <h3 className="stat-number" style={{ color: '#0f172a', marginBottom: '8px' }}>{loading ? '...' : `Rs ${stats.advancePayments.toFixed(2)}`}</h3>
                             <p className="stat-label" style={{ color: '#64748b', margin: 0 }}>Advance Payments</p>
-                          </Card.Body>
-                        </Card>
-                      </Col>
-                    </Row>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                </Row>
 
                     {/* Pending Amount From Student - 2 cards width */}
                     <Row className="g-3">

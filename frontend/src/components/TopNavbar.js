@@ -38,19 +38,6 @@ const TopNavbar = ({ admin, onMenuToggle }) => {
               <span className="user-name">{admin?.name || admin?.email || 'Admin'}</span>
             </Dropdown.Toggle>
             <Dropdown.Menu className="user-dropdown">
-              <Dropdown.Item className="user-dropdown-item">
-                <span className="dropdown-icon">
-                  <HiOutlineUser />
-                </span>
-                <span>Profile</span>
-              </Dropdown.Item>
-              <Dropdown.Item className="user-dropdown-item">
-                <span className="dropdown-icon">
-                  <HiOutlineCog6Tooth />
-                </span>
-                <span>Settings</span>
-              </Dropdown.Item>
-              <Dropdown.Divider />
               <Dropdown.Item className="user-dropdown-item" onClick={handleLogout}>
                 <span className="dropdown-icon">
                   <HiOutlineArrowRightOnRectangle />

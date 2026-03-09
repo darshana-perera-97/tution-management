@@ -608,19 +608,19 @@ const Teachers = () => {
                             }}
                           />
                         ) : (
-                          <div style={{
+                        <div style={{
                             width: '40px',
                             height: '40px',
-                            borderRadius: '50%',
-                            background: 'rgba(139, 92, 246, 0.1)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#7c3aed',
-                            flexShrink: 0
-                          }}>
+                          borderRadius: '50%',
+                          background: 'rgba(139, 92, 246, 0.1)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#7c3aed',
+                          flexShrink: 0
+                        }}>
                             <HiOutlineUser size={20} />
-                          </div>
+                        </div>
                         )}
                         <div>
                           <div style={{ 
