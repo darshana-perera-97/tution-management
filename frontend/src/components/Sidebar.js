@@ -38,7 +38,11 @@ const Sidebar = ({ activeItem, onItemClick, className, onLogout, isCollapsed, on
           <HiOutlineAcademicCap />
         </div>
         {!isCollapsed && (
-          <h3 className="sidebar-logo">Tuition Management</h3>
+          <div className="sidebar-logo-container" style={{ textAlign: 'left' }}>
+            <h3 className="sidebar-logo" style={{ margin: 0, fontSize: '16px', fontWeight: '700', lineHeight: '1.2', textAlign: 'left' }}>NexGenAI Solution</h3>
+            <p style={{ margin: '2px 0 0 0', fontSize: '12px', fontWeight: '500', color: '#94a3b8', lineHeight: '1.2', textAlign: 'left' }}>Smart Institute Management</p>
+            <p style={{ margin: '4px 0 0 0', fontSize: '11px', fontWeight: '600', color: '#6366f1', lineHeight: '1.2', textAlign: 'left' }}>Admin Login</p>
+          </div>
         )}
       </div>
       <Nav className="flex-column sidebar-nav">
