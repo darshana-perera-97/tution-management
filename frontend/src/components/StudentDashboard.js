@@ -31,6 +31,9 @@ const StudentDashboard = () => {
   const [updatingCompletion, setUpdatingCompletion] = useState(false);
   const [timetableMonthlyCount, setTimetableMonthlyCount] = useState(0);
   const [timetableMonthlyLimit, setTimetableMonthlyLimit] = useState(3);
+  const [idCardImage, setIdCardImage] = useState(null);
+  const [generatingIdCard, setGeneratingIdCard] = useState(false);
+  const idCardRef = useRef(null);
 
   useEffect(() => {
     const isAuthenticated = localStorage.getItem('isStudentAuthenticated');
@@ -53,6 +56,17 @@ const StudentDashboard = () => {
       navigate('/student/login');
     }
   }, [navigate]);
+
+  // Generate ID card image when student is loaded and component is ready
+  useEffect(() => {
+    if (student && !idCardImage && !generatingIdCard) {
+      // Wait for DOM to be ready
+      const timer = setTimeout(() => {
+        generateIDCardImage();
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [student]);
 
   const fetchAllCourses = async (studentId) => {
     try {
@@ -201,6 +215,61 @@ const StudentDashboard = () => {
       alert('Unable to update completion status. Please try again.');
     } finally {
       setUpdatingCompletion(false);
+    }
+  };
+
+  const generateIDCardImage = async () => {
+    if (!student) return;
+    
+    setGeneratingIdCard(true);
+    setIdCardImage(null);
+    
+    try {
+      // Wait for the DOM to render and ref to be available
+      let attempts = 0;
+      while (!idCardRef.current && attempts < 10) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+      
+      if (!idCardRef.current) {
+        throw new Error('ID card element not found');
+      }
+      
+      // Wait a bit more for images to load
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Dynamically import html2canvas
+      const html2canvas = (await import('html2canvas')).default;
+      
+      const canvas = await html2canvas(idCardRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: false,
+        onclone: (clonedDoc) => {
+          // Ensure images are loaded in the cloned document
+          const clonedElement = clonedDoc.querySelector('[data-id-card]');
+          if (clonedElement) {
+            const images = clonedElement.querySelectorAll('img');
+            images.forEach(img => {
+              if (img.src && !img.complete) {
+                img.style.display = 'none';
+              }
+            });
+          }
+        }
+      });
+
+      // Convert canvas to image data URL
+      const imgData = canvas.toDataURL('image/png');
+      setIdCardImage(imgData);
+    } catch (error) {
+      console.error('Error generating ID card image:', error);
+      // Don't show error to user, just fall back to template view
+    } finally {
+      setGeneratingIdCard(false);
     }
   };
 
@@ -1080,149 +1149,222 @@ const StudentDashboard = () => {
                   position: 'sticky',
                   top: '70px'
                 }}>
-                  <Card.Body style={{ padding: '20px' }}>
-                    <div style={{
-                      width: '100%',
-                      aspectRatio: '2/3',
-                      background: 'white',
-                      borderRadius: '12px',
-                      padding: '0',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                      overflow: 'hidden',
-                      position: 'relative'
-                    }}>
-                      {/* Template Background Image */}
-                      <div style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        backgroundImage: `url(/id-card-template.jpg)`,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        backgroundRepeat: 'no-repeat',
-                        zIndex: 0
-                      }}></div>
-
-                      {/* Content Overlay */}
-                      <div style={{ position: 'relative', zIndex: 1, padding: '16px', paddingTop: '0' }}>
-                        {/* Student Image */}
+                  <Card.Body style={{ padding: '20px', position: 'relative' }}>
+                    {/* Hidden div for html2canvas to capture - positioned off-screen */}
+                    {student && (
+                      <div
+                        ref={idCardRef}
+                        data-id-card="true"
+                        style={{
+                          position: 'fixed',
+                          left: '-9999px',
+                          top: 0,
+                          width: '400px',
+                          aspectRatio: '2/3',
+                          background: 'white',
+                          borderRadius: '16px',
+                          padding: '0',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                          overflow: 'hidden',
+                          zIndex: -1
+                        }}
+                      >
+                        {/* Template Background Image */}
                         <div style={{
-                          textAlign: 'left',
-                          marginBottom: '16px',
-                          marginTop: '97px'
-                        }}>
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          backgroundImage: `url(${API_URL}/id-card-template.jpg)`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          backgroundRepeat: 'no-repeat',
+                          zIndex: 0
+                        }}></div>
+
+                        {/* Content Overlay */}
+                        <div style={{ position: 'relative', zIndex: 1, padding: '20px', paddingTop: '0' }}>
+                          {/* Student Image */}
                           <div style={{
-                            width: '210px',
-                            height: '210px',
-                            borderRadius: '34px',
-                            overflow: 'hidden',
-                            margin: '0',
-                            marginLeft: '12px',
-                            background: '#f8f9fa',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
+                            textAlign: 'left',
+                            marginBottom: '20px',
+                            marginTop: '97px'
                           }}>
-                            {student.imageUrl ? (
-                              <img
-                                src={`${API_URL}${student.imageUrl}`}
-                                alt={student.fullName}
-                                style={{
-                                  width: '100%',
-                                  height: '100%',
-                                  objectFit: 'cover'
-                                }}
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  if (e.target.nextSibling) {
-                                    e.target.nextSibling.style.display = 'flex';
-                                  }
-                                }}
-                              />
-                            ) : null}
                             <div style={{
-                              display: student.imageUrl ? 'none' : 'flex',
-                              width: '100%',
-                              height: '100%',
+                              width: '204px',
+                              height: '204px',
+                              borderRadius: '30px',
+                              overflow: 'hidden',
+                              margin: '0',
+                              marginLeft: '10px',
+                              background: '#f8f9fa',
+                              display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'center',
-                              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                              color: 'white',
-                              fontSize: '40px',
-                              fontWeight: 'bold'
+                              justifyContent: 'center'
                             }}>
-                              {student.fullName ? student.fullName.charAt(0).toUpperCase() : 'S'}
+                              {student.imageUrl ? (
+                                <img
+                                  src={`${API_URL}${student.imageUrl}`}
+                                  alt={student.fullName}
+                                  style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover'
+                                  }}
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    if (e.target.nextSibling) {
+                                      e.target.nextSibling.style.display = 'flex';
+                                    }
+                                  }}
+                                />
+                              ) : null}
+                              <div style={{
+                                display: student.imageUrl ? 'none' : 'flex',
+                                width: '100%',
+                                height: '100%',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                color: 'white',
+                                fontSize: '48px',
+                                fontWeight: 'bold'
+                              }}>
+                                {student.fullName ? student.fullName.charAt(0).toUpperCase() : 'S'}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Student Name */}
+                          <div style={{
+                            textAlign: 'left',
+                            marginBottom: '15px'
+                          }}>
+                            <h3 style={{
+                              margin: 0,
+                              marginLeft: '10px',
+                              marginTop: '10px',
+                              fontSize: '26px',
+                              fontWeight: 'bold',
+                              color: '#237ac6',
+                              lineHeight: '1.2'
+                            }}>
+                              {student.fullName}
+                            </h3>
+                            {/* Student ID */}
+                            <div style={{}}>
+                              <p style={{
+                                margin: '0',
+                                fontSize: '16px',
+                                marginLeft: '10px',
+                                borderRadius: '100px',
+                                color: '#000',
+                                fontWeight: '500',
+                                display: 'inline-block',
+                                marginTop: '10px'
+                              }}>
+                                Grade {student.grade}
+                              </p>
+                            </div>
+                            <div style={{}}>
+                              <p style={{
+                                margin: '0',
+                                fontSize: '16px',
+                                marginLeft: '10px',
+                                borderRadius: '100px',
+                                color: '#000',
+                                fontWeight: '500',
+                                display: 'inline-block',
+                              }}>
+                                Student ID : {student.id}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* QR Code */}
+                          <div style={{
+                            textAlign: 'left',
+                            marginTop: '0px',
+                            marginLeft: '10px'
+                          }}>
+                            <div style={{
+                              display: 'inline-block',
+                              background: 'transparent'
+                            }}>
+                              <QRCodeSVG
+                                value={student.id}
+                                size={100}
+                                level="H"
+                                includeMargin={true}
+                              />
                             </div>
                           </div>
                         </div>
-
-                        {/* Student Name */}
-                        <div style={{
-                          textAlign: 'left',
-                          marginBottom: '12px'
-                        }}>
-                          <h3 style={{
-                            margin: 0,
-                            marginLeft: '8px',
-                            marginTop: '8px',
-                            fontSize: '20px',
-                            fontWeight: 'bold',
-                            color: '#237ac6',
-                            lineHeight: '1.2'
-                          }}>
-                            {student.fullName}
-                          </h3>
-                          {/* Student ID */}
-                          <div style={{}}>
-                            <p style={{
-                              margin: '0',
-                              fontSize: '13px',
-                              marginLeft: '8px',
-                              borderRadius: '100px',
-                              color: '#000',
-                              fontWeight: '500',
-                              display: 'inline-block',
-                              marginTop: '8px'
-                            }}>
-                              Grade {student.grade}
-                            </p>
-                          </div>
-                          <div style={{}}>
-                            <p style={{
-                              margin: '0',
-                              fontSize: '13px',
-                              marginLeft: '8px',
-                              borderRadius: '100px',
-                              color: '#000',
-                              fontWeight: '500',
-                              display: 'inline-block',
-                            }}>
-                              Student ID : {student.id}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* QR Code */}
-                        <div style={{
-                          textAlign: 'left',
-                          marginTop: '30px',
-                          marginLeft: '14px'
-                        }}>
-                          <div style={{
-                            display: 'inline-block',
-                            background: 'transparent'
-                          }}>
-                            <QRCodeSVG
-                              value={student.id}
-                              size={100}
-                              level="H"
-                              includeMargin={true}
-                            />
-                          </div>
-                        </div>
                       </div>
+                    )}
+                    
+                    {/* Display the generated image */}
+                    <div style={{ textAlign: 'center' }}>
+                      {generatingIdCard ? (
+                        <div style={{ 
+                          padding: '60px 20px',
+                          color: '#64748b',
+                          fontSize: '14px',
+                          width: '100%',
+                          aspectRatio: '2/3',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '12px',
+                          background: '#f8f9fa'
+                        }}>
+                          <div style={{ 
+                            display: 'inline-block',
+                            width: '40px',
+                            height: '40px',
+                            border: '4px solid #e2e8f0',
+                            borderTop: '4px solid #3b82f6',
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite',
+                            marginBottom: '16px'
+                          }}></div>
+                          <p style={{ margin: 0 }}>Generating ID card image...</p>
+                        </div>
+                      ) : idCardImage ? (
+                        <img
+                          src={idCardImage}
+                          alt="Student ID Card"
+                          style={{
+                            width: '100%',
+                            height: 'auto',
+                            maxWidth: '100%',
+                            aspectRatio: '2/3',
+                            objectFit: 'contain',
+                            borderRadius: '12px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                            margin: '0 auto',
+                            display: 'block',
+                            background: '#f8f9fa'
+                          }}
+                        />
+                      ) : (
+                        <div style={{ 
+                          padding: '60px 20px',
+                          color: '#64748b',
+                          fontSize: '14px',
+                          width: '100%',
+                          aspectRatio: '2/3',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '12px',
+                          background: '#f8f9fa'
+                        }}>
+                          <p style={{ margin: 0 }}>Loading ID card...</p>
+                        </div>
+                      )}
                     </div>
                   </Card.Body>
                 </Card>
