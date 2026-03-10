@@ -2275,9 +2275,24 @@ const StudentDashboard = () => {
                     justifyContent: 'center',
                     fontSize: '18px',
                     fontWeight: '700',
-                    color: '#6366f1'
+                    color: '#6366f1',
+                    position: 'relative'
                   }}>
-                    {Math.round(progressPercentage)}%
+                    <div style={{
+                      position: 'absolute',
+                      width: '60px',
+                      height: '60px',
+                      borderRadius: '50%',
+                      background: '#f8fafc',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      zIndex: 1
+                    }}>
+                      <span style={{ color: '#6366f1', fontWeight: '700', fontSize: '18px' }}>
+                        {Math.round(progressPercentage)}%
+                      </span>
+                    </div>
                   </div>
                 </div>
 
