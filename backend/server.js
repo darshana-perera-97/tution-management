@@ -80,6 +80,8 @@ const studentChatbotQuotasPath = path.join(__dirname, 'data', 'studentChatbotQuo
 const chatbotTokenUsagePath = path.join(__dirname, 'data', 'chatbotTokenUsage.json');
 // Path to extra classes data file
 const extraClassesPath = path.join(__dirname, 'data', 'extraclasses.json');
+// Path to timetables data file
+const timetablesPath = path.join(__dirname, 'data', 'timetables.json');
 
 // Helper function to read admin data
 const readAdminData = () => {
@@ -1437,6 +1439,266 @@ app.get('/api/students/:studentId/courses', (req, res) => {
     });
   } catch (error) {
     console.error('Get student courses error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Helper function to read timetables data
+const readTimetablesData = () => {
+  try {
+    const data = fs.readFileSync(timetablesPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    // If file doesn't exist or is invalid, return default structure
+    return { timetables: [] };
+  }
+};
+
+// Helper function to write timetables data
+const writeTimetablesData = (data) => {
+  try {
+    // Ensure data directory exists
+    const dataDir = path.dirname(timetablesPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(timetablesPath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error writing timetables data:', error);
+    return false;
+  }
+};
+
+// Helper function to clean up old timetables (older than 1 month)
+const cleanupOldTimetables = (timetablesData) => {
+  const oneMonthAgo = new Date();
+  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+  
+  const initialCount = timetablesData.timetables.length;
+  timetablesData.timetables = timetablesData.timetables.filter(timetable => {
+    const savedDate = new Date(timetable.savedAt || timetable.updatedAt);
+    return savedDate >= oneMonthAgo;
+  });
+  
+  const removedCount = initialCount - timetablesData.timetables.length;
+  if (removedCount > 0) {
+    console.log(`Cleaned up ${removedCount} old timetable(s) older than 1 month`);
+  }
+  
+  return timetablesData;
+};
+
+// Helper function to check monthly limit
+const checkMonthlyLimit = (studentId, timetablesData) => {
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  
+  // Filter timetables for this student in the current month
+  const monthlyTimetables = timetablesData.timetables.filter(timetable => {
+    if (timetable.studentId !== studentId) return false;
+    
+    const savedDate = new Date(timetable.savedAt || timetable.updatedAt);
+    return savedDate.getMonth() === currentMonth && savedDate.getFullYear() === currentYear;
+  });
+  
+  return monthlyTimetables.length;
+};
+
+// Save student timetable
+app.post('/api/students/:studentId/timetables', (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { subjectId, subjectName, moduleId, moduleName, subModules, totalHours } = req.body;
+
+    if (!subjectId || !moduleId || !subModules || !Array.isArray(subModules)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Subject ID, Module ID, and SubModules are required'
+      });
+    }
+
+    let timetablesData = readTimetablesData();
+    
+    // Clean up old timetables (older than 1 month)
+    timetablesData = cleanupOldTimetables(timetablesData);
+    
+    // Check if timetable already exists for this student and module
+    const existingIndex = timetablesData.timetables.findIndex(
+      t => t.studentId === studentId && t.moduleId === moduleId
+    );
+
+    // If it's a new timetable (not updating existing), check monthly limit
+    if (existingIndex === -1) {
+      const monthlyCount = checkMonthlyLimit(studentId, timetablesData);
+      if (monthlyCount >= 3) {
+        return res.status(400).json({
+          success: false,
+          message: 'You have reached the monthly limit of 3 timetables. Please wait until next month or update an existing timetable.',
+          monthlyLimit: 3,
+          currentCount: monthlyCount
+        });
+      }
+    }
+
+    const timetableEntry = {
+      id: existingIndex !== -1 
+        ? timetablesData.timetables[existingIndex].id 
+        : Date.now().toString(),
+      studentId: studentId,
+      subjectId: subjectId,
+      subjectName: subjectName || '',
+      moduleId: moduleId,
+      moduleName: moduleName || '',
+      subModules: subModules,
+      totalHours: totalHours || subModules.reduce((sum, sub) => sum + (sub.timeAllocation || 0), 0),
+      savedAt: existingIndex !== -1 
+        ? timetablesData.timetables[existingIndex].savedAt 
+        : new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    if (existingIndex !== -1) {
+      // Update existing timetable - preserve completion data if exists
+      timetableEntry.completion = timetablesData.timetables[existingIndex].completion || {};
+      timetablesData.timetables[existingIndex] = timetableEntry;
+    } else {
+      // Add new timetable
+      timetableEntry.completion = {};
+      timetablesData.timetables.push(timetableEntry);
+    }
+
+    if (writeTimetablesData(timetablesData)) {
+      res.json({
+        success: true,
+        message: existingIndex !== -1 ? 'Timetable updated successfully' : 'Timetable saved successfully',
+        timetable: timetableEntry,
+        monthlyCount: checkMonthlyLimit(studentId, timetablesData)
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to save timetable'
+      });
+    }
+  } catch (error) {
+    console.error('Save timetable error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get student timetables
+app.get('/api/students/:studentId/timetables', (req, res) => {
+  try {
+    const { studentId } = req.params;
+    let timetablesData = readTimetablesData();
+    
+    // Clean up old timetables (older than 1 month) before fetching
+    timetablesData = cleanupOldTimetables(timetablesData);
+    
+    // Write cleaned data back if any were removed
+    if (timetablesData.timetables.length < readTimetablesData().timetables.length) {
+      writeTimetablesData(timetablesData);
+    }
+    
+    const studentTimetables = timetablesData.timetables.filter(
+      t => t.studentId === studentId
+    );
+
+    // Sort by updatedAt (newest first)
+    studentTimetables.sort((a, b) => new Date(b.updatedAt || b.savedAt) - new Date(a.updatedAt || a.savedAt));
+
+    // Get monthly count for this student
+    const monthlyCount = checkMonthlyLimit(studentId, timetablesData);
+
+    res.json({
+      success: true,
+      timetables: studentTimetables,
+      monthlyCount: monthlyCount,
+      monthlyLimit: 3
+    });
+  } catch (error) {
+    console.error('Get student timetables error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Update timetable completion status
+app.put('/api/students/:studentId/timetables/:timetableId/completion', (req, res) => {
+  try {
+    const { studentId, timetableId } = req.params;
+    const { subModuleId, completed } = req.body;
+
+    if (subModuleId === undefined || completed === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'SubModule ID and completion status are required'
+      });
+    }
+
+    const timetablesData = readTimetablesData();
+    
+    const timetableIndex = timetablesData.timetables.findIndex(
+      t => t.id === timetableId && t.studentId === studentId
+    );
+
+    if (timetableIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'Timetable not found'
+      });
+    }
+
+    const timetable = timetablesData.timetables[timetableIndex];
+    
+    // Update completion status for the submodule
+    const subModuleIndex = timetable.subModules.findIndex(
+      sub => sub.id === subModuleId
+    );
+
+    if (subModuleIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: 'SubModule not found'
+      });
+    }
+
+    // Initialize completion tracking if not exists
+    if (!timetable.completion) {
+      timetable.completion = {};
+    }
+
+    timetable.completion[subModuleId] = {
+      completed: completed,
+      completedAt: completed ? new Date().toISOString() : null
+    };
+
+    timetable.updatedAt = new Date().toISOString();
+
+    if (writeTimetablesData(timetablesData)) {
+      res.json({
+        success: true,
+        message: completed ? 'SubModule marked as completed' : 'SubModule marked as incomplete',
+        timetable: timetable
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update completion status'
+      });
+    }
+  } catch (error) {
+    console.error('Update timetable completion error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

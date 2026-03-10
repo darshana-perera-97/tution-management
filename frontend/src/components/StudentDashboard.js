@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Container, Row, Col, Card, Table, Button, Nav, Tab, Badge, Alert, Form } from 'react-bootstrap';
+import { Container, Row, Col, Card, Table, Button, Nav, Tab, Badge, Alert, Form, Modal } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { HiArrowDownTray, HiOutlineBookOpen, HiOutlineAcademicCap, HiOutlineCurrencyDollar } from 'react-icons/hi2';
+import { HiArrowDownTray, HiOutlineBookOpen, HiOutlineAcademicCap, HiOutlineCurrencyDollar, HiOutlineClock, HiOutlineCheckCircle, HiXMark } from 'react-icons/hi2';
 import { QRCodeSVG } from 'qrcode.react';
 import StudentTopNavbar from './StudentTopNavbar';
 import StudentChatbot from './StudentChatbot';
@@ -25,6 +25,12 @@ const StudentDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('attendance');
   const [chatbotOpen, setChatbotOpen] = useState(false);
+  const [timetables, setTimetables] = useState([]);
+  const [selectedTimetable, setSelectedTimetable] = useState(null);
+  const [showTimetableModal, setShowTimetableModal] = useState(false);
+  const [updatingCompletion, setUpdatingCompletion] = useState(false);
+  const [timetableMonthlyCount, setTimetableMonthlyCount] = useState(0);
+  const [timetableMonthlyLimit, setTimetableMonthlyLimit] = useState(3);
 
   useEffect(() => {
     const isAuthenticated = localStorage.getItem('isStudentAuthenticated');
@@ -41,6 +47,7 @@ const StudentDashboard = () => {
       fetchAllCourses(parsedStudent.id);
       fetchNotifications(parsedStudent.id);
       fetchPayments(parsedStudent.id);
+      fetchTimetables(parsedStudent.id);
     } catch (err) {
       console.error('Error parsing student data:', err);
       navigate('/student/login');
@@ -129,6 +136,71 @@ const StudentDashboard = () => {
     } catch (err) {
       console.error('Error fetching payments:', err);
       setPayments([]);
+    }
+  };
+
+  const fetchTimetables = async (studentId) => {
+    try {
+      const response = await fetch(`${API_URL}/api/students/${studentId}/timetables`);
+      const data = await response.json();
+      if (data.success) {
+        setTimetables(data.timetables || []);
+        setTimetableMonthlyCount(data.monthlyCount || 0);
+        setTimetableMonthlyLimit(data.monthlyLimit || 3);
+      }
+    } catch (err) {
+      console.error('Error fetching timetables:', err);
+      setTimetables([]);
+    }
+  };
+
+  const handleTimetableClick = (timetable) => {
+    setSelectedTimetable(timetable);
+    setShowTimetableModal(true);
+  };
+
+  const handleToggleCompletion = async (subModuleId, completed) => {
+    if (!selectedTimetable || !student?.id || updatingCompletion) return;
+
+    setUpdatingCompletion(true);
+    try {
+      const response = await fetch(
+        `${API_URL}/api/students/${student.id}/timetables/${selectedTimetable.id}/completion`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            subModuleId: subModuleId,
+            completed: completed
+          }),
+        }
+      );
+
+      const data = await response.json();
+      if (data.success) {
+        // Update local state
+        const updatedTimetable = { ...selectedTimetable, ...data.timetable };
+        setSelectedTimetable(updatedTimetable);
+        
+        // Update timetables list
+        setTimetables(prev => prev.map(t => 
+          t.id === selectedTimetable.id ? updatedTimetable : t
+        ));
+        
+        // Refresh timetables to get updated monthly count
+        if (student?.id) {
+          fetchTimetables(student.id);
+        }
+      } else {
+        alert(data.message || 'Failed to update completion status');
+      }
+    } catch (err) {
+      console.error('Error updating completion:', err);
+      alert('Unable to update completion status. Please try again.');
+    } finally {
+      setUpdatingCompletion(false);
     }
   };
 
@@ -1777,10 +1849,361 @@ const StudentDashboard = () => {
                   })()}
                 </Card.Body>
               </Card>
+
+              {/* Saved Timetables Section */}
+              <Card style={{ 
+                border: 'none',
+                borderRadius: '16px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                background: 'white',
+                marginTop: '20px'
+              }}>
+                <Card.Body style={{ padding: '24px' }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '20px'
+                  }}>
+                    <h2 style={{ 
+                      margin: 0,
+                      fontSize: '24px',
+                      fontWeight: '700',
+                      color: '#1e293b',
+                      textAlign: 'left',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px'
+                    }}>
+                      <HiOutlineClock size={28} color="#6366f1" />
+                      Saved Timetables
+                    </h2>
+                    <Badge 
+                      bg={timetableMonthlyCount >= timetableMonthlyLimit ? 'danger' : 'primary'}
+                      style={{
+                        fontSize: '12px',
+                        padding: '6px 12px',
+                        fontWeight: '600'
+                      }}
+                    >
+                      {timetableMonthlyCount}/{timetableMonthlyLimit} this month
+                    </Badge>
+                  </div>
+                  
+                  {timetables.length === 0 ? (
+                    <div style={{ 
+                      textAlign: 'center', 
+                      padding: '40px 20px',
+                      color: '#94a3b8'
+                    }}>
+                      <div style={{ fontSize: '48px', marginBottom: '16px' }}>📅</div>
+                      <p style={{ margin: 0, fontSize: '16px' }}>No saved timetables yet.</p>
+                      <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#cbd5e1' }}>
+                        Save timetables from the AI chatbot to view them here.
+                      </p>
+                      <p style={{ 
+                        margin: '12px 0 0 0', 
+                        fontSize: '12px', 
+                        color: '#cbd5e1',
+                        fontStyle: 'italic'
+                      }}>
+                        You can save up to 3 timetables per month. Timetables are automatically removed after 1 month.
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                      gap: '16px'
+                    }}>
+                      {timetables.map((timetable) => {
+                        const completedCount = timetable.subModules?.filter(sub => 
+                          timetable.completion?.[sub.id]?.completed
+                        ).length || 0;
+                        const totalCount = timetable.subModules?.length || 0;
+                        const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+                        
+                        return (
+                          <Card
+                            key={timetable.id}
+                            onClick={() => handleTimetableClick(timetable)}
+                            style={{
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '12px',
+                              cursor: 'pointer',
+                              transition: 'all 0.3s ease',
+                              background: 'white',
+                              overflow: 'hidden'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.transform = 'translateY(-4px)';
+                              e.currentTarget.style.boxShadow = '0 8px 24px rgba(99, 102, 241, 0.15)';
+                              e.currentTarget.style.borderColor = '#6366f1';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = 'translateY(0)';
+                              e.currentTarget.style.boxShadow = 'none';
+                              e.currentTarget.style.borderColor = '#e2e8f0';
+                            }}
+                          >
+                            <Card.Body style={{ padding: '20px' }}>
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px',
+                                marginBottom: '12px'
+                              }}>
+                                <div style={{
+                                  width: '48px',
+                                  height: '48px',
+                                  borderRadius: '12px',
+                                  background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  flexShrink: 0
+                                }}>
+                                  <HiOutlineClock size={24} />
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <h6 style={{
+                                    margin: 0,
+                                    fontSize: '16px',
+                                    fontWeight: '700',
+                                    color: '#1e293b',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
+                                  }}>
+                                    {timetable.moduleName}
+                                  </h6>
+                                  <p style={{
+                                    margin: '4px 0 0 0',
+                                    fontSize: '12px',
+                                    color: '#64748b',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
+                                  }}>
+                                    {timetable.subjectName}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div style={{
+                                marginTop: '16px',
+                                paddingTop: '16px',
+                                borderTop: '1px solid #e2e8f0'
+                              }}>
+                                <div style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  marginBottom: '8px'
+                                }}>
+                                  <span style={{
+                                    fontSize: '13px',
+                                    color: '#64748b',
+                                    fontWeight: '500'
+                                  }}>
+                                    Progress
+                                  </span>
+                                  <span style={{
+                                    fontSize: '13px',
+                                    color: '#6366f1',
+                                    fontWeight: '700'
+                                  }}>
+                                    {completedCount}/{totalCount}
+                                  </span>
+                                </div>
+                                <div style={{
+                                  width: '100%',
+                                  height: '8px',
+                                  background: '#e2e8f0',
+                                  borderRadius: '4px',
+                                  overflow: 'hidden'
+                                }}>
+                                  <div style={{
+                                    width: `${progressPercentage}%`,
+                                    height: '100%',
+                                    background: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%)',
+                                    transition: 'width 0.3s ease'
+                                  }} />
+                                </div>
+                                <div style={{
+                                  marginTop: '12px',
+                                  fontSize: '11px',
+                                  color: '#94a3b8',
+                                  display: 'flex',
+                                  justifyContent: 'space-between'
+                                }}>
+                                  <span>{timetable.totalHours} hours</span>
+                                  <span>{Math.round(progressPercentage)}% complete</span>
+                                </div>
+                              </div>
+                            </Card.Body>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Card.Body>
+              </Card>
             </Col>
           </Row>
         </Container>
       </div>
+      
+      {/* Timetable Detail Modal */}
+      <Modal
+        show={showTimetableModal}
+        onHide={() => setShowTimetableModal(false)}
+        size="lg"
+        centered
+      >
+        <Modal.Header style={{
+          border: 'none',
+          padding: '24px',
+          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+          color: 'white'
+        }}>
+          <div style={{ flex: 1 }}>
+            <Modal.Title style={{ 
+              margin: 0, 
+              color: 'white',
+              fontSize: '22px',
+              fontWeight: '700',
+              marginBottom: '4px'
+            }}>
+              {selectedTimetable?.moduleName}
+            </Modal.Title>
+            <div style={{ fontSize: '14px', opacity: 0.9 }}>
+              {selectedTimetable?.subjectName} • {selectedTimetable?.totalHours} hours
+            </div>
+          </div>
+          <Button
+            variant="link"
+            onClick={() => setShowTimetableModal(false)}
+            style={{
+              color: 'white',
+              padding: '8px',
+              minWidth: 'auto',
+              textDecoration: 'none'
+            }}
+          >
+            <HiXMark size={24} />
+          </Button>
+        </Modal.Header>
+        <Modal.Body style={{ padding: '24px', maxHeight: '70vh', overflowY: 'auto' }}>
+          {selectedTimetable && (() => {
+            const completedCount = selectedTimetable.subModules?.filter(sub => 
+              selectedTimetable.completion?.[sub.id]?.completed
+            ).length || 0;
+            const totalCount = selectedTimetable.subModules?.length || 0;
+            const progressPercentage = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+            const progressDegrees = progressPercentage * 3.6; // Convert percentage to degrees
+            
+            return (
+              <div>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '20px',
+                  padding: '16px',
+                  background: '#f8fafc',
+                  borderRadius: '12px'
+                }}>
+                  <div>
+                    <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '4px' }}>
+                      Completion Progress
+                    </div>
+                    <div style={{ fontSize: '20px', fontWeight: '700', color: '#6366f1' }}>
+                      {completedCount} / {totalCount} SubModules
+                    </div>
+                  </div>
+                  <div style={{
+                    width: '80px',
+                    height: '80px',
+                    borderRadius: '50%',
+                    background: `conic-gradient(from 0deg, #6366f1 0%, #6366f1 ${progressDegrees}deg, #e2e8f0 ${progressDegrees}deg, #e2e8f0 360deg)`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '18px',
+                    fontWeight: '700',
+                    color: '#6366f1'
+                  }}>
+                    {Math.round(progressPercentage)}%
+                  </div>
+                </div>
+
+              <Table striped bordered hover style={{ fontSize: '14px' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc' }}>
+                    <th style={{ padding: '12px', fontWeight: '600' }}>SubModule</th>
+                    <th style={{ padding: '12px', fontWeight: '600', textAlign: 'center', width: '120px' }}>Hours</th>
+                    <th style={{ padding: '12px', fontWeight: '600', textAlign: 'center', width: '150px' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedTimetable.subModules?.map((subModule) => {
+                    const isCompleted = selectedTimetable.completion?.[subModule.id]?.completed || false;
+                    return (
+                      <tr key={subModule.id}>
+                        <td style={{ padding: '12px', fontWeight: '500' }}>
+                          {subModule.name}
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center', color: '#6366f1', fontWeight: '600' }}>
+                          {subModule.timeAllocation} hrs
+                        </td>
+                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                          <Button
+                            variant={isCompleted ? 'success' : 'outline-secondary'}
+                            size="sm"
+                            onClick={() => handleToggleCompletion(subModule.id, !isCompleted)}
+                            disabled={updatingCompletion}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              margin: '0 auto',
+                              borderRadius: '8px',
+                              border: 'none',
+                              padding: '6px 12px',
+                              fontWeight: '600',
+                              fontSize: '12px',
+                              background: isCompleted 
+                                ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                                : 'transparent',
+                              color: isCompleted ? 'white' : '#64748b'
+                            }}
+                          >
+                            {isCompleted ? (
+                              <>
+                                <HiOutlineCheckCircle size={16} />
+                                Completed
+                              </>
+                            ) : (
+                              <>
+                                <HiOutlineClock size={16} />
+                                Mark Complete
+                              </>
+                            )}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+              </div>
+            );
+          })()}
+        </Modal.Body>
+      </Modal>
+
       <StudentChatbot student={student} isOpen={chatbotOpen} onIsOpenChange={setChatbotOpen} />
     </div>
   );

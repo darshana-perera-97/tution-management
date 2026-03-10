@@ -12,7 +12,8 @@ import {
   HiOutlineDocumentText,
   HiOutlineClock,
   HiOutlineQuestionMarkCircle,
-  HiOutlineCamera
+  HiOutlineCamera,
+  HiOutlineBookmark
 } from 'react-icons/hi2';
 import API_URL from '../config';
 import subjects from '../data/subjects';
@@ -40,6 +41,7 @@ const StudentChatbot = ({ student, isOpen: externalIsOpen, onIsOpenChange }) => 
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [selectedModule, setSelectedModule] = useState(null);
   const [studentSubjects, setStudentSubjects] = useState([]); // Enrolled subjects
+  const [savingTimetable, setSavingTimetable] = useState({}); // Track saving state per message
   const paperCorrectionFileInputRef = useRef(null);
 
   const MAX_QUESTIONS = 15;
@@ -558,49 +560,199 @@ const StudentChatbot = ({ student, isOpen: externalIsOpen, onIsOpenChange }) => 
   };
 
   // Handler for subject selection in study timetable
-  const handleSubjectSelect = (subject) => {
+  const handleSubjectSelect = (subject, messageId) => {
     setSelectedSubject(subject);
     setStudyTimetableFlow('modules');
     
-    // Add assistant message showing modules
-    const subjectModules = modules[subject.id] || [];
-    const moduleList = subjectModules.map(m => `- ${m.name}`).join('\n');
-    const assistantMessage = {
-      id: Date.now(),
-      role: 'assistant',
-      content: `Here are the modules for ${subject.name}:\n\n${moduleList}\n\nPlease select a module to view its timetable.`,
-      timestamp: new Date().toISOString(),
-      modules: subjectModules
-    };
-    setMessages(prev => [...prev, assistantMessage]);
-    saveChatToStorage([...messages, assistantMessage]);
+    setMessages(prevMessages => {
+      // Update the assistant message to mark the selected subject
+      const updatedMessages = prevMessages.map(msg => {
+        if (msg.id === messageId && msg.showSubjects) {
+          return { ...msg, selectedSubjectId: subject.id };
+        }
+        return msg;
+      });
+      
+      // Add user message showing the selected subject
+      const userMessage = {
+        id: Date.now(),
+        role: 'user',
+        content: subject.name,
+        timestamp: new Date().toISOString(),
+        isSelection: true
+      };
+      const messagesWithUser = [...updatedMessages, userMessage];
+      
+      // Add assistant message showing modules
+      const subjectModules = modules[subject.id] || [];
+      const moduleList = subjectModules.map(m => `- ${m.name}`).join('\n');
+      const assistantMessage = {
+        id: Date.now() + 1,
+        role: 'assistant',
+        content: `Here are the modules for ${subject.name}:\n\n${moduleList}\n\nPlease select a module to view its timetable.`,
+        timestamp: new Date().toISOString(),
+        modules: subjectModules
+      };
+      const finalMessages = [...messagesWithUser, assistantMessage];
+      
+      saveChatToStorage(finalMessages);
+      return finalMessages;
+    });
   };
 
   // Handler for module selection in study timetable
-  const handleModuleSelect = (module) => {
+  const handleModuleSelect = (module, messageId) => {
     setSelectedModule(module);
     setStudyTimetableFlow('timetable');
     
-    // Get submodules for this module
-    const moduleSubModules = subModules[module.id] || [];
-    
-    // Create timetable display
-    const timetableContent = `Timetable for ${module.name}:\n\n${moduleSubModules.map(sub => 
-      `- ${sub.name}: ${sub.timeAllocation} hours`
-    ).join('\n')}\n\nTotal: ${moduleSubModules.reduce((sum, sub) => sum + sub.timeAllocation, 0)} hours`;
-    
-    const assistantMessage = {
-      id: Date.now(),
-      role: 'assistant',
-      content: timetableContent,
-      timestamp: new Date().toISOString(),
-      timetable: {
-        module: module,
-        subModules: moduleSubModules
+    setMessages(prevMessages => {
+      // Update the assistant message to mark the selected module
+      const updatedMessages = prevMessages.map(msg => {
+        if (msg.id === messageId && msg.modules) {
+          return { ...msg, selectedModuleId: module.id };
+        }
+        return msg;
+      });
+      
+      // Add user message showing the selected module
+      const userMessage = {
+        id: Date.now(),
+        role: 'user',
+        content: module.name,
+        timestamp: new Date().toISOString(),
+        isSelection: true
+      };
+      const messagesWithUser = [...updatedMessages, userMessage];
+      
+      // Get submodules for this module
+      const moduleSubModules = subModules[module.id] || [];
+      
+      // Find the selected subject from previous messages
+      let selectedSubjectData = null;
+      for (let i = messagesWithUser.length - 1; i >= 0; i--) {
+        if (messagesWithUser[i].showSubjects && messagesWithUser[i].selectedSubjectId) {
+          selectedSubjectData = studentSubjects.find(s => s.id === messagesWithUser[i].selectedSubjectId);
+          break;
+        }
       }
-    };
-    setMessages(prev => [...prev, assistantMessage]);
-    saveChatToStorage([...messages, assistantMessage]);
+      
+      // Create timetable display
+      const timetableContent = `Timetable for ${module.name}:\n\n${moduleSubModules.map(sub => 
+        `- ${sub.name}: ${sub.timeAllocation} hours`
+      ).join('\n')}\n\nTotal: ${moduleSubModules.reduce((sum, sub) => sum + sub.timeAllocation, 0)} hours`;
+      
+      const assistantMessage = {
+        id: Date.now() + 1,
+        role: 'assistant',
+        content: timetableContent,
+        timestamp: new Date().toISOString(),
+        timetable: {
+          module: module,
+          subModules: moduleSubModules,
+          subjectId: selectedSubjectData?.id || null,
+          subjectName: selectedSubjectData?.name || null
+        }
+      };
+      const finalMessages = [...messagesWithUser, assistantMessage];
+      
+      saveChatToStorage(finalMessages);
+      return finalMessages;
+    });
+  };
+
+  // Handler for saving timetable
+  const handleSaveTimetable = async (messageId) => {
+    if (!student?.id) return;
+    
+    setSavingTimetable(prev => ({ ...prev, [messageId]: true }));
+    
+    setMessages(prevMessages => {
+      // Find the message with the timetable
+      const timetableMessage = prevMessages.find(msg => msg.id === messageId && msg.timetable);
+      if (!timetableMessage || !timetableMessage.timetable) {
+        setSavingTimetable(prev => ({ ...prev, [messageId]: false }));
+        return prevMessages;
+      }
+      
+      const { timetable } = timetableMessage;
+      const { module, subModules: moduleSubModules, subjectId, subjectName } = timetable;
+      
+      // Save timetable asynchronously
+      (async () => {
+        try {
+          const response = await fetch(`${API_URL}/api/students/${student.id}/timetables`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              subjectId: subjectId || selectedSubject?.id || '',
+              subjectName: subjectName || selectedSubject?.name || '',
+              moduleId: module.id,
+              moduleName: module.name,
+              subModules: moduleSubModules,
+              totalHours: moduleSubModules.reduce((sum, sub) => sum + sub.timeAllocation, 0)
+            }),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            // Update message to show saved status
+            setMessages(prev => prev.map(msg => {
+              if (msg.id === messageId) {
+                return { ...msg, timetableSaved: true };
+              }
+              return msg;
+            }));
+            
+            // Show success message with monthly count
+            const remaining = 3 - (data.monthlyCount || 0);
+            const successMessage = {
+              id: Date.now(),
+              role: 'assistant',
+              content: `✅ Timetable for ${module.name} has been saved successfully!${remaining > 0 ? `\n\nYou have ${remaining} timetable${remaining !== 1 ? 's' : ''} remaining this month.` : '\n\n⚠️ You have reached your monthly limit of 3 timetables.'}`,
+              timestamp: new Date().toISOString()
+            };
+            setMessages(prev => {
+              const updated = [...prev, successMessage];
+              saveChatToStorage(updated);
+              return updated;
+            });
+          } else {
+            // Show error message with limit information
+            const errorMessage = {
+              id: Date.now(),
+              role: 'assistant',
+              content: `❌ ${data.message || 'Failed to save timetable. Please try again.'}\n\nYou can update an existing timetable or wait until next month to save a new one.`,
+              timestamp: new Date().toISOString()
+            };
+            setMessages(prev => {
+              const updated = [...prev, errorMessage];
+              saveChatToStorage(updated);
+              return updated;
+            });
+          }
+        } catch (err) {
+          console.error('Error saving timetable:', err);
+          const errorMessage = {
+            id: Date.now(),
+            role: 'assistant',
+            content: '❌ Unable to save timetable. Please check your connection and try again.',
+            timestamp: new Date().toISOString()
+          };
+          setMessages(prev => {
+            const updated = [...prev, errorMessage];
+            saveChatToStorage(updated);
+            return updated;
+          });
+        } finally {
+          setSavingTimetable(prev => ({ ...prev, [messageId]: false }));
+        }
+      })();
+      
+      return prevMessages;
+    });
   };
 
   // Don't render if student is not available
@@ -1180,34 +1332,63 @@ const StudentChatbot = ({ student, isOpen: externalIsOpen, onIsOpenChange }) => 
                       {message.role === 'assistant' && message.showSubjects && studentSubjects.length > 0 && (
                         <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           <div style={{ fontWeight: '600', marginBottom: '8px', color: '#0f172a' }}>Select a subject:</div>
-                          {studentSubjects.map((subject) => (
-                            <button
-                              key={subject.id}
-                              onClick={() => handleSubjectSelect(subject)}
-                              style={{
-                                padding: '12px 16px',
-                                background: '#f0f9ff',
-                                border: '1px solid #e0f2fe',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                textAlign: 'left',
-                                transition: 'all 0.2s ease',
-                                color: '#0c4a6e',
-                                fontWeight: '500',
-                                fontSize: '14px'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = '#e0f2fe';
-                                e.currentTarget.style.transform = 'translateX(4px)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = '#f0f9ff';
-                                e.currentTarget.style.transform = 'translateX(0)';
-                              }}
-                            >
-                              {subject.name}
-                            </button>
-                          ))}
+                          {studentSubjects.map((subject) => {
+                            const isSelected = message.selectedSubjectId === subject.id;
+                            const isDisabled = message.selectedSubjectId && message.selectedSubjectId !== subject.id;
+                            
+                            return (
+                              <button
+                                key={subject.id}
+                                onClick={() => !isDisabled && handleSubjectSelect(subject, message.id)}
+                                disabled={isDisabled}
+                                style={{
+                                  padding: '12px 16px',
+                                  background: isSelected 
+                                    ? 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)'
+                                    : isDisabled 
+                                    ? '#f1f5f9'
+                                    : '#f0f9ff',
+                                  border: isSelected 
+                                    ? '2px solid #0284c7'
+                                    : '1px solid #e0f2fe',
+                                  borderRadius: '8px',
+                                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                  textAlign: 'left',
+                                  transition: 'all 0.2s ease',
+                                  color: isSelected 
+                                    ? 'white'
+                                    : isDisabled
+                                    ? '#94a3b8'
+                                    : '#0c4a6e',
+                                  fontWeight: isSelected ? '700' : '500',
+                                  fontSize: '14px',
+                                  opacity: isDisabled ? 0.6 : 1,
+                                  position: 'relative'
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!isDisabled && !isSelected) {
+                                    e.currentTarget.style.background = '#e0f2fe';
+                                    e.currentTarget.style.transform = 'translateX(4px)';
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!isDisabled && !isSelected) {
+                                    e.currentTarget.style.background = '#f0f9ff';
+                                    e.currentTarget.style.transform = 'translateX(0)';
+                                  }
+                                }}
+                              >
+                                {subject.name}
+                                {isSelected && (
+                                  <span style={{
+                                    position: 'absolute',
+                                    right: '12px',
+                                    fontSize: '16px'
+                                  }}>✓</span>
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
 
@@ -1215,34 +1396,63 @@ const StudentChatbot = ({ student, isOpen: externalIsOpen, onIsOpenChange }) => 
                       {message.role === 'assistant' && message.modules && message.modules.length > 0 && (
                         <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           <div style={{ fontWeight: '600', marginBottom: '8px', color: '#0f172a' }}>Select a module:</div>
-                          {message.modules.map((module) => (
-                            <button
-                              key={module.id}
-                              onClick={() => handleModuleSelect(module)}
-                              style={{
-                                padding: '12px 16px',
-                                background: '#f0f9ff',
-                                border: '1px solid #e0f2fe',
-                                borderRadius: '8px',
-                                cursor: 'pointer',
-                                textAlign: 'left',
-                                transition: 'all 0.2s ease',
-                                color: '#0c4a6e',
-                                fontWeight: '500',
-                                fontSize: '14px'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = '#e0f2fe';
-                                e.currentTarget.style.transform = 'translateX(4px)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = '#f0f9ff';
-                                e.currentTarget.style.transform = 'translateX(0)';
-                              }}
-                            >
-                              {module.name}
-                            </button>
-                          ))}
+                          {message.modules.map((module) => {
+                            const isSelected = message.selectedModuleId === module.id;
+                            const isDisabled = message.selectedModuleId && message.selectedModuleId !== module.id;
+                            
+                            return (
+                              <button
+                                key={module.id}
+                                onClick={() => !isDisabled && handleModuleSelect(module, message.id)}
+                                disabled={isDisabled}
+                                style={{
+                                  padding: '12px 16px',
+                                  background: isSelected 
+                                    ? 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)'
+                                    : isDisabled 
+                                    ? '#f1f5f9'
+                                    : '#f0f9ff',
+                                  border: isSelected 
+                                    ? '2px solid #0284c7'
+                                    : '1px solid #e0f2fe',
+                                  borderRadius: '8px',
+                                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                  textAlign: 'left',
+                                  transition: 'all 0.2s ease',
+                                  color: isSelected 
+                                    ? 'white'
+                                    : isDisabled
+                                    ? '#94a3b8'
+                                    : '#0c4a6e',
+                                  fontWeight: isSelected ? '700' : '500',
+                                  fontSize: '14px',
+                                  opacity: isDisabled ? 0.6 : 1,
+                                  position: 'relative'
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!isDisabled && !isSelected) {
+                                    e.currentTarget.style.background = '#e0f2fe';
+                                    e.currentTarget.style.transform = 'translateX(4px)';
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!isDisabled && !isSelected) {
+                                    e.currentTarget.style.background = '#f0f9ff';
+                                    e.currentTarget.style.transform = 'translateX(0)';
+                                  }
+                                }}
+                              >
+                                {module.name}
+                                {isSelected && (
+                                  <span style={{
+                                    position: 'absolute',
+                                    right: '12px',
+                                    fontSize: '16px'
+                                  }}>✓</span>
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
 
@@ -1252,7 +1462,7 @@ const StudentChatbot = ({ student, isOpen: externalIsOpen, onIsOpenChange }) => 
                           <div style={{ fontWeight: '600', marginBottom: '12px', color: '#0f172a', fontSize: '16px' }}>
                             Timetable for {message.timetable.module.name}:
                           </div>
-                          <Table striped bordered hover style={{ fontSize: '14px', margin: 0 }}>
+                          <Table striped bordered hover style={{ fontSize: '14px', margin: 0, marginBottom: '16px' }}>
                             <thead>
                               <tr style={{ background: '#f8fafc' }}>
                                 <th style={{ padding: '10px', fontWeight: '600' }}>Submodule</th>
@@ -1276,6 +1486,59 @@ const StudentChatbot = ({ student, isOpen: externalIsOpen, onIsOpenChange }) => 
                               </tr>
                             </tbody>
                           </Table>
+                          <Button
+                            onClick={() => handleSaveTimetable(message.id)}
+                            disabled={savingTimetable[message.id] || message.timetableSaved}
+                            style={{
+                              background: message.timetableSaved
+                                ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                                : 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                              border: 'none',
+                              borderRadius: '10px',
+                              padding: '10px 20px',
+                              fontWeight: '600',
+                              fontSize: '14px',
+                              color: 'white',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              cursor: (savingTimetable[message.id] || message.timetableSaved) ? 'not-allowed' : 'pointer',
+                              transition: 'all 0.3s ease',
+                              boxShadow: message.timetableSaved
+                                ? '0 2px 8px rgba(16, 185, 129, 0.3)'
+                                : '0 2px 8px rgba(99, 102, 241, 0.3)',
+                              opacity: (savingTimetable[message.id] || message.timetableSaved) ? 0.8 : 1
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!savingTimetable[message.id] && !message.timetableSaved) {
+                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.4)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!savingTimetable[message.id] && !message.timetableSaved) {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = '0 2px 8px rgba(99, 102, 241, 0.3)';
+                              }
+                            }}
+                          >
+                            {savingTimetable[message.id] ? (
+                              <>
+                                <Spinner size="sm" style={{ marginRight: '8px' }} />
+                                Saving...
+                              </>
+                            ) : message.timetableSaved ? (
+                              <>
+                                <HiOutlineBookmark size={18} />
+                                Timetable Saved ✓
+                              </>
+                            ) : (
+                              <>
+                                <HiOutlineBookmark size={18} />
+                                Save Timetable
+                              </>
+                            )}
+                          </Button>
                         </div>
                       )}
 
