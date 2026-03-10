@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button, Card, Form, InputGroup, Badge, Spinner, Modal } from 'react-bootstrap';
+import { Button, Card, Form, InputGroup, Badge, Spinner, Modal, Table } from 'react-bootstrap';
 import {
   HiOutlineChatBubbleLeftRight,
   HiXMark,
@@ -8,9 +8,16 @@ import {
   HiOutlineCpuChip,
   HiOutlineLightBulb,
   HiOutlineAcademicCap,
-  HiOutlinePhoto
+  HiOutlinePhoto,
+  HiOutlineDocumentText,
+  HiOutlineClock,
+  HiOutlineQuestionMarkCircle,
+  HiOutlineCamera
 } from 'react-icons/hi2';
 import API_URL from '../config';
+import subjects from '../data/subjects';
+import modules from '../data/modules';
+import subModules from '../data/subModules';
 
 const StudentChatbot = ({ student, isOpen: externalIsOpen, onIsOpenChange }) => {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
@@ -25,6 +32,15 @@ const StudentChatbot = ({ student, isOpen: externalIsOpen, onIsOpenChange }) => 
   const [uploadedImages, setUploadedImages] = useState([]);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  
+  // New states for features
+  const [showPaperCorrectionModal, setShowPaperCorrectionModal] = useState(false);
+  const [paperCorrectionImage, setPaperCorrectionImage] = useState(null);
+  const [studyTimetableFlow, setStudyTimetableFlow] = useState(null); // 'subjects' | 'modules' | 'timetable'
+  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [selectedModule, setSelectedModule] = useState(null);
+  const [studentSubjects, setStudentSubjects] = useState([]); // Enrolled subjects
+  const paperCorrectionFileInputRef = useRef(null);
 
   const MAX_QUESTIONS = 15;
 
@@ -71,8 +87,51 @@ const StudentChatbot = ({ student, isOpen: externalIsOpen, onIsOpenChange }) => 
       if (section) {
         fetchMasterPrompt(section);
       }
+
+      // Fetch student enrolled subjects (sample - replace with actual API call)
+      fetchStudentSubjects();
     }
   }, [student]);
+
+  const fetchStudentSubjects = async () => {
+    if (!student?.id) return;
+    
+    try {
+      // Fetch enrolled courses for the student
+      const response = await fetch(`${API_URL}/api/students/${student.id}/courses`);
+      const data = await response.json();
+      
+      if (data.success && data.courses && data.courses.length > 0) {
+        // Extract unique subjects from enrolled courses
+        const enrolledCourseSubjects = [...new Set(data.courses.map(course => course.subject))];
+        
+        // Map course subjects to subject objects
+        // Match by name (case-insensitive) or by partial match
+        const enrolledSubjects = subjects.filter(subj => {
+          return enrolledCourseSubjects.some(courseSubject => {
+            const courseSubjectLower = courseSubject.toLowerCase().trim();
+            const subjectNameLower = subj.name.toLowerCase().trim();
+            const subjectIdLower = subj.id.toLowerCase().trim();
+            
+            // Exact match or partial match
+            return courseSubjectLower === subjectNameLower || 
+                   courseSubjectLower === subjectIdLower ||
+                   courseSubjectLower.includes(subjectNameLower) ||
+                   subjectNameLower.includes(courseSubjectLower);
+          });
+        });
+        
+        setStudentSubjects(enrolledSubjects);
+      } else {
+        // No enrolled courses
+        setStudentSubjects([]);
+      }
+    } catch (err) {
+      console.error('Error fetching student subjects:', err);
+      // Fallback to empty array on error
+      setStudentSubjects([]);
+    }
+  };
 
   useEffect(() => {
     // Scroll to bottom when messages change
@@ -287,6 +346,261 @@ const StudentChatbot = ({ student, isOpen: externalIsOpen, onIsOpenChange }) => 
 
   const handleRemoveImage = (imageId) => {
     setUploadedImages(prev => prev.filter(img => img.id !== imageId));
+  };
+
+  // Handler for Paper Correction button
+  const handlePaperCorrectionClick = () => {
+    setShowPaperCorrectionModal(true);
+    // Add user message showing the clicked option
+    const userMessage = {
+      id: Date.now(),
+      role: 'user',
+      content: 'Paper Correction',
+      timestamp: new Date().toISOString(),
+      isButtonClick: true
+    };
+    setMessages(prev => [...prev, userMessage]);
+    saveChatToStorage([...messages, userMessage]);
+  };
+
+  // Handler for Study Time table button
+  const handleStudyTimetableClick = () => {
+    setStudyTimetableFlow('subjects');
+    setSelectedSubject(null);
+    setSelectedModule(null);
+    // Add user message showing the clicked option
+    const userMessage = {
+      id: Date.now(),
+      role: 'user',
+      content: 'Study Time table',
+      timestamp: new Date().toISOString(),
+      isButtonClick: true
+    };
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+    
+    // Check if student has enrolled subjects
+    if (studentSubjects.length === 0) {
+      const assistantMessage = {
+        id: Date.now() + 1,
+        role: 'assistant',
+        content: 'You are not currently enrolled in any subjects. Please contact your administrator to enroll in courses first.',
+        timestamp: new Date().toISOString(),
+        showSubjects: false
+      };
+      const updatedMessages = [...newMessages, assistantMessage];
+      setMessages(updatedMessages);
+      saveChatToStorage(updatedMessages);
+      return;
+    }
+    
+    // Add assistant message showing subjects
+    const subjectList = studentSubjects.map(s => `- ${s.name}`).join('\n');
+    const assistantMessage = {
+      id: Date.now() + 1,
+      role: 'assistant',
+      content: `Here are your enrolled subjects:\n\n${subjectList}\n\nPlease select a subject to view its modules and timetable.`,
+      timestamp: new Date().toISOString(),
+      showSubjects: true
+    };
+    const updatedMessages = [...newMessages, assistantMessage];
+    setMessages(updatedMessages);
+    saveChatToStorage(updatedMessages);
+  };
+
+  // Handler for Quick Answer button
+  const handleQuickAnswerClick = () => {
+    // Add user message showing the clicked option
+    const userMessage = {
+      id: Date.now(),
+      role: 'user',
+      content: 'Quick Answer',
+      timestamp: new Date().toISOString(),
+      isButtonClick: true
+    };
+    setMessages(prev => [...prev, userMessage]);
+    saveChatToStorage([...messages, userMessage]);
+    
+    // Show assistant message for quick answer
+    const assistantMessage = {
+      id: Date.now() + 1,
+      role: 'assistant',
+      content: 'I\'m ready to answer your questions quickly! Just type your question in the input box below and I\'ll provide you with a concise answer.',
+      timestamp: new Date().toISOString()
+    };
+    setMessages(prev => [...prev, assistantMessage]);
+    saveChatToStorage([...messages, userMessage, assistantMessage]);
+  };
+
+  // Handler for paper correction image upload
+  const handlePaperCorrectionImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Image is too large. Maximum size is 10MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPaperCorrectionImage({
+        file: file,
+        preview: reader.result,
+        name: file.name
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handler for submitting paper correction
+  const handlePaperCorrectionSubmit = async () => {
+    if (!paperCorrectionImage) {
+      alert('Please upload an image first.');
+      return;
+    }
+
+    // Check quota
+    if (quota.remaining <= 0) {
+      alert(`You have reached the daily limit of ${quota.limit} messages.`);
+      return;
+    }
+
+    setShowPaperCorrectionModal(false);
+    setIsLoading(true);
+
+    // Add image to messages
+    const userMessage = {
+      id: Date.now(),
+      role: 'user',
+      content: 'Paper Correction',
+      images: [{
+        id: Date.now(),
+        data: paperCorrectionImage.preview,
+        name: paperCorrectionImage.name
+      }],
+      timestamp: new Date().toISOString()
+    };
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+
+    try {
+      const response = await fetch(`${API_URL}/api/student/chatbot`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          studentId: student.id,
+          message: 'Act as a papper correction and papper marking teacher mark the papeer and show the results after marking the image',
+          images: [{
+            data: paperCorrectionImage.preview,
+            name: paperCorrectionImage.name,
+            type: paperCorrectionImage.file.type
+          }],
+          gradeSection: gradeSection,
+          masterPrompt: masterPrompt,
+          chatHistory: messages.map(m => ({
+            role: m.role,
+            content: m.content,
+            images: m.images || []
+          }))
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        const assistantMessage = {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: data.response,
+          timestamp: new Date().toISOString()
+        };
+        const updatedMessages = [...newMessages, assistantMessage];
+        setMessages(updatedMessages);
+        saveChatToStorage(updatedMessages);
+
+        if (data.quota) {
+          setQuota(data.quota);
+        }
+      } else {
+        const errorMessage = {
+          id: Date.now() + 1,
+          role: 'assistant',
+          content: data.message || 'Sorry, I encountered an error. Please try again later.',
+          timestamp: new Date().toISOString()
+        };
+        const updatedMessages = [...newMessages, errorMessage];
+        setMessages(updatedMessages);
+        saveChatToStorage(updatedMessages);
+      }
+    } catch (err) {
+      console.error('Error sending paper correction:', err);
+      const errorMessage = {
+        id: Date.now() + 1,
+        role: 'assistant',
+        content: 'Unable to connect to the server. Please check your connection and try again.',
+        timestamp: new Date().toISOString()
+      };
+      const updatedMessages = [...newMessages, errorMessage];
+      setMessages(updatedMessages);
+      saveChatToStorage(updatedMessages);
+    } finally {
+      setIsLoading(false);
+      setPaperCorrectionImage(null);
+    }
+  };
+
+  // Handler for subject selection in study timetable
+  const handleSubjectSelect = (subject) => {
+    setSelectedSubject(subject);
+    setStudyTimetableFlow('modules');
+    
+    // Add assistant message showing modules
+    const subjectModules = modules[subject.id] || [];
+    const moduleList = subjectModules.map(m => `- ${m.name}`).join('\n');
+    const assistantMessage = {
+      id: Date.now(),
+      role: 'assistant',
+      content: `Here are the modules for ${subject.name}:\n\n${moduleList}\n\nPlease select a module to view its timetable.`,
+      timestamp: new Date().toISOString(),
+      modules: subjectModules
+    };
+    setMessages(prev => [...prev, assistantMessage]);
+    saveChatToStorage([...messages, assistantMessage]);
+  };
+
+  // Handler for module selection in study timetable
+  const handleModuleSelect = (module) => {
+    setSelectedModule(module);
+    setStudyTimetableFlow('timetable');
+    
+    // Get submodules for this module
+    const moduleSubModules = subModules[module.id] || [];
+    
+    // Create timetable display
+    const timetableContent = `Timetable for ${module.name}:\n\n${moduleSubModules.map(sub => 
+      `- ${sub.name}: ${sub.timeAllocation} hours`
+    ).join('\n')}\n\nTotal: ${moduleSubModules.reduce((sum, sub) => sum + sub.timeAllocation, 0)} hours`;
+    
+    const assistantMessage = {
+      id: Date.now(),
+      role: 'assistant',
+      content: timetableContent,
+      timestamp: new Date().toISOString(),
+      timetable: {
+        module: module,
+        subModules: moduleSubModules
+      }
+    };
+    setMessages(prev => [...prev, assistantMessage]);
+    saveChatToStorage([...messages, assistantMessage]);
   };
 
   // Don't render if student is not available
@@ -606,48 +920,99 @@ const StudentChatbot = ({ student, isOpen: externalIsOpen, onIsOpenChange }) => 
                   marginTop: '32px',
                   flexWrap: 'wrap'
                 }}>
-                  <div style={{
-                    padding: '12px 20px',
-                    background: '#f0f9ff',
-                    borderRadius: '12px',
-                    border: '1px solid #e0f2fe',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}>
-                    <HiOutlineAcademicCap size={18} color="#0ea5e9" />
+                  <button
+                    onClick={handlePaperCorrectionClick}
+                    style={{
+                      padding: '12px 20px',
+                      background: '#fef2f2',
+                      borderRadius: '12px',
+                      border: '1px solid #fecaca',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      border: 'none',
+                      outline: 'none'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#fee2e2';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#fef2f2';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <HiOutlineDocumentText size={18} color="#ef4444" />
+                    <span style={{ fontSize: '13px', color: '#991b1b', fontWeight: '600' }}>
+                      Paper Correction
+                    </span>
+                  </button>
+                  <button
+                    onClick={handleStudyTimetableClick}
+                    style={{
+                      padding: '12px 20px',
+                      background: '#f0f9ff',
+                      borderRadius: '12px',
+                      border: '1px solid #e0f2fe',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      border: 'none',
+                      outline: 'none'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#e0f2fe';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(14, 165, 233, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#f0f9ff';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <HiOutlineClock size={18} color="#0ea5e9" />
                     <span style={{ fontSize: '13px', color: '#0c4a6e', fontWeight: '600' }}>
-                      Course Materials
+                      Study Time table
                     </span>
-                  </div>
-                  <div style={{
-                    padding: '12px 20px',
-                    background: '#f5f3ff',
-                    borderRadius: '12px',
-                    border: '1px solid #e9d5ff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}>
-                    <HiOutlineLightBulb size={18} color="#8b5cf6" />
-                    <span style={{ fontSize: '13px', color: '#6b21a8', fontWeight: '600' }}>
-                      Problem Solving
-                    </span>
-                  </div>
-                  <div style={{
-                    padding: '12px 20px',
-                    background: '#f0fdf4',
-                    borderRadius: '12px',
-                    border: '1px solid #bbf7d0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}>
-                    <HiOutlineSparkles size={18} color="#10b981" />
+                  </button>
+                  <button
+                    onClick={handleQuickAnswerClick}
+                    style={{
+                      padding: '12px 20px',
+                      background: '#f0fdf4',
+                      borderRadius: '12px',
+                      border: '1px solid #bbf7d0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      border: 'none',
+                      outline: 'none'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#dcfce7';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#f0fdf4';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <HiOutlineQuestionMarkCircle size={18} color="#10b981" />
                     <span style={{ fontSize: '13px', color: '#166534', fontWeight: '600' }}>
-                      AI Powered
+                      Quick Answer
                     </span>
-                  </div>
+                  </button>
                 </div>
                 <div style={{
                   marginTop: '40px',
@@ -810,6 +1175,110 @@ const StudentChatbot = ({ student, isOpen: externalIsOpen, onIsOpenChange }) => 
                       {message.content && (
                         <div>{message.content}</div>
                       )}
+                      
+                      {/* Show subjects list when study timetable flow is active */}
+                      {message.role === 'assistant' && message.showSubjects && studentSubjects.length > 0 && (
+                        <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ fontWeight: '600', marginBottom: '8px', color: '#0f172a' }}>Select a subject:</div>
+                          {studentSubjects.map((subject) => (
+                            <button
+                              key={subject.id}
+                              onClick={() => handleSubjectSelect(subject)}
+                              style={{
+                                padding: '12px 16px',
+                                background: '#f0f9ff',
+                                border: '1px solid #e0f2fe',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                transition: 'all 0.2s ease',
+                                color: '#0c4a6e',
+                                fontWeight: '500',
+                                fontSize: '14px'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = '#e0f2fe';
+                                e.currentTarget.style.transform = 'translateX(4px)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = '#f0f9ff';
+                                e.currentTarget.style.transform = 'translateX(0)';
+                              }}
+                            >
+                              {subject.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Show modules list when a subject is selected */}
+                      {message.role === 'assistant' && message.modules && message.modules.length > 0 && (
+                        <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ fontWeight: '600', marginBottom: '8px', color: '#0f172a' }}>Select a module:</div>
+                          {message.modules.map((module) => (
+                            <button
+                              key={module.id}
+                              onClick={() => handleModuleSelect(module)}
+                              style={{
+                                padding: '12px 16px',
+                                background: '#f0f9ff',
+                                border: '1px solid #e0f2fe',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                transition: 'all 0.2s ease',
+                                color: '#0c4a6e',
+                                fontWeight: '500',
+                                fontSize: '14px'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = '#e0f2fe';
+                                e.currentTarget.style.transform = 'translateX(4px)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = '#f0f9ff';
+                                e.currentTarget.style.transform = 'translateX(0)';
+                              }}
+                            >
+                              {module.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Show timetable table when a module is selected */}
+                      {message.role === 'assistant' && message.timetable && message.timetable.subModules && (
+                        <div style={{ marginTop: '12px' }}>
+                          <div style={{ fontWeight: '600', marginBottom: '12px', color: '#0f172a', fontSize: '16px' }}>
+                            Timetable for {message.timetable.module.name}:
+                          </div>
+                          <Table striped bordered hover style={{ fontSize: '14px', margin: 0 }}>
+                            <thead>
+                              <tr style={{ background: '#f8fafc' }}>
+                                <th style={{ padding: '10px', fontWeight: '600' }}>Submodule</th>
+                                <th style={{ padding: '10px', fontWeight: '600', textAlign: 'center' }}>Time Allocation (Hours)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {message.timetable.subModules.map((subModule) => (
+                                <tr key={subModule.id}>
+                                  <td style={{ padding: '10px' }}>{subModule.name}</td>
+                                  <td style={{ padding: '10px', textAlign: 'center', fontWeight: '600', color: '#6366f1' }}>
+                                    {subModule.timeAllocation} hours
+                                  </td>
+                                </tr>
+                              ))}
+                              <tr style={{ background: '#f8fafc', fontWeight: '700' }}>
+                                <td style={{ padding: '10px' }}>Total</td>
+                                <td style={{ padding: '10px', textAlign: 'center', color: '#6366f1' }}>
+                                  {message.timetable.subModules.reduce((sum, sub) => sum + sub.timeAllocation, 0)} hours
+                                </td>
+                              </tr>
+                            </tbody>
+                          </Table>
+                        </div>
+                      )}
+
                       {message.images && message.images.length > 0 && (
                         <div style={{
                           display: 'flex',
@@ -1217,6 +1686,572 @@ const StudentChatbot = ({ student, isOpen: externalIsOpen, onIsOpenChange }) => 
             )}
           </div>
         </Modal.Body>
+      </Modal>
+
+      {/* Paper Correction Modal - Enhanced UI */}
+      <Modal
+        show={showPaperCorrectionModal}
+        onHide={() => {
+          setShowPaperCorrectionModal(false);
+          setPaperCorrectionImage(null);
+        }}
+        centered
+        size="lg"
+        style={{ zIndex: 1060 }}
+      >
+        <Modal.Header
+          style={{
+            border: 'none',
+            padding: '24px 28px',
+            background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 50%, #fef2f2 100%)',
+            backgroundSize: '200% 200%',
+            borderBottom: '1px solid #fecaca',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+        >
+          {/* Animated background pattern */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'radial-gradient(circle at 20% 50%, rgba(239, 68, 68, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(220, 38, 38, 0.1) 0%, transparent 50%)',
+            pointerEvents: 'none'
+          }} />
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', zIndex: 1 }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: '-50%',
+                left: '-50%',
+                width: '200%',
+                height: '200%',
+                background: 'linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent)',
+                animation: 'shimmer 3s infinite'
+              }} />
+              <HiOutlineDocumentText size={28} style={{ position: 'relative', zIndex: 1 }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <Modal.Title style={{ 
+                margin: 0, 
+                color: '#991b1b', 
+                fontWeight: '700',
+                fontSize: '24px',
+                letterSpacing: '-0.5px',
+                marginBottom: '4px'
+              }}>
+                Paper Correction
+              </Modal.Title>
+              <div style={{ 
+                color: '#b91c1c', 
+                fontSize: '13px',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <HiOutlineSparkles size={14} />
+                AI-powered paper marking and feedback
+              </div>
+            </div>
+          </div>
+          <Button
+            variant="link"
+            onClick={() => {
+              setShowPaperCorrectionModal(false);
+              setPaperCorrectionImage(null);
+            }}
+            style={{
+              color: '#991b1b',
+              padding: '8px',
+              minWidth: 'auto',
+              textDecoration: 'none',
+              borderRadius: '8px',
+              transition: 'all 0.2s ease',
+              position: 'relative',
+              zIndex: 1
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+              e.currentTarget.style.color = '#dc2626';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = '#991b1b';
+            }}
+          >
+            <HiXMark size={24} />
+          </Button>
+        </Modal.Header>
+        
+        <Modal.Body style={{ padding: '28px', background: '#ffffff' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {!paperCorrectionImage ? (
+              <>
+                {/* Upload Area */}
+                <div 
+                  style={{
+                    border: '3px dashed #fecaca',
+                    borderRadius: '20px',
+                    padding: '60px 40px',
+                    textAlign: 'center',
+                    background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}
+                  onClick={() => paperCorrectionFileInputRef.current?.click()}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#ef4444';
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(239, 68, 68, 0.2)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#fecaca';
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  {/* Animated icon container */}
+                  <div style={{
+                    width: '100px',
+                    height: '100px',
+                    margin: '0 auto 20px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 8px 24px rgba(239, 68, 68, 0.3)',
+                    position: 'relative',
+                    animation: 'pulse 2s ease-in-out infinite'
+                  }}>
+                    <HiOutlinePhoto size={48} color="white" />
+                    <div style={{
+                      position: 'absolute',
+                      top: '-4px',
+                      right: '-4px',
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      background: '#10b981',
+                      border: '3px solid white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <HiOutlineCamera size={12} color="white" />
+                    </div>
+                  </div>
+                  
+                  <div style={{ 
+                    color: '#991b1b', 
+                    fontWeight: '700', 
+                    fontSize: '20px',
+                    marginBottom: '8px',
+                    letterSpacing: '-0.3px'
+                  }}>
+                    Drop your paper here or click to browse
+                  </div>
+                  <div style={{ 
+                    color: '#b91c1c', 
+                    fontSize: '14px',
+                    marginBottom: '16px',
+                    fontWeight: '500'
+                  }}>
+                    Take a clear photo or upload an image file
+                  </div>
+                  
+                  {/* File info */}
+                  <div style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 16px',
+                    background: 'rgba(255, 255, 255, 0.7)',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    color: '#991b1b',
+                    fontWeight: '600',
+                    marginTop: '8px'
+                  }}>
+                    <HiOutlineDocumentText size={14} />
+                    JPG, PNG • Max 10MB
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{ 
+                  display: 'flex', 
+                  gap: '16px', 
+                  justifyContent: 'center',
+                  flexWrap: 'wrap'
+                }}>
+                  <Button
+                    onClick={() => paperCorrectionFileInputRef.current?.click()}
+                    style={{
+                      background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                      border: 'none',
+                      color: 'white',
+                      padding: '14px 28px',
+                      borderRadius: '12px',
+                      fontWeight: '700',
+                      fontSize: '15px',
+                      boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      minWidth: '180px',
+                      justifyContent: 'center'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 6px 20px rgba(239, 68, 68, 0.4)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
+                    }}
+                  >
+                    <HiOutlinePhoto size={20} />
+                    Upload from Device
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.capture = 'environment';
+                      input.onchange = (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setPaperCorrectionImage({
+                              file: file,
+                              preview: reader.result,
+                              name: file.name
+                            });
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      };
+                      input.click();
+                    }}
+                    style={{
+                      background: 'white',
+                      border: '2px solid #ef4444',
+                      color: '#ef4444',
+                      padding: '14px 28px',
+                      borderRadius: '12px',
+                      fontWeight: '700',
+                      fontSize: '15px',
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      minWidth: '180px',
+                      justifyContent: 'center'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#fef2f2';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'white';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <HiOutlineCamera size={20} />
+                    Take Photo
+                  </Button>
+                </div>
+
+                {/* Tips Section */}
+                <div style={{
+                  marginTop: '8px',
+                  padding: '16px 20px',
+                  background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                  borderRadius: '12px',
+                  border: '1px solid #bae6fd'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    marginBottom: '12px'
+                  }}>
+                    <HiOutlineLightBulb size={18} color="#0ea5e9" />
+                    <div style={{ 
+                      fontWeight: '700', 
+                      color: '#0c4a6e',
+                      fontSize: '14px'
+                    }}>
+                      Tips for best results:
+                    </div>
+                  </div>
+                  <ul style={{
+                    margin: 0,
+                    paddingLeft: '24px',
+                    color: '#075985',
+                    fontSize: '13px',
+                    lineHeight: '1.8'
+                  }}>
+                    <li>Ensure good lighting and clear focus</li>
+                    <li>Capture the entire paper in the frame</li>
+                    <li>Avoid shadows and glare on the paper</li>
+                    <li>Make sure text is readable and not blurry</li>
+                  </ul>
+                </div>
+              </>
+            ) : (
+              <div>
+                {/* Image Preview */}
+                <div style={{
+                  position: 'relative',
+                  borderRadius: '16px',
+                  overflow: 'hidden',
+                  border: '3px solid #fecaca',
+                  marginBottom: '20px',
+                  background: '#fef2f2',
+                  boxShadow: '0 4px 16px rgba(239, 68, 68, 0.15)'
+                }}>
+                  <img
+                    src={paperCorrectionImage.preview}
+                    alt="Paper to correct"
+                    style={{
+                      width: '100%',
+                      maxHeight: '500px',
+                      objectFit: 'contain',
+                      display: 'block',
+                      background: '#ffffff'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPaperCorrectionImage(null)}
+                    style={{
+                      position: 'absolute',
+                      top: '12px',
+                      right: '12px',
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      background: 'rgba(0, 0, 0, 0.7)',
+                      backdropFilter: 'blur(8px)',
+                      border: '2px solid rgba(255, 255, 255, 0.3)',
+                      color: 'white',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '20px',
+                      padding: 0,
+                      transition: 'all 0.2s ease',
+                      fontWeight: 'bold'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.9)';
+                      e.currentTarget.style.transform = 'scale(1.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(0, 0, 0, 0.7)';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                  >
+                    ×
+                  </button>
+                  
+                  {/* Image info badge */}
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '12px',
+                    left: '12px',
+                    padding: '8px 14px',
+                    background: 'rgba(0, 0, 0, 0.7)',
+                    backdropFilter: 'blur(8px)',
+                    borderRadius: '20px',
+                    color: 'white',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <HiOutlineDocumentText size={14} />
+                    {paperCorrectionImage.name}
+                  </div>
+                </div>
+                
+                {/* Ready to submit message */}
+                <div style={{
+                  padding: '16px 20px',
+                  background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                  borderRadius: '12px',
+                  border: '2px solid #bbf7d0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    <HiOutlineSparkles size={20} color="white" />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ 
+                      color: '#166534', 
+                      fontSize: '15px',
+                      fontWeight: '700',
+                      marginBottom: '2px'
+                    }}>
+                      Ready for AI Correction
+                    </div>
+                    <div style={{ 
+                      color: '#15803d', 
+                      fontSize: '13px',
+                      fontWeight: '500'
+                    }}>
+                      Your paper is ready to be analyzed. Click submit to get AI-powered feedback and marks.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <input
+              type="file"
+              ref={paperCorrectionFileInputRef}
+              accept="image/*"
+              onChange={handlePaperCorrectionImageUpload}
+              style={{ display: 'none' }}
+            />
+          </div>
+        </Modal.Body>
+        
+        <Modal.Footer style={{ 
+          border: 'none', 
+          padding: '20px 28px', 
+          background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setShowPaperCorrectionModal(false);
+              setPaperCorrectionImage(null);
+            }}
+            style={{
+              borderRadius: '10px',
+              padding: '12px 24px',
+              fontWeight: '600',
+              fontSize: '15px',
+              border: 'none',
+              background: 'white',
+              color: '#64748b',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#f1f5f9';
+              e.currentTarget.style.color = '#475569';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'white';
+              e.currentTarget.style.color = '#64748b';
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handlePaperCorrectionSubmit}
+            disabled={!paperCorrectionImage || isLoading}
+            style={{
+              borderRadius: '10px',
+              padding: '12px 32px',
+              fontWeight: '700',
+              fontSize: '15px',
+              border: 'none',
+              background: paperCorrectionImage && !isLoading
+                ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+                : '#cbd5e1',
+              color: 'white',
+              boxShadow: paperCorrectionImage && !isLoading
+                ? '0 4px 12px rgba(239, 68, 68, 0.3)'
+                : 'none',
+              transition: 'all 0.3s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+            onMouseEnter={(e) => {
+              if (paperCorrectionImage && !isLoading) {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(239, 68, 68, 0.4)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (paperCorrectionImage && !isLoading) {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
+              }
+            }}
+          >
+            {isLoading ? (
+              <>
+                <Spinner size="sm" style={{ marginRight: '8px' }} />
+                Processing...
+              </>
+            ) : (
+              <>
+                <HiOutlineDocumentText size={18} />
+                Submit for Correction
+              </>
+            )}
+            {paperCorrectionImage && !isLoading && (
+              <div style={{
+                position: 'absolute',
+                top: '-50%',
+                left: '-50%',
+                width: '200%',
+                height: '200%',
+                background: 'linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent)',
+                animation: 'shimmer 2s infinite'
+              }} />
+            )}
+          </Button>
+        </Modal.Footer>
       </Modal>
     </>
   );
