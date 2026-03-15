@@ -65,128 +65,83 @@ const MarkAttendance = () => {
   const teacherData = isTeacher ? JSON.parse(localStorage.getItem('teacher') || '{}') : null;
   const teacherId = teacherData?.id || null;
 
-  // Helper function to safely stop video elements
+  // Helper: pause video first (so play() is no longer in flight), then stop stream.
+  // This order avoids "play() interrupted by a new load request" when we clear srcObject.
   const safeStopVideoElements = (scannerElement) => {
     if (!scannerElement) return;
-    
     const videoElements = scannerElement.querySelectorAll('video');
     videoElements.forEach((video) => {
       try {
-        // Stop tracks first before pausing to avoid interrupting play()
+        if (!video) return;
+        // 1. Pause first so any in-flight play() settles (avoids "interrupted by new load")
+        if (!video.paused) {
+          try {
+            video.pause().catch(() => {});
+          } catch (_) {}
+        }
+        // 2. Then stop tracks and clear srcObject (no play() in flight now)
         if (video.srcObject) {
           const tracks = video.srcObject.getTracks();
           tracks.forEach((track) => {
-            try {
-              track.stop();
-            } catch (trackErr) {
-              // Suppress track stop errors
-            }
+            try { track.stop(); } catch (_) {}
           });
           video.srcObject = null;
         }
-        // Then pause if not already paused, with error suppression
-        if (video && !video.paused) {
-          try {
-            video.pause().catch(() => {
-              // Suppress pause errors
-            });
-          } catch (pauseErr) {
-            // Suppress pause errors
-          }
-        }
-      } catch (videoErr) {
-        // Suppress all video errors
-      }
+        video.removeAttribute('src');
+      } catch (_) {}
     });
   };
 
-  // Safe function to stop scanner
+  // Async version: await pause() so play() promise settles before we clear stream
+  const safeStopVideoElementsAsync = async (scannerElement) => {
+    if (!scannerElement) return;
+    const videoElements = Array.from(scannerElement.querySelectorAll('video'));
+    await Promise.all(
+      videoElements.map(async (video) => {
+        try {
+          if (!video) return;
+          if (!video.paused) {
+            await video.pause().catch(() => {});
+          }
+          if (video.srcObject) {
+            const tracks = video.srcObject.getTracks();
+            tracks.forEach((track) => {
+              try { track.stop(); } catch (_) {}
+            });
+            video.srcObject = null;
+          }
+          video.removeAttribute('src');
+        } catch (_) {}
+      })
+    );
+  };
+
+  // Stop scanner without triggering "play() interrupted by new load":
+  // 1) Pause video and await so play() settles, 2) Stop tracks & clear stream,
+  // 3) Wait, 4) Call library stop/clear.
   const safeStopScanner = async (scanner) => {
     if (!scanner) return;
-    
+    const scannerId = 'qr-reader-mark-attendance';
+    const scannerElement = document.getElementById(scannerId);
     try {
-      // First, try to stop any video elements
-      const scannerId = 'qr-reader-mark-attendance';
-      const scannerElement = document.getElementById(scannerId);
+      if (scannerElement) {
+        await safeStopVideoElementsAsync(scannerElement);
+      }
+      await new Promise((r) => setTimeout(r, 250));
       if (scannerElement) {
         safeStopVideoElements(scannerElement);
       }
-      
-      // Wait a bit for video to pause
-      await new Promise(resolve => setTimeout(resolve, 150));
-      
+      await new Promise((r) => setTimeout(r, 100));
       if (typeof scanner.stop === 'function') {
-        try {
-          await scanner.stop().catch((stopErr) => {
-            const errorMsg = (stopErr?.message || stopErr?.toString() || '').toLowerCase();
-            // Suppress common camera errors
-            if (errorMsg && 
-                !errorMsg.includes('not running') && 
-                !errorMsg.includes('not paused') &&
-                !errorMsg.includes('scanner is not running') &&
-                !errorMsg.includes('cannot stop') &&
-                !errorMsg.includes('scanner is not running or paused') &&
-                !errorMsg.includes('play() request was interrupted') &&
-                !errorMsg.includes('the play() request was interrupted') &&
-                !errorMsg.includes('play() request was interrupted by a call to pause()') &&
-                !errorMsg.includes('play() request was interrupted by a new load request') &&
-                !errorMsg.includes('interrupted by a call to pause') &&
-                !errorMsg.includes('interrupted by a new load request') &&
-                !errorMsg.includes('interrupted by new load') &&
-                !errorMsg.includes('onabort') &&
-                !errorMsg.includes('video surface onabort') &&
-                !errorMsg.includes('renderedcameraimpl') &&
-                !errorMsg.includes('abort')) {
-              // Silently ignore expected errors
-            }
-          });
-          // Wait longer for stream to fully release
-          await new Promise(resolve => setTimeout(resolve, 200));
-        } catch (syncErr) {
-          // Handle synchronous errors - suppress common camera errors
-          const errorMsg = (syncErr?.message || syncErr?.toString() || '').toLowerCase();
-          if (              !errorMsg.includes('play() request was interrupted') && 
-              !errorMsg.includes('the play() request was interrupted') &&
-              !errorMsg.includes('play() request was interrupted by a call to pause()') &&
-              !errorMsg.includes('interrupted by a call to pause') &&
-              !errorMsg.includes('onabort') &&
-              !errorMsg.includes('video surface onabort') &&
-              !errorMsg.includes('renderedcameraimpl') &&
-              !errorMsg.includes('abort')) {
-            // Only log if it's not a known camera error
-          }
-        }
+        await scanner.stop().catch(() => {});
       }
-      
-      // Ensure all video tracks are stopped
-      if (scannerElement) {
-        safeStopVideoElements(scannerElement);
-      }
-      
-      // Wait before clearing
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+      await new Promise((r) => setTimeout(r, 150));
       if (typeof scanner.clear === 'function') {
         try {
           scanner.clear();
-        } catch (clearErr) {
-          // Ignore clear errors
-        }
+        } catch (_) {}
       }
-    } catch (err) {
-      // Suppress common camera errors
-      const errorMsg = (err?.message || err?.toString() || '').toLowerCase();
-      if (              !errorMsg.includes('play() request was interrupted') && 
-              !errorMsg.includes('the play() request was interrupted') &&
-              !errorMsg.includes('play() request was interrupted by a call to pause()') &&
-              !errorMsg.includes('interrupted by a call to pause') &&
-              !errorMsg.includes('onabort') &&
-              !errorMsg.includes('video surface onabort') &&
-              !errorMsg.includes('renderedcameraimpl') &&
-              !errorMsg.includes('abort')) {
-        // Silently ignore known camera errors
-      }
-    }
+    } catch (_) {}
   };
 
   useEffect(() => {
@@ -195,7 +150,15 @@ const MarkAttendance = () => {
       await fetchCurrentCourses();
     };
     load();
+  }, []);
 
+  // Open camera/scanner after mount so DOM and refs are ready (avoids uncaught runtime errors)
+  useEffect(() => {
+    const t = setTimeout(() => setShowQRScanner(true), 150);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
     // Store original console.error to intercept library errors
     const originalConsoleError = console.error;
     const originalConsoleWarn = console.warn;
@@ -219,26 +182,32 @@ const MarkAttendance = () => {
           errorMsg.includes('interrupted by a call to pause') ||
           errorMsg.includes('interrupted by a new load request') ||
           errorMsg.includes('interrupted by new load') ||
+          errorMsg.includes('goo.gl') ||
+          errorMsg.includes('ldlk22') ||
           errorMsg.includes('abort')) {
-        // Suppress these errors
+        // Suppress these errors (camera/QR scanner)
         return;
       }
       // Call original console.error for other errors
       originalConsoleError.apply(console, args);
     };
-    
+
     // Override console.warn to suppress camera-related warnings
     console.warn = (...args) => {
       const errorMsg = args.map(arg => 
         typeof arg === 'string' ? arg : 
         arg?.message || arg?.toString() || ''
       ).join(' ').toLowerCase();
-      
+
       if (errorMsg.includes('onabort') ||
           errorMsg.includes('video surface onabort') ||
           errorMsg.includes('renderedcameraimpl') ||
           errorMsg.includes('renderedcamera') ||
-          errorMsg.includes('handleerror')) {
+          errorMsg.includes('handleerror') ||
+          errorMsg.includes('play() request was interrupted') ||
+          errorMsg.includes('new load request') ||
+          errorMsg.includes('goo.gl') ||
+          errorMsg.includes('ldlk22')) {
         // Suppress these warnings
         return;
       }
@@ -246,7 +215,7 @@ const MarkAttendance = () => {
       originalConsoleWarn.apply(console, args);
     };
     
-    // Global error handler to suppress camera-related errors
+    // Global error handler to suppress camera-related errors (e.g. play() interrupted by new load)
     const handleError = (event) => {
       const errorMsg = (event.message || event.error?.message || event.error?.toString() || '').toLowerCase();
       if (errorMsg.includes('onabort') ||
@@ -261,6 +230,9 @@ const MarkAttendance = () => {
           errorMsg.includes('interrupted by a call to pause') ||
           errorMsg.includes('interrupted by a new load request') ||
           errorMsg.includes('interrupted by new load') ||
+          errorMsg.includes('new load request') ||
+          errorMsg.includes('goo.gl') ||
+          errorMsg.includes('ldlk22') ||
           errorMsg.includes('abort')) {
         event.preventDefault();
         event.stopPropagation();
@@ -283,6 +255,9 @@ const MarkAttendance = () => {
           errorMsg.includes('interrupted by a call to pause') ||
           errorMsg.includes('interrupted by a new load request') ||
           errorMsg.includes('interrupted by new load') ||
+          errorMsg.includes('new load request') ||
+          errorMsg.includes('goo.gl') ||
+          errorMsg.includes('ldlk22') ||
           errorMsg.includes('abort')) {
         event.preventDefault();
         return false;
@@ -536,8 +511,8 @@ const MarkAttendance = () => {
           await new Promise(resolve => setTimeout(resolve, 300));
           const scannerElement = document.getElementById(scannerId);
           if (scannerElement) {
-            safeStopVideoElements(scannerElement);
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await safeStopVideoElementsAsync(scannerElement);
+            await new Promise(resolve => setTimeout(resolve, 150));
             scannerElement.innerHTML = '';
           }
 
@@ -552,6 +527,14 @@ const MarkAttendance = () => {
             const addVideoErrorListeners = () => {
               const videos = scannerElementAfterCreation.querySelectorAll('video');
               videos.forEach((video) => {
+                // Wrap play() so its promise never rejects when interrupted by pause()/stop
+                if (!video._playWrapped) {
+                  video._playWrapped = true;
+                  const originalPlay = video.play.bind(video);
+                  video.play = function play() {
+                    return originalPlay().catch(() => {});
+                  };
+                }
                 video.addEventListener('error', (e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -620,12 +603,14 @@ const MarkAttendance = () => {
                     }, 100);
                   }
                 }).catch((stopErr) => {
-                  // Suppress common camera errors
                   const errorMsg = (stopErr?.message || stopErr?.toString() || '').toLowerCase();
                   if (              !errorMsg.includes('play() request was interrupted') && 
               !errorMsg.includes('the play() request was interrupted') &&
               !errorMsg.includes('play() request was interrupted by a call to pause()') &&
               !errorMsg.includes('interrupted by a call to pause') &&
+              !errorMsg.includes('new load request') &&
+              !errorMsg.includes('goo.gl') &&
+              !errorMsg.includes('ldlk22') &&
               !errorMsg.includes('onabort') &&
               !errorMsg.includes('video surface onabort') &&
               !errorMsg.includes('renderedcameraimpl') &&
@@ -654,6 +639,9 @@ const MarkAttendance = () => {
                   errorMsg.includes('interrupted by a call to pause') ||
                   errorMsg.includes('interrupted by a new load request') ||
                   errorMsg.includes('interrupted by new load') ||
+                  errorMsg.includes('new load request') ||
+                  errorMsg.includes('goo.gl') ||
+                  errorMsg.includes('ldlk22') ||
                   errorMsg.includes('onabort') ||
                   errorMsg.includes('video surface onabort') ||
                   errorMsg.includes('renderedcameraimpl') ||
@@ -663,15 +651,16 @@ const MarkAttendance = () => {
                 // Silently ignore these camera-related errors
                 return;
               }
-              // For other errors, we can optionally log them (but suppress camera errors)
             }
           ).catch((startErr) => {
-            // Suppress common camera errors during start
             const errorMsg = (startErr?.message || startErr?.toString() || '').toLowerCase();
             if (              !errorMsg.includes('play() request was interrupted') && 
               !errorMsg.includes('the play() request was interrupted') &&
               !errorMsg.includes('play() request was interrupted by a call to pause()') &&
               !errorMsg.includes('interrupted by a call to pause') &&
+              !errorMsg.includes('new load request') &&
+              !errorMsg.includes('goo.gl') &&
+              !errorMsg.includes('ldlk22') &&
               !errorMsg.includes('onabort') &&
               !errorMsg.includes('video surface onabort') &&
               !errorMsg.includes('renderedcameraimpl') &&
@@ -697,6 +686,9 @@ const MarkAttendance = () => {
               !errorMsg.includes('the play() request was interrupted') &&
               !errorMsg.includes('play() request was interrupted by a call to pause()') &&
               !errorMsg.includes('interrupted by a call to pause') &&
+              !errorMsg.includes('new load request') &&
+              !errorMsg.includes('goo.gl') &&
+              !errorMsg.includes('ldlk22') &&
               !errorMsg.includes('onabort') &&
               !errorMsg.includes('video surface onabort') &&
               !errorMsg.includes('renderedcameraimpl') &&
@@ -743,7 +735,7 @@ const MarkAttendance = () => {
       }
       scannerInitializedRef.current = false;
     };
-  }, [showQRScanner, selectedCourse, scannerInstance]);
+  }, [showQRScanner]);
 
 
   const toggleSidebar = () => {
@@ -1096,8 +1088,8 @@ const MarkAttendance = () => {
                             await new Promise(resolve => setTimeout(resolve, 300));
                             const scannerElement = document.getElementById('qr-reader-mark-attendance');
                             if (scannerElement) {
-                              safeStopVideoElements(scannerElement);
-                              await new Promise(resolve => setTimeout(resolve, 100));
+                              await safeStopVideoElementsAsync(scannerElement);
+                              await new Promise(resolve => setTimeout(resolve, 150));
                               scannerElement.innerHTML = '';
                             }
                           }
@@ -1279,8 +1271,8 @@ const MarkAttendance = () => {
                           await new Promise(resolve => setTimeout(resolve, 300));
                           const scannerElement = document.getElementById('qr-reader-mark-attendance');
                           if (scannerElement) {
-                            safeStopVideoElements(scannerElement);
-                            await new Promise(resolve => setTimeout(resolve, 100));
+                            await safeStopVideoElementsAsync(scannerElement);
+                            await new Promise(resolve => setTimeout(resolve, 150));
                             scannerElement.innerHTML = '';
                           }
                           setShowQRScanner(false);
