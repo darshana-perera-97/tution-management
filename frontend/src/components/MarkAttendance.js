@@ -30,6 +30,7 @@ const MarkAttendance = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [courses, setCourses] = useState([]);
+  const [currentCourses, setCurrentCourses] = useState([]); // courses in marking window (30 min before start → class end)
   const [selectedCourse, setSelectedCourse] = useState('');
   const [studentIdInput, setStudentIdInput] = useState('');
   const [showQRScanner, setShowQRScanner] = useState(false);
@@ -182,8 +183,12 @@ const MarkAttendance = () => {
   };
 
   useEffect(() => {
-    fetchCourses();
-    
+    const load = async () => {
+      await fetchCourses();
+      await fetchCurrentCourses();
+    };
+    load();
+
     // Store original console.error to intercept library errors
     const originalConsoleError = console.error;
     const originalConsoleWarn = console.warn;
@@ -297,15 +302,37 @@ const MarkAttendance = () => {
       const response = await fetch(`${API_URL}/api/courses`);
       const data = await response.json();
       if (data.success) {
+        let list = data.courses || [];
         if (isTeacher && teacherId) {
-          const teacherCourses = data.courses.filter(course => course.teacherId === teacherId);
-          setCourses(teacherCourses);
-        } else {
-          setCourses(data.courses);
+          list = list.filter(course => course.teacherId === teacherId);
         }
+        setCourses(list);
       }
     } catch (err) {
       console.error('Error fetching courses:', err);
+    }
+  };
+
+  // Fetch courses that are currently in the attendance window (same mechanism as backend)
+  const fetchCurrentCourses = async () => {
+    try {
+      const url = isTeacher && teacherId
+        ? `${API_URL}/api/attendance/current-courses?teacherId=${encodeURIComponent(teacherId)}`
+        : `${API_URL}/api/attendance/current-courses`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.success && Array.isArray(data.currentCourses)) {
+        setCurrentCourses(data.currentCourses);
+        // Pre-select the first current course when any exist (same mechanism as auto-mark)
+        if (data.currentCourses.length > 0) {
+          setSelectedCourse(prev => (prev === '' ? data.currentCourses[0].id : prev));
+        }
+      } else {
+        setCurrentCourses([]);
+      }
+    } catch (err) {
+      console.error('Error fetching current courses:', err);
+      setCurrentCourses([]);
     }
   };
 
@@ -826,7 +853,7 @@ const MarkAttendance = () => {
                       color: '#6b7280',
                       marginLeft: '28px'
                     }}>
-                      Leave empty to auto-detect course based on current schedule
+                      Attendance can be marked from 30 mins before class start until class end. Current-course auto-selected when in window.
                     </Form.Text>
                     <Form.Select
                       value={selectedCourse}
@@ -864,12 +891,18 @@ const MarkAttendance = () => {
                         e.target.style.boxShadow = 'none';
                       }}
                     >
-                      <option value="">-- Auto-detect course (recommended) --</option>
-                      {courses.map(course => (
-                        <option key={course.id} value={course.id}>
-                          {course.courseName} ({course.subject}) - {course.grade}
-                        </option>
-                      ))}
+                      <option value="">-- Auto-detect course (by current time window) --</option>
+                      {courses.map(course => {
+                        const current = currentCourses.find(cc => cc.id === course.id);
+                        const label = current
+                          ? `${course.courseName} (${course.subject}) - ${course.grade}${current.isExtraClass ? ' — Extra class (Current)' : ' — Current'}`
+                          : `${course.courseName} (${course.subject}) - ${course.grade}`;
+                        return (
+                          <option key={course.id} value={course.id}>
+                            {label}
+                          </option>
+                        );
+                      })}
                     </Form.Select>
                   </Form.Group>
                 </div>

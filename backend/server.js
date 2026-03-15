@@ -3394,13 +3394,25 @@ app.delete('/api/courses/:courseId/lms/:contentId', (req, res) => {
   }
 });
 
+// Default class duration in minutes when endTime is not set (for extra class or schedule)
+const DEFAULT_CLASS_DURATION_MINUTES = 120;
+
+// Helper: check if current time is within [windowStartMinutes, windowEndMinutes] (inclusive)
+const isTimeWithinWindow = (currentMinutes, windowStartMinutes, windowEndMinutes) => {
+  if (windowEndMinutes >= windowStartMinutes) {
+    return currentMinutes >= windowStartMinutes && currentMinutes <= windowEndMinutes;
+  }
+  // Wrap across midnight
+  return currentMinutes >= windowStartMinutes || currentMinutes <= windowEndMinutes;
+};
+
 // Helper function to check if attendance can be marked based on schedule or extra class
+// Window: 30 minutes before class start → class end time (usual and extra days)
 const canMarkAttendance = (course, courseId = null) => {
   const now = new Date();
   const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
   const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
   
-  // Convert current time to minutes for comparison
   const [currentHours, currentMinutes] = currentTime.split(':').map(Number);
   const currentTimeInMinutes = currentHours * 60 + currentMinutes;
 
@@ -3413,29 +3425,29 @@ const canMarkAttendance = (course, courseId = null) => {
 
     if (todayExtraClass && todayExtraClass.time) {
       const [extraClassHours, extraClassMinutes] = todayExtraClass.time.split(':').map(Number);
-      const extraClassTimeInMinutes = extraClassHours * 60 + extraClassMinutes;
-      
-      // Calculate time difference
-      let timeDiff = currentTimeInMinutes - extraClassTimeInMinutes;
-      
-      // Check if within 30 minutes window (before or after)
-      if (Math.abs(timeDiff) <= 30) {
-        return { allowed: true, message: null, isExtraClass: true };
-      } else {
-        const windowStart = new Date(now);
-        windowStart.setHours(extraClassHours, extraClassMinutes - 30, 0, 0);
-        const windowEnd = new Date(now);
-        windowEnd.setHours(extraClassHours, extraClassMinutes + 30, 0, 0);
-        
-        const windowStartStr = windowStart.toTimeString().slice(0, 5);
-        const windowEndStr = windowEnd.toTimeString().slice(0, 5);
-        
-        return { 
-          allowed: false, 
-          message: `Attendance can only be marked 30 minutes before or after the extra class time. Extra class is at ${todayExtraClass.time}. Marking window: ${windowStartStr} - ${windowEndStr}. Current time: ${currentTime}.`,
-          isExtraClass: true
-        };
+      const extraStartMinutes = extraClassHours * 60 + extraClassMinutes;
+      // Extra class end: use endTime if present, else start + default duration
+      let extraEndMinutes = extraStartMinutes + DEFAULT_CLASS_DURATION_MINUTES;
+      if (todayExtraClass.endTime) {
+        const [eh, em] = todayExtraClass.endTime.split(':').map(Number);
+        extraEndMinutes = eh * 60 + em;
       }
+      const windowStartMinutes = extraStartMinutes - 30;
+
+      if (isTimeWithinWindow(currentTimeInMinutes, windowStartMinutes, extraEndMinutes)) {
+        return { allowed: true, message: null, isExtraClass: true };
+      }
+      const windowStart = new Date(now);
+      windowStart.setHours(Math.floor(windowStartMinutes / 60), windowStartMinutes % 60, 0, 0);
+      const windowEnd = new Date(now);
+      windowEnd.setHours(Math.floor(extraEndMinutes / 60), extraEndMinutes % 60, 0, 0);
+      const windowStartStr = windowStart.toTimeString().slice(0, 5);
+      const windowEndStr = windowEnd.toTimeString().slice(0, 5);
+      return { 
+        allowed: false, 
+        message: `Attendance can only be marked from 30 minutes before the extra class until class end. Extra class at ${todayExtraClass.time}. Marking window: ${windowStartStr} - ${windowEndStr}. Current time: ${currentTime}.`,
+        isExtraClass: true
+      };
     }
   }
 
@@ -3445,8 +3457,6 @@ const canMarkAttendance = (course, courseId = null) => {
   }
 
   const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' });
-  
-  // Check if current day matches any schedule day
   const todaySchedule = course.schedule.filter(s => s.day === currentDay);
   
   if (todaySchedule.length === 0) {
@@ -3457,61 +3467,142 @@ const canMarkAttendance = (course, courseId = null) => {
     };
   }
 
-  // Check if current time is within 30 minutes before or after any scheduled start time
+  // Window: 30 min before start → class end (or start + default duration if no endTime)
   let isWithinTimeWindow = false;
   let closestSchedule = null;
-  let minTimeDiff = Infinity;
+  let minDistToWindow = Infinity;
 
   for (const schedule of todaySchedule) {
     if (!schedule.startTime) continue;
     
     const [scheduleHours, scheduleMinutes] = schedule.startTime.split(':').map(Number);
-    const scheduleTimeInMinutes = scheduleHours * 60 + scheduleMinutes;
-    
-    // Calculate time difference (handle day wrap-around)
-    let timeDiff = currentTimeInMinutes - scheduleTimeInMinutes;
-    
-    // Handle cases where current time might be after midnight but schedule is before
-    if (timeDiff < -720) { // More than 12 hours difference, likely next day
-      timeDiff += 1440; // Add 24 hours
-    } else if (timeDiff > 720) { // More than 12 hours difference, likely previous day
-      timeDiff -= 1440; // Subtract 24 hours
+    const startMinutes = scheduleHours * 60 + scheduleMinutes;
+    let endMinutes = startMinutes + DEFAULT_CLASS_DURATION_MINUTES;
+    if (schedule.endTime) {
+      const [eh, em] = schedule.endTime.split(':').map(Number);
+      endMinutes = eh * 60 + em;
     }
-    
-    // Check if within 30 minutes window (before or after)
-    if (Math.abs(timeDiff) <= 30) {
+    const windowStartMinutes = startMinutes - 30;
+
+    const within = isTimeWithinWindow(currentTimeInMinutes, windowStartMinutes, endMinutes);
+    if (within) {
       isWithinTimeWindow = true;
       closestSchedule = schedule;
       break;
     }
-    
-    // Track closest schedule for error message
-    const absDiff = Math.abs(timeDiff);
-    if (absDiff < minTimeDiff) {
-      minTimeDiff = absDiff;
+    const dist = Math.min(
+      Math.abs(currentTimeInMinutes - windowStartMinutes),
+      Math.abs(currentTimeInMinutes - endMinutes)
+    );
+    if (dist < minDistToWindow) {
+      minDistToWindow = dist;
       closestSchedule = schedule;
     }
   }
 
   if (!isWithinTimeWindow && closestSchedule) {
     const [scheduleHours, scheduleMinutes] = closestSchedule.startTime.split(':').map(Number);
-    const scheduleTime = `${String(scheduleHours).padStart(2, '0')}:${String(scheduleMinutes).padStart(2, '0')}`;
+    const startMinutes = scheduleHours * 60 + scheduleMinutes;
+    let endMinutes = startMinutes + DEFAULT_CLASS_DURATION_MINUTES;
+    if (closestSchedule.endTime) {
+      const [eh, em] = closestSchedule.endTime.split(':').map(Number);
+      endMinutes = eh * 60 + em;
+    }
     const windowStart = new Date(now);
-    windowStart.setHours(scheduleHours, scheduleMinutes - 30, 0, 0);
+    windowStart.setHours(Math.floor((startMinutes - 30) / 60), (startMinutes - 30) % 60, 0, 0);
     const windowEnd = new Date(now);
-    windowEnd.setHours(scheduleHours, scheduleMinutes + 30, 0, 0);
-    
+    windowEnd.setHours(Math.floor(endMinutes / 60), endMinutes % 60, 0, 0);
     const windowStartStr = windowStart.toTimeString().slice(0, 5);
     const windowEndStr = windowEnd.toTimeString().slice(0, 5);
-    
+    const scheduleTime = `${String(scheduleHours).padStart(2, '0')}:${String(scheduleMinutes).padStart(2, '0')}`;
     return { 
       allowed: false, 
-      message: `Attendance can only be marked 30 minutes before or after the scheduled time. Today's schedule is at ${scheduleTime}. Marking window: ${windowStartStr} - ${windowEndStr}. Current time: ${currentTime}.` 
+      message: `Attendance can only be marked from 30 minutes before class start until class end. Today's schedule: ${scheduleTime}. Marking window: ${windowStartStr} - ${windowEndStr}. Current time: ${currentTime}.` 
     };
   }
 
   return { allowed: true, message: null };
 };
+
+// Get courses that are currently within the attendance marking window (30 min before start → class end)
+// Used by admin/operator to pre-select or highlight current course(s)
+app.get('/api/attendance/current-courses', (req, res) => {
+  try {
+    const { teacherId } = req.query;
+    const coursesData = readCoursesData();
+    const extraClassesData = readExtraClassesData();
+    const now = new Date();
+    const currentDate = now.toISOString().split('T')[0];
+    const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' });
+    const [currentHours, currentMinutes] = now.toTimeString().slice(0, 5).split(':').map(Number);
+    const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+
+    let list = coursesData.courses || [];
+    if (teacherId) {
+      list = list.filter(c => c.teacherId === teacherId);
+    }
+
+    const currentCourses = [];
+    for (const course of list) {
+      const courseId = course.id;
+
+      // Extra class today
+      const todayExtra = extraClassesData.extraClasses.find(
+        ec => ec.courseId === courseId && ec.date === currentDate
+      );
+      if (todayExtra && todayExtra.time) {
+        const [h, m] = todayExtra.time.split(':').map(Number);
+        const startM = h * 60 + m;
+        let endM = startM + DEFAULT_CLASS_DURATION_MINUTES;
+        if (todayExtra.endTime) {
+          const [eh, em] = todayExtra.endTime.split(':').map(Number);
+          endM = eh * 60 + em;
+        }
+        if (isTimeWithinWindow(currentTimeInMinutes, startM - 30, endM)) {
+          currentCourses.push({ ...course, isExtraClass: true });
+          continue;
+        }
+      }
+
+      // Regular schedule
+      if (!course.schedule || !Array.isArray(course.schedule) || course.schedule.length === 0) {
+        continue;
+      }
+      const todaySchedule = course.schedule.filter(s => s.day === currentDay);
+      for (const schedule of todaySchedule) {
+        if (!schedule.startTime) continue;
+        const [sh, sm] = schedule.startTime.split(':').map(Number);
+        const startM = sh * 60 + sm;
+        let endM = startM + DEFAULT_CLASS_DURATION_MINUTES;
+        if (schedule.endTime) {
+          const [eh, em] = schedule.endTime.split(':').map(Number);
+          endM = eh * 60 + em;
+        }
+        if (isTimeWithinWindow(currentTimeInMinutes, startM - 30, endM)) {
+          currentCourses.push({ ...course, isExtraClass: false });
+          break;
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      currentCourses: currentCourses.map(c => ({
+        id: c.id,
+        courseName: c.courseName,
+        subject: c.subject,
+        grade: c.grade,
+        isExtraClass: c.isExtraClass
+      }))
+    });
+  } catch (error) {
+    console.error('Get current courses error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
 
 // Mark attendance
 app.post('/api/attendance', (req, res) => {
@@ -3676,12 +3767,14 @@ app.post('/api/attendance/auto-mark', (req, res) => {
 
       if (todayExtraClass && todayExtraClass.time) {
         const [extraClassHours, extraClassMinutes] = todayExtraClass.time.split(':').map(Number);
-        const extraClassTimeInMinutes = extraClassHours * 60 + extraClassMinutes;
-        
-        let timeDiff = currentTimeInMinutes - extraClassTimeInMinutes;
-        
-        // Check if within 30 minutes window (before or after)
-        if (Math.abs(timeDiff) <= 30) {
+        const extraStartMinutes = extraClassHours * 60 + extraClassMinutes;
+        let extraEndMinutes = extraStartMinutes + DEFAULT_CLASS_DURATION_MINUTES;
+        if (todayExtraClass.endTime) {
+          const [eh, em] = todayExtraClass.endTime.split(':').map(Number);
+          extraEndMinutes = eh * 60 + em;
+        }
+        const windowStartMinutes = extraStartMinutes - 30;
+        if (isTimeWithinWindow(currentTimeInMinutes, windowStartMinutes, extraEndMinutes)) {
           matchedCourse = course;
           break;
         }
@@ -3689,9 +3782,7 @@ app.post('/api/attendance/auto-mark', (req, res) => {
 
       // Check regular schedule if no extra class matched
       if (!matchedCourse) {
-        // If course has no schedule, skip it (but could be marked if no other course matches)
         if (!course.schedule || !Array.isArray(course.schedule) || course.schedule.length === 0) {
-          // Only use this as fallback if no other course matches
           if (!matchedCourse) {
             matchedCourse = course;
             reason = 'Course has no schedule restrictions';
@@ -3699,29 +3790,19 @@ app.post('/api/attendance/auto-mark', (req, res) => {
           continue;
         }
 
-        // Check if current day matches any schedule day
         const todaySchedule = course.schedule.filter(s => s.day === currentDay);
-        
         if (todaySchedule.length > 0) {
-          // Check if current time is within 30 minutes before or after any scheduled start time
           for (const schedule of todaySchedule) {
             if (!schedule.startTime) continue;
-            
             const [scheduleHours, scheduleMinutes] = schedule.startTime.split(':').map(Number);
-            const scheduleTimeInMinutes = scheduleHours * 60 + scheduleMinutes;
-            
-            // Calculate time difference (handle day wrap-around)
-            let timeDiff = currentTimeInMinutes - scheduleTimeInMinutes;
-            
-            // Handle cases where current time might be after midnight but schedule is before
-            if (timeDiff < -720) { // More than 12 hours difference, likely next day
-              timeDiff += 1440; // Add 24 hours
-            } else if (timeDiff > 720) { // More than 12 hours difference, likely previous day
-              timeDiff -= 1440; // Subtract 24 hours
+            const startMinutes = scheduleHours * 60 + scheduleMinutes;
+            let endMinutes = startMinutes + DEFAULT_CLASS_DURATION_MINUTES;
+            if (schedule.endTime) {
+              const [eh, em] = schedule.endTime.split(':').map(Number);
+              endMinutes = eh * 60 + em;
             }
-            
-            // Check if within 30 minutes window (before or after)
-            if (Math.abs(timeDiff) <= 30) {
+            const windowStartMinutes = startMinutes - 30;
+            if (isTimeWithinWindow(currentTimeInMinutes, windowStartMinutes, endMinutes)) {
               matchedCourse = course;
               break;
             }
@@ -3745,60 +3826,57 @@ app.post('/api/attendance/auto-mark', (req, res) => {
 
         if (todayExtraClass && todayExtraClass.time) {
           const [extraClassHours, extraClassMinutes] = todayExtraClass.time.split(':').map(Number);
-          const extraClassTimeInMinutes = extraClassHours * 60 + extraClassMinutes;
-          let timeDiff = currentTimeInMinutes - extraClassTimeInMinutes;
-          
-          if (Math.abs(timeDiff) > 30) {
+          const extraStartMinutes = extraClassHours * 60 + extraClassMinutes;
+          let extraEndMinutes = extraStartMinutes + DEFAULT_CLASS_DURATION_MINUTES;
+          if (todayExtraClass.endTime) {
+            const [eh, em] = todayExtraClass.endTime.split(':').map(Number);
+            extraEndMinutes = eh * 60 + em;
+          }
+          const windowStartMinutes = extraStartMinutes - 30;
+          if (!isTimeWithinWindow(currentTimeInMinutes, windowStartMinutes, extraEndMinutes)) {
             const windowStart = new Date(now);
-            windowStart.setHours(extraClassHours, extraClassMinutes - 30, 0, 0);
+            windowStart.setHours(Math.floor(windowStartMinutes / 60), windowStartMinutes % 60, 0, 0);
             const windowEnd = new Date(now);
-            windowEnd.setHours(extraClassHours, extraClassMinutes + 30, 0, 0);
-            const windowStartStr = windowStart.toTimeString().slice(0, 5);
-            const windowEndStr = windowEnd.toTimeString().slice(0, 5);
-            reasons.push(`${course.courseName}: Extra class at ${todayExtraClass.time}, marking window ${windowStartStr} - ${windowEndStr}`);
+            windowEnd.setHours(Math.floor(extraEndMinutes / 60), extraEndMinutes % 60, 0, 0);
+            reasons.push(`${course.courseName}: Extra class at ${todayExtraClass.time}, marking window ${windowStart.toTimeString().slice(0, 5)} - ${windowEnd.toTimeString().slice(0, 5)}`);
           }
         }
 
         if (course.schedule && Array.isArray(course.schedule) && course.schedule.length > 0) {
           const todaySchedule = course.schedule.filter(s => s.day === currentDay);
-          
           if (todaySchedule.length === 0) {
             const scheduleDays = course.schedule.map(s => s.day).join(', ');
             reasons.push(`${course.courseName}: Scheduled on ${scheduleDays}, today is ${currentDay}`);
           } else {
-            let closestSchedule = null;
-            let minTimeDiff = Infinity;
-            
+            let foundInWindow = false;
             for (const schedule of todaySchedule) {
               if (!schedule.startTime) continue;
-              
               const [scheduleHours, scheduleMinutes] = schedule.startTime.split(':').map(Number);
-              const scheduleTimeInMinutes = scheduleHours * 60 + scheduleMinutes;
-              let timeDiff = currentTimeInMinutes - scheduleTimeInMinutes;
-              
-              if (timeDiff < -720) {
-                timeDiff += 1440;
-              } else if (timeDiff > 720) {
-                timeDiff -= 1440;
+              const startMinutes = scheduleHours * 60 + scheduleMinutes;
+              let endMinutes = startMinutes + DEFAULT_CLASS_DURATION_MINUTES;
+              if (schedule.endTime) {
+                const [eh, em] = schedule.endTime.split(':').map(Number);
+                endMinutes = eh * 60 + em;
               }
-              
-              const absDiff = Math.abs(timeDiff);
-              if (absDiff < minTimeDiff) {
-                minTimeDiff = absDiff;
-                closestSchedule = schedule;
+              if (isTimeWithinWindow(currentTimeInMinutes, startMinutes - 30, endMinutes)) {
+                foundInWindow = true;
+                break;
               }
             }
-            
-            if (closestSchedule && minTimeDiff > 30) {
-              const [scheduleHours, scheduleMinutes] = closestSchedule.startTime.split(':').map(Number);
-              const scheduleTime = `${String(scheduleHours).padStart(2, '0')}:${String(scheduleMinutes).padStart(2, '0')}`;
-              const windowStart = new Date(now);
-              windowStart.setHours(scheduleHours, scheduleMinutes - 30, 0, 0);
-              const windowEnd = new Date(now);
-              windowEnd.setHours(scheduleHours, scheduleMinutes + 30, 0, 0);
-              const windowStartStr = windowStart.toTimeString().slice(0, 5);
-              const windowEndStr = windowEnd.toTimeString().slice(0, 5);
-              reasons.push(`${course.courseName}: Schedule at ${scheduleTime}, marking window ${windowStartStr} - ${windowEndStr}`);
+            if (!foundInWindow) {
+              const s = todaySchedule[0];
+              const [sh, sm] = s.startTime.split(':').map(Number);
+              const startM = sh * 60 + sm;
+              let endM = startM + DEFAULT_CLASS_DURATION_MINUTES;
+              if (s.endTime) {
+                const [eh, em] = s.endTime.split(':').map(Number);
+                endM = eh * 60 + em;
+              }
+              const ws = new Date(now);
+              ws.setHours(Math.floor((startM - 30) / 60), (startM - 30) % 60, 0, 0);
+              const we = new Date(now);
+              we.setHours(Math.floor(endM / 60), endM % 60, 0, 0);
+              reasons.push(`${course.courseName}: Schedule at ${s.startTime}, marking window ${ws.toTimeString().slice(0, 5)} - ${we.toTimeString().slice(0, 5)}`);
             }
           }
         }
@@ -3806,7 +3884,7 @@ app.post('/api/attendance/auto-mark', (req, res) => {
 
       const reasonMessage = reasons.length > 0 
         ? `No course matches current time. Reasons: ${reasons.join('; ')}`
-        : 'No course matches current time window (±30 minutes from scheduled time)';
+        : 'No course matches current time window (30 minutes before class start until class end).';
 
       return res.status(400).json({
         success: false,
