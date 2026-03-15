@@ -2382,12 +2382,12 @@ app.get('/api/extra-classes', (req, res) => {
 app.post('/api/courses/:courseId/extra-class', async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { date, time } = req.body;
+    const { date, time, endTime } = req.body;
 
     if (!date || !time) {
       return res.status(400).json({
         success: false,
-        message: 'Date and time are required'
+        message: 'Date and start time are required'
       });
     }
 
@@ -2404,8 +2404,27 @@ app.post('/api/courses/:courseId/extra-class', async (req, res) => {
     if (!/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(time)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid time format. Must be in HH:MM format'
+        message: 'Invalid start time format. Must be in HH:MM format'
       });
+    }
+
+    if (endTime !== undefined && endTime !== null && endTime !== '') {
+      if (!/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/.test(endTime)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid end time format. Must be in HH:MM format'
+        });
+      }
+      const [startH, startM] = time.split(':').map(Number);
+      const [endH, endM] = endTime.split(':').map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+      if (endMinutes <= startMinutes) {
+        return res.status(400).json({
+          success: false,
+          message: 'End time must be after start time'
+        });
+      }
     }
 
     const coursesData = readCoursesData();
@@ -2428,6 +2447,7 @@ app.post('/api/courses/:courseId/extra-class', async (req, res) => {
       subject: course.subject,
       date: date,
       time: time,
+      ...(endTime ? { endTime } : {}),
       createdAt: new Date().toISOString()
     };
 
@@ -2456,7 +2476,8 @@ app.post('/api/courses/:courseId/extra-class', async (req, res) => {
         if (student) {
           const notificationNumbers = getStudentNotificationNumbers(student);
           if (notificationNumbers.length > 0) {
-            const extraClassMessage = `📚 Extra Class Announcement\n\nDear ${student.parentName},\n\nAn extra class has been scheduled for your child ${student.fullName}:\n\n- Course: ${course.courseName} (${course.subject})\n- Date: ${formattedDate}\n- Time: ${time}\n\nPlease ensure your child attends this extra class.\n\nThank you!\n\nBest regards,\nTuition Management System`;
+            const timeRange = endTime ? `Time: ${time} - ${endTime}` : `Time: ${time}`;
+          const extraClassMessage = `📚 Extra Class Announcement\n\nDear ${student.parentName},\n\nAn extra class has been scheduled for your child ${student.fullName}:\n\n- Course: ${course.courseName} (${course.subject})\n- Date: ${formattedDate}\n- ${timeRange}\n\nPlease ensure your child attends this extra class.\n\nThank you!\n\nBest regards,\nTuition Management System`;
             
             sendWhatsAppToMultiple(notificationNumbers, extraClassMessage).catch(err => {
               console.error(`Failed to send extra class notification to ${student.fullName}:`, err);
@@ -3416,7 +3437,7 @@ const canMarkAttendance = (course, courseId = null) => {
   const [currentHours, currentMinutes] = currentTime.split(':').map(Number);
   const currentTimeInMinutes = currentHours * 60 + currentMinutes;
 
-  // First, check if there's an extra class for today
+  // First, check if there's an extra class for today (use Add Extra Class start/end time for identification)
   if (courseId) {
     const extraClassesData = readExtraClassesData();
     const todayExtraClass = extraClassesData.extraClasses.find(
@@ -3426,7 +3447,7 @@ const canMarkAttendance = (course, courseId = null) => {
     if (todayExtraClass && todayExtraClass.time) {
       const [extraClassHours, extraClassMinutes] = todayExtraClass.time.split(':').map(Number);
       const extraStartMinutes = extraClassHours * 60 + extraClassMinutes;
-      // Extra class end: use endTime if present, else start + default duration
+      // Use extra class end time from Add Extra Class when set; else start + default duration
       let extraEndMinutes = extraStartMinutes + DEFAULT_CLASS_DURATION_MINUTES;
       if (todayExtraClass.endTime) {
         const [eh, em] = todayExtraClass.endTime.split(':').map(Number);
@@ -3546,7 +3567,7 @@ app.get('/api/attendance/current-courses', (req, res) => {
     for (const course of list) {
       const courseId = course.id;
 
-      // Extra class today
+      // Extra class today — use extra class start and end time to identify current course
       const todayExtra = extraClassesData.extraClasses.find(
         ec => ec.courseId === courseId && ec.date === currentDate
       );
@@ -3554,17 +3575,22 @@ app.get('/api/attendance/current-courses', (req, res) => {
         const [h, m] = todayExtra.time.split(':').map(Number);
         const startM = h * 60 + m;
         let endM = startM + DEFAULT_CLASS_DURATION_MINUTES;
+        const startTimeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        let endTimeStr = null;
         if (todayExtra.endTime) {
           const [eh, em] = todayExtra.endTime.split(':').map(Number);
           endM = eh * 60 + em;
+          endTimeStr = todayExtra.endTime;
+        } else {
+          endTimeStr = `${String(Math.floor(endM / 60)).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`;
         }
         if (isTimeWithinWindow(currentTimeInMinutes, startM - 30, endM)) {
-          currentCourses.push({ ...course, isExtraClass: true });
+          currentCourses.push({ ...course, isExtraClass: true, startTime: startTimeStr, endTime: endTimeStr });
           continue;
         }
       }
 
-      // Regular schedule
+      // Regular schedule — use schedule start and end time to identify current course
       if (!course.schedule || !Array.isArray(course.schedule) || course.schedule.length === 0) {
         continue;
       }
@@ -3574,12 +3600,17 @@ app.get('/api/attendance/current-courses', (req, res) => {
         const [sh, sm] = schedule.startTime.split(':').map(Number);
         const startM = sh * 60 + sm;
         let endM = startM + DEFAULT_CLASS_DURATION_MINUTES;
+        const startTimeStr = schedule.startTime;
+        let endTimeStr = schedule.endTime || null;
         if (schedule.endTime) {
           const [eh, em] = schedule.endTime.split(':').map(Number);
           endM = eh * 60 + em;
+          endTimeStr = schedule.endTime;
+        } else {
+          endTimeStr = `${String(Math.floor(endM / 60)).padStart(2, '0')}:${String(endM % 60).padStart(2, '0')}`;
         }
         if (isTimeWithinWindow(currentTimeInMinutes, startM - 30, endM)) {
-          currentCourses.push({ ...course, isExtraClass: false });
+          currentCourses.push({ ...course, isExtraClass: false, startTime: startTimeStr, endTime: endTimeStr });
           break;
         }
       }
@@ -3592,7 +3623,9 @@ app.get('/api/attendance/current-courses', (req, res) => {
         courseName: c.courseName,
         subject: c.subject,
         grade: c.grade,
-        isExtraClass: c.isExtraClass
+        isExtraClass: c.isExtraClass,
+        startTime: c.startTime || null,
+        endTime: c.endTime || null
       }))
     });
   } catch (error) {
@@ -3601,6 +3634,78 @@ app.get('/api/attendance/current-courses', (req, res) => {
       success: false,
       message: 'Internal server error'
     });
+  }
+});
+
+// Preview attendance: enrollment, time window, and payment status for a student+course (for Mark Attendance UI)
+app.get('/api/attendance/preview', (req, res) => {
+  try {
+    const { studentId, courseId } = req.query;
+    if (!studentId || !courseId) {
+      return res.status(400).json({
+        success: false,
+        message: 'studentId and courseId are required'
+      });
+    }
+    const studentsData = readStudentsData();
+    const coursesData = readCoursesData();
+    const paymentsData = readPaymentsData();
+    const student = studentsData.students.find(s => s.id === studentId);
+    const course = coursesData.courses.find(c => c.id === courseId);
+    if (!student) {
+      return res.json({
+        success: true,
+        student: null,
+        course: null,
+        isEnrolled: false,
+        canMarkTimeWindow: false,
+        timeMessage: 'Student not found.',
+        courseFee: null,
+        currentMonthKey: null,
+        paymentStatus: null,
+        paymentDate: null
+      });
+    }
+    if (!course) {
+      return res.json({
+        success: true,
+        student: { id: student.id, fullName: student.fullName },
+        course: null,
+        isEnrolled: false,
+        canMarkTimeWindow: false,
+        timeMessage: 'Course not found.',
+        courseFee: null,
+        currentMonthKey: null,
+        paymentStatus: null,
+        paymentDate: null
+      });
+    }
+    const isEnrolled = !!(course.enrolledStudents && course.enrolledStudents.includes(studentId));
+    const scheduleCheck = canMarkAttendance(course, courseId);
+    const canMarkTimeWindow = scheduleCheck.allowed;
+    const timeMessage = scheduleCheck.message || null;
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const paymentForMonth = (paymentsData.payments || []).find(
+      p => p.studentId === studentId && p.courseId === courseId && p.monthKey === currentMonthKey
+    );
+    const paymentStatus = paymentForMonth ? 'Paid' : 'Pending';
+    const paymentDate = paymentForMonth ? paymentForMonth.paymentDate : null;
+    res.json({
+      success: true,
+      student: { id: student.id, fullName: student.fullName },
+      course: { id: course.id, courseName: course.courseName, subject: course.subject, grade: course.grade, courseFee: course.courseFee },
+      isEnrolled,
+      canMarkTimeWindow,
+      timeMessage,
+      courseFee: course.courseFee || null,
+      currentMonthKey,
+      paymentStatus,
+      paymentDate
+    });
+  } catch (error) {
+    console.error('Attendance preview error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 
@@ -3631,12 +3736,29 @@ app.post('/api/attendance', (req, res) => {
       });
     }
 
-    // Check if attendance can be marked based on schedule or extra class
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    const isEnrolled = course.enrolledStudents && course.enrolledStudents.includes(studentId);
+    if (!isEnrolled) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student is not registered for this course.',
+        code: 'NOT_ENROLLED'
+      });
+    }
+
+    // Check if attendance can be marked based on schedule or extra class (within class time window)
     const scheduleCheck = canMarkAttendance(course, courseId);
     if (!scheduleCheck.allowed) {
       return res.status(400).json({
         success: false,
-        message: scheduleCheck.message
+        message: scheduleCheck.message,
+        code: 'OUT_OF_CLASS_TIME'
       });
     }
     

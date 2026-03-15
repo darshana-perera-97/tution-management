@@ -53,7 +53,7 @@ const Courses = () => {
   const [bulkMessageImagePreview, setBulkMessageImagePreview] = useState(null);
   const [bulkMessageLoading, setBulkMessageLoading] = useState(false);
   const [showExtraClassModal, setShowExtraClassModal] = useState(false);
-  const [extraClassData, setExtraClassData] = useState({ date: '', time: '' });
+  const [extraClassData, setExtraClassData] = useState({ date: '', time: '', endTime: '' });
   const [extraClassLoading, setExtraClassLoading] = useState(false);
   const [extraClasses, setExtraClasses] = useState([]);
   const [loadingExtraClasses, setLoadingExtraClasses] = useState(false);
@@ -508,7 +508,7 @@ const Courses = () => {
   const handleCloseExtraClassModal = () => {
     setShowExtraClassModal(false);
     setSelectedCourse(null);
-    setExtraClassData({ date: '', time: '' });
+    setExtraClassData({ date: '', time: '', endTime: '' });
     setError('');
     setSuccess('');
   };
@@ -526,7 +526,11 @@ const Courses = () => {
     setSuccess('');
 
     if (!extraClassData.date || !extraClassData.time) {
-      setError('Please fill in both date and time');
+      setError('Please fill in date and start time');
+      return;
+    }
+    if (extraClassData.endTime && extraClassData.time && extraClassData.endTime <= extraClassData.time) {
+      setError('End time must be after start time');
       return;
     }
 
@@ -540,7 +544,8 @@ const Courses = () => {
         },
         body: JSON.stringify({
           date: extraClassData.date,
-          time: extraClassData.time
+          time: extraClassData.time,
+          endTime: extraClassData.endTime || undefined
         }),
       });
 
@@ -548,7 +553,7 @@ const Courses = () => {
 
       if (data.success) {
         setSuccess('Extra class added successfully! WhatsApp notifications sent to all enrolled students.');
-        setExtraClassData({ date: '', time: '' });
+        setExtraClassData({ date: '', time: '', endTime: '' });
         // Refresh extra classes list
         const refreshResponse = await fetch(`${API_URL}/api/extra-classes?courseId=${selectedCourse.id}`);
         const refreshData = await refreshResponse.json();
@@ -2144,7 +2149,7 @@ const Courses = () => {
                     <div className="student-form-field">
                       <label className="student-form-label">
                         <HiOutlineClock className="student-form-label-icon" />
-                        Time
+                        Class start time
                       </label>
                       <input
                         type="time"
@@ -2153,6 +2158,24 @@ const Courses = () => {
                         onChange={handleExtraClassChange}
                         required
                         className="student-form-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="student-form-column">
+                    <div className="student-form-field">
+                      <label className="student-form-label">
+                        <HiOutlineClock className="student-form-label-icon" />
+                        Class end time
+                      </label>
+                      <input
+                        type="time"
+                        name="endTime"
+                        value={extraClassData.endTime}
+                        onChange={handleExtraClassChange}
+                        min={extraClassData.time || undefined}
+                        className="student-form-input"
+                        title="Optional — used for attendance window (30 min before start until end)"
                       />
                     </div>
                   </div>
@@ -2205,7 +2228,8 @@ const Courses = () => {
                         <thead style={{ background: '#f8fafc' }}>
                           <tr>
                             <th style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Date</th>
-                            <th style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Time</th>
+                            <th style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Start</th>
+                            <th style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>End</th>
                             <th style={{ padding: '12px 16px', fontSize: '13px', fontWeight: '700', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Created</th>
                           </tr>
                         </thead>
@@ -2229,6 +2253,9 @@ const Courses = () => {
                                 </td>
                                 <td style={{ padding: '12px 16px', fontSize: '14px', color: '#475569' }}>
                                   {extraClass.time || '-'}
+                                </td>
+                                <td style={{ padding: '12px 16px', fontSize: '14px', color: '#475569' }}>
+                                  {extraClass.endTime || '-'}
                                 </td>
                                 <td style={{ padding: '12px 16px', fontSize: '13px', color: '#64748b' }}>
                                   {extraClass.createdAt 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, startTransition } from 'react';
-import { Container, Button, Form, Alert, Card } from 'react-bootstrap';
+import { Container, Button, Form, Alert, Card, Modal } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
 import { 
@@ -9,7 +9,9 @@ import {
   HiOutlineIdentification,
   HiOutlineCamera,
   HiOutlineXMark,
-  HiOutlineClipboardDocumentCheck
+  HiOutlineClipboardDocumentCheck,
+  HiOutlineExclamationCircle,
+  HiOutlineCurrencyDollar
 } from 'react-icons/hi2';
 import Sidebar from './Sidebar';
 import TopNavbar from './TopNavbar';
@@ -44,9 +46,14 @@ const MarkAttendance = () => {
   const [warnings, setWarnings] = useState([]);
   const [showAutoMarkResultModal, setShowAutoMarkResultModal] = useState(false);
   const [autoMarkResult, setAutoMarkResult] = useState(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
+  const [attendancePreview, setAttendancePreview] = useState(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
   const qrScannerRef = useRef(null);
   const isProcessingRef = useRef(false);
   const scannerInitializedRef = useRef(false);
+  const scannerInstanceRef = useRef(null); // ref so cleanup can always stop camera when scanner is closed
   const handleMarkAttendanceRef = useRef(null);
   const handleAutoMarkAttendanceRef = useRef(null);
 
@@ -383,10 +390,15 @@ const MarkAttendance = () => {
         }, 2000);
       } else {
         setError(data.message || 'Failed to mark attendance');
+        setShowErrorModal(true);
+        setErrorModalMessage(data.message || 'Failed to mark attendance');
       }
     } catch (err) {
       console.error('Error marking attendance:', err);
-      setError('Unable to connect to server. Please try again later.');
+      const msg = 'Unable to connect to server. Please try again later.';
+      setError(msg);
+      setShowErrorModal(true);
+      setErrorModalMessage(msg);
     } finally {
       setLoading(false);
       isProcessingRef.current = false;
@@ -445,15 +457,54 @@ const MarkAttendance = () => {
         }, 2000);
       } else {
         setError(data.message || 'Failed to mark attendance');
+        setShowErrorModal(true);
+        setErrorModalMessage(data.message || 'Failed to mark attendance');
       }
     } catch (err) {
       console.error('Error marking attendance:', err);
-      setError('Unable to connect to server. Please try again later.');
+      const msg = 'Unable to connect to server. Please try again later.';
+      setError(msg);
+      setShowErrorModal(true);
+      setErrorModalMessage(msg);
     } finally {
       setLoading(false);
       isProcessingRef.current = false;
     }
   }, [selectedCourse, navigate, isAdmin, isOperator]);
+
+  // Fetch attendance preview (enrollment, time window, payment status) when course and student ID are set
+  const fetchAttendancePreview = useCallback(async () => {
+    const sid = (studentIdInput || qrScanResult || '').trim();
+    if (!selectedCourse || !sid) {
+      setAttendancePreview(null);
+      return;
+    }
+    setLoadingPreview(true);
+    try {
+      const response = await fetch(`${API_URL}/api/attendance/preview?studentId=${encodeURIComponent(sid)}&courseId=${encodeURIComponent(selectedCourse)}`);
+      const data = await response.json();
+      if (data.success) {
+        setAttendancePreview(data);
+      } else {
+        setAttendancePreview(null);
+      }
+    } catch (err) {
+      console.error('Error fetching attendance preview:', err);
+      setAttendancePreview(null);
+    } finally {
+      setLoadingPreview(false);
+    }
+  }, [selectedCourse, studentIdInput, qrScanResult]);
+
+  useEffect(() => {
+    const sid = (studentIdInput || qrScanResult || '').trim();
+    if (!selectedCourse || !sid) {
+      setAttendancePreview(null);
+      return;
+    }
+    const t = setTimeout(fetchAttendancePreview, 300);
+    return () => clearTimeout(t);
+  }, [selectedCourse, studentIdInput, qrScanResult, fetchAttendancePreview]);
 
   // Update refs when functions change
   useEffect(() => {
@@ -466,32 +517,33 @@ const MarkAttendance = () => {
     let html5QrCode = null;
     let isMounted = true;
     let scanProcessed = false;
-    
+
+    // Only open camera when QR scanner UI is on (showQRScanner true and container mounted)
     if (showQRScanner && qrScannerRef.current && !scannerInitializedRef.current) {
       scannerInitializedRef.current = true;
-      
+
       const startScanner = async () => {
         try {
-          if (scannerInstance) {
-            await safeStopScanner(scannerInstance);
+          // Stop any previous scanner so camera is not left on
+          const prev = scannerInstanceRef.current || scannerInstance;
+          if (prev) {
+            await safeStopScanner(prev);
+            scannerInstanceRef.current = null;
             setScannerInstance(null);
           }
-          
+
           const scannerId = 'qr-reader-mark-attendance';
-          // Wait longer before clearing to ensure previous stream is released
           await new Promise(resolve => setTimeout(resolve, 300));
           const scannerElement = document.getElementById(scannerId);
           if (scannerElement) {
-            // Stop any existing video tracks before clearing
             safeStopVideoElements(scannerElement);
-            // Wait a bit more before clearing innerHTML
             await new Promise(resolve => setTimeout(resolve, 100));
             scannerElement.innerHTML = '';
           }
-          
-          // Wait before creating new scanner instance
+
           await new Promise(resolve => setTimeout(resolve, 100));
           html5QrCode = new Html5Qrcode(scannerId);
+          scannerInstanceRef.current = html5QrCode;
           
           // Add error listeners to the scanner element to catch video errors
           const scannerElementAfterCreation = document.getElementById(scannerId);
@@ -548,6 +600,7 @@ const MarkAttendance = () => {
               
               if (html5QrCode) {
                 safeStopScanner(html5QrCode).then(() => {
+                  scannerInstanceRef.current = null;
                   scannerInitializedRef.current = false;
                   if (isMounted) {
                     startTransition(() => {
@@ -579,6 +632,7 @@ const MarkAttendance = () => {
               !errorMsg.includes('abort')) {
                     // Only log if it's not a known camera error
                   }
+                  scannerInstanceRef.current = null;
                   scannerInitializedRef.current = false;
                   if (isMounted) {
                     startTransition(() => {
@@ -624,6 +678,7 @@ const MarkAttendance = () => {
               !errorMsg.includes('abort')) {
               console.error('Error starting QR scanner:', startErr);
             }
+            scannerInstanceRef.current = null;
             scannerInitializedRef.current = false;
             if (isMounted) {
               startTransition(() => {
@@ -637,7 +692,6 @@ const MarkAttendance = () => {
             setScannerInstance(html5QrCode);
           }
         } catch (err) {
-          // Suppress common camera errors
           const errorMsg = (err?.message || err?.toString() || '').toLowerCase();
           if (              !errorMsg.includes('play() request was interrupted') && 
               !errorMsg.includes('the play() request was interrupted') &&
@@ -649,6 +703,7 @@ const MarkAttendance = () => {
               !errorMsg.includes('abort')) {
             console.error('Error starting QR scanner:', err);
           }
+          scannerInstanceRef.current = null;
           scannerInitializedRef.current = false;
           if (isMounted) {
             startTransition(() => {
@@ -661,10 +716,16 @@ const MarkAttendance = () => {
 
       startScanner();
     } else if (!showQRScanner) {
+      // When QR scanner is closed, always turn off the camera
       scannerInitializedRef.current = false;
-      if (scannerInstance) {
-        safeStopScanner(scannerInstance).then(() => {
+      const toStop = scannerInstanceRef.current || scannerInstance;
+      if (toStop) {
+        safeStopScanner(toStop).then(() => {
+          scannerInstanceRef.current = null;
           setScannerInstance(null);
+          const scannerId = 'qr-reader-mark-attendance';
+          const el = document.getElementById(scannerId);
+          if (el) safeStopVideoElements(el);
         });
       }
     }
@@ -672,10 +733,15 @@ const MarkAttendance = () => {
     return () => {
       isMounted = false;
       scanProcessed = false;
-      if (html5QrCode) {
-        safeStopScanner(html5QrCode);
-        scannerInitializedRef.current = false;
+      // On unmount or when scanner is closed: stop camera
+      const toStop = scannerInstanceRef.current || html5QrCode;
+      if (toStop) {
+        safeStopScanner(toStop).then(() => {
+          scannerInstanceRef.current = null;
+        });
+        scannerInstanceRef.current = null;
       }
+      scannerInitializedRef.current = false;
     };
   }, [showQRScanner, selectedCourse, scannerInstance]);
 
@@ -853,7 +919,7 @@ const MarkAttendance = () => {
                       color: '#6b7280',
                       marginLeft: '28px'
                     }}>
-                      Attendance can be marked from 30 mins before class start until class end. Current-course auto-selected when in window.
+                      Automatic course selection uses class start and end time (30 min before start until end). Extra-class start/end from Add Extra Class are used for extra days.
                     </Form.Text>
                     <Form.Select
                       value={selectedCourse}
@@ -865,8 +931,10 @@ const MarkAttendance = () => {
                         setWarnings([]);
                         setSelectedStudent(null);
                         setShowStudentDetails(false);
-                        if (scannerInstance) {
-                          safeStopScanner(scannerInstance).then(() => {
+                        const toStop = scannerInstanceRef.current || scannerInstance;
+                        if (toStop) {
+                          safeStopScanner(toStop).then(() => {
+                            scannerInstanceRef.current = null;
                             setScannerInstance(null);
                             scannerInitializedRef.current = false;
                           });
@@ -894,8 +962,9 @@ const MarkAttendance = () => {
                       <option value="">-- Auto-detect course (by current time window) --</option>
                       {courses.map(course => {
                         const current = currentCourses.find(cc => cc.id === course.id);
+                        const timeRange = current?.startTime && current?.endTime ? ` ${current.startTime}–${current.endTime}` : '';
                         const label = current
-                          ? `${course.courseName} (${course.subject}) - ${course.grade}${current.isExtraClass ? ' — Extra class (Current)' : ' — Current'}`
+                          ? `${course.courseName} (${course.subject}) - ${course.grade} — Current${current.isExtraClass ? ' (extra class)' : ''}${timeRange}`
                           : `${course.courseName} (${course.subject}) - ${course.grade}`;
                         return (
                           <option key={course.id} value={course.id}>
@@ -1014,17 +1083,19 @@ const MarkAttendance = () => {
                         )}
                       </Button>
                       <Button
-                        variant={showQRScanner ? "danger" : "info"}
+                        variant={showQRScanner ? 'danger' : 'info'}
                         onClick={async () => {
-                          if (showQRScanner && scannerInstance) {
-                            await safeStopScanner(scannerInstance);
-                            setScannerInstance(null);
-                            scannerInitializedRef.current = false;
-                            // Wait longer to ensure stream is fully released
+                          if (showQRScanner) {
+                            const toStop = scannerInstanceRef.current || scannerInstance;
+                            if (toStop) {
+                              await safeStopScanner(toStop);
+                              scannerInstanceRef.current = null;
+                              setScannerInstance(null);
+                              scannerInitializedRef.current = false;
+                            }
                             await new Promise(resolve => setTimeout(resolve, 300));
                             const scannerElement = document.getElementById('qr-reader-mark-attendance');
                             if (scannerElement) {
-                              // Stop all video tracks before clearing
                               safeStopVideoElements(scannerElement);
                               await new Promise(resolve => setTimeout(resolve, 100));
                               scannerElement.innerHTML = '';
@@ -1077,6 +1148,57 @@ const MarkAttendance = () => {
                     </div>
                   </Form.Group>
                 </div>
+
+                {/* Payment status & preview (when course + student ID selected) */}
+                {selectedCourse && (studentIdInput.trim() || qrScanResult.trim()) && (
+                  <div style={{
+                    marginBottom: '24px',
+                    padding: '16px 20px',
+                    background: attendancePreview?.student && attendancePreview?.course ? '#f0fdf4' : '#fefce8',
+                    border: `1px solid ${attendancePreview?.isEnrolled && attendancePreview?.canMarkTimeWindow ? '#bbf7d0' : '#fde047'}`,
+                    borderRadius: '12px'
+                  }}>
+                    {loadingPreview ? (
+                      <span style={{ color: '#64748b', fontSize: '14px' }}>Loading...</span>
+                    ) : attendancePreview?.student && attendancePreview?.course ? (
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', fontSize: '15px', fontWeight: '600', color: '#0f172a' }}>
+                          <HiOutlineCurrencyDollar style={{ color: '#6366f1' }} />
+                          Course fee & payment status
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#475569' }}>
+                          <span><strong>Course:</strong> {attendancePreview.course.courseName} ({attendancePreview.course.subject})</span>
+                          <span style={{ marginLeft: '16px' }}><strong>Fee:</strong> Rs {parseFloat(attendancePreview.courseFee || 0).toFixed(2)}</span>
+                          <span style={{ marginLeft: '16px' }}>
+                            <strong>This month:</strong>{' '}
+                            <span style={{ color: attendancePreview.paymentStatus === 'Paid' ? '#059669' : '#d97706', fontWeight: '600' }}>
+                              {attendancePreview.paymentStatus === 'Paid' ? 'Paid' : 'Pending'}
+                            </span>
+                            {attendancePreview.paymentDate && (
+                              <span style={{ marginLeft: '6px', color: '#64748b' }}>
+                                ({new Date(attendancePreview.paymentDate).toLocaleDateString()})
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        {!attendancePreview.isEnrolled && (
+                          <div style={{ marginTop: '8px', fontSize: '13px', color: '#b45309' }}>
+                            Student is not registered for this course. Attendance cannot be marked.
+                          </div>
+                        )}
+                        {attendancePreview.isEnrolled && !attendancePreview.canMarkTimeWindow && attendancePreview.timeMessage && (
+                          <div style={{ marginTop: '8px', fontSize: '13px', color: '#b45309' }}>
+                            {attendancePreview.timeMessage}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '14px', color: '#64748b' }}>
+                        Enter a valid Student ID and select a course to see enrollment and payment status.
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* QR Scanner Section */}
                 {showQRScanner && (
@@ -1147,19 +1269,19 @@ const MarkAttendance = () => {
                         variant="secondary"
                         size="lg"
                         onClick={async () => {
-                          if (scannerInstance) {
-                            await safeStopScanner(scannerInstance);
+                          const toStop = scannerInstanceRef.current || scannerInstance;
+                          if (toStop) {
+                            await safeStopScanner(toStop);
+                            scannerInstanceRef.current = null;
                             setScannerInstance(null);
                             scannerInitializedRef.current = false;
-                            // Wait longer to ensure stream is fully released
-                            await new Promise(resolve => setTimeout(resolve, 300));
-                            const scannerElement = document.getElementById('qr-reader-mark-attendance');
-                            if (scannerElement) {
-                              // Stop all video tracks before clearing
-                              safeStopVideoElements(scannerElement);
-                              await new Promise(resolve => setTimeout(resolve, 100));
-                              scannerElement.innerHTML = '';
-                            }
+                          }
+                          await new Promise(resolve => setTimeout(resolve, 300));
+                          const scannerElement = document.getElementById('qr-reader-mark-attendance');
+                          if (scannerElement) {
+                            safeStopVideoElements(scannerElement);
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                            scannerElement.innerHTML = '';
                           }
                           setShowQRScanner(false);
                           setQrScanResult('');
@@ -1233,6 +1355,24 @@ const MarkAttendance = () => {
                 )}
               </Form>
             </Card>
+
+            {/* Error popup when attendance cannot be marked (not enrolled / out of class time) */}
+            <Modal show={showErrorModal} onHide={() => setShowErrorModal(false)} centered backdrop="static">
+              <Modal.Header closeButton style={{ borderBottom: '1px solid #e2e8f0' }}>
+                <Modal.Title style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '18px', color: '#dc2626' }}>
+                  <HiOutlineExclamationCircle style={{ fontSize: '24px' }} />
+                  Cannot mark attendance
+                </Modal.Title>
+              </Modal.Header>
+              <Modal.Body style={{ padding: '20px 24px', fontSize: '15px', color: '#374151' }}>
+                {errorModalMessage}
+              </Modal.Body>
+              <Modal.Footer style={{ borderTop: '1px solid #e2e8f0' }}>
+                <Button variant="secondary" onClick={() => setShowErrorModal(false)} style={{ borderRadius: '10px' }}>
+                  OK
+                </Button>
+              </Modal.Footer>
+            </Modal>
           </Container>
         </div>
       </div>
