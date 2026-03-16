@@ -12,6 +12,7 @@ import {
   HiOutlineArrowRightOnRectangle,
   HiOutlineChatBubbleLeftRight,
   HiOutlineSparkles,
+  HiOutlineGlobeAlt,
   HiChevronLeft,
   HiChevronRight
 } from 'react-icons/hi2';
@@ -24,6 +25,7 @@ const Sidebar = ({ activeItem, onItemClick, className, onLogout, isCollapsed, on
     { id: 'teachers', label: 'Teachers', icon: HiOutlineAcademicCap },
     { id: 'operators', label: 'Operators', icon: HiOutlineBriefcase },
     { id: 'courses', label: 'Courses', icon: HiOutlineBookOpen },
+    { id: 'online-courses', label: 'Online Courses', icon: HiOutlineGlobeAlt },
     { id: 'payments', label: 'Payments', icon: HiOutlineCreditCard },
     { id: 'attendance', label: 'Attendance', icon: HiOutlineClipboardDocumentCheck },
     { id: 'reports', label: 'Reports', icon: HiOutlineDocumentChartBar },

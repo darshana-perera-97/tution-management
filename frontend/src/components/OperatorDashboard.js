@@ -15,6 +15,7 @@ import Teachers from './Teachers';
 import Courses from './Courses';
 import Payments from './Payments';
 import Attendance from './Attendance';
+import OnlineCourses from './OnlineCourses';
 import '../App.css';
 import API_URL from '../config';
 
@@ -243,6 +244,8 @@ const OperatorDashboard = () => {
               <Teachers />
             ) : activeItem === 'courses' ? (
               <Courses />
+            ) : activeItem === 'online-courses' ? (
+              <OnlineCourses />
             ) : activeItem === 'payments' ? (
               <Payments />
             ) : activeItem === 'attendance' ? (

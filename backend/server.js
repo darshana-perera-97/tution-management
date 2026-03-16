@@ -2039,7 +2039,7 @@ const writeEnrollmentsData = (data) => {
 app.put('/api/courses/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const { enrolledStudents, schedule, courseName, subject, teacherId, grade, courseFee, teacherPaymentPercentage } = req.body;
+    const { enrolledStudents, schedule, courseName, subject, teacherId, grade, courseFee, teacherPaymentPercentage, onlineDetails, classwork, classGroupLink, videoRecordingLinks } = req.body;
 
     const coursesData = readCoursesData();
     const studentsData = readStudentsData();
@@ -2124,7 +2124,25 @@ app.put('/api/courses/:id', (req, res) => {
       }
       coursesData.courses[courseIndex].schedule = schedule;
     }
-    
+    if (onlineDetails !== undefined) {
+      coursesData.courses[courseIndex].onlineDetails = typeof onlineDetails === 'string' ? onlineDetails : '';
+    }
+    if (classwork !== undefined) {
+      coursesData.courses[courseIndex].classwork = typeof classwork === 'string' ? classwork : '';
+    }
+    if (classGroupLink !== undefined) {
+      coursesData.courses[courseIndex].classGroupLink = typeof classGroupLink === 'string' ? classGroupLink : '';
+    }
+    if (videoRecordingLinks !== undefined) {
+      if (!Array.isArray(videoRecordingLinks)) {
+        return res.status(400).json({
+          success: false,
+          message: 'videoRecordingLinks must be an array'
+        });
+      }
+      coursesData.courses[courseIndex].videoRecordingLinks = videoRecordingLinks.filter(l => typeof l === 'string' && l.trim());
+    }
+
     // Handle enrolled students update (only if provided)
     let newlyAdded = [];
     let removed = [];

@@ -5,6 +5,7 @@ import {
   HiOutlineUserGroup, 
   HiOutlineAcademicCap,
   HiOutlineBookOpen,
+  HiOutlineGlobeAlt,
   HiOutlineCreditCard,
   HiOutlineClipboardDocumentCheck,
   HiOutlineArrowRightOnRectangle,
@@ -19,6 +20,7 @@ const OperatorSidebar = ({ activeItem, onItemClick, className, onLogout, isColla
     { id: 'students', label: 'Students', icon: HiOutlineUserGroup },
     { id: 'teachers', label: 'Teachers', icon: HiOutlineAcademicCap },
     { id: 'courses', label: 'Courses', icon: HiOutlineBookOpen },
+    { id: 'online-courses', label: 'Online Courses', icon: HiOutlineGlobeAlt },
     { id: 'payments', label: 'Payments', icon: HiOutlineCreditCard },
     { id: 'attendance', label: 'Attendance', icon: HiOutlineClipboardDocumentCheck },
   ];

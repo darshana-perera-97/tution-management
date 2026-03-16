@@ -34,6 +34,8 @@ const StudentDashboard = () => {
   const [idCardImage, setIdCardImage] = useState(null);
   const [generatingIdCard, setGeneratingIdCard] = useState(false);
   const idCardRef = useRef(null);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [selectedVideoUrl, setSelectedVideoUrl] = useState('');
 
   useEffect(() => {
     const isAuthenticated = localStorage.getItem('isStudentAuthenticated');
@@ -325,12 +327,24 @@ const StudentDashboard = () => {
   const handleViewCourse = async (course) => {
     setSelectedCourse(course);
     setShowCourseDetails(true);
-    setActiveTab('attendance');
-    
+    const isOnlineOrHybrid = course.mode === 'online' || course.mode === 'hybrid';
+    setActiveTab(isOnlineOrHybrid ? 'overview' : 'attendance');
     if (student) {
       await fetchCourseAttendance(student.id, course.id);
       await fetchCourseLMS(course.id);
     }
+  };
+
+  const getYouTubeEmbedUrl = (url) => {
+    if (!url || typeof url !== 'string') return '';
+    const trimmed = url.trim();
+    const match = trimmed.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
+    return match ? `https://www.youtube.com/embed/${match[1]}` : trimmed;
+  };
+
+  const openVideoPopup = (url) => {
+    setSelectedVideoUrl(url);
+    setShowVideoModal(true);
   };
 
   const fetchCourseAttendance = async (studentId, courseId) => {
@@ -410,6 +424,8 @@ const StudentDashboard = () => {
     setAttendance([]);
     setLmsContent([]);
     setActiveTab('attendance');
+    setShowVideoModal(false);
+    setSelectedVideoUrl('');
   };
 
   const handleLogout = () => {
@@ -451,6 +467,8 @@ const StudentDashboard = () => {
   if (showCourseDetails && selectedCourse) {
     // Course Details View
     const courseNotifications = notifications.filter(n => n.courseId === selectedCourse.id);
+    const isOnlineOrHybrid = selectedCourse.mode === 'online' || selectedCourse.mode === 'hybrid';
+    const videoLinks = Array.isArray(selectedCourse.videoRecordingLinks) ? selectedCourse.videoRecordingLinks : [];
 
     return (
       <div className="student-dashboard" style={{ minHeight: '100vh', background: '#f8fafc' }}>
@@ -521,6 +539,24 @@ const StudentDashboard = () => {
                     background: 'transparent',
                     padding: '0 16px'
                   }}>
+                    {isOnlineOrHybrid && (
+                      <Nav.Item>
+                        <Nav.Link 
+                          eventKey="overview" 
+                          style={{ 
+                            border: 'none',
+                            borderBottom: activeTab === 'overview' ? '3px solid #6366f1' : '3px solid transparent',
+                            color: activeTab === 'overview' ? '#6366f1' : '#64748b',
+                            fontWeight: activeTab === 'overview' ? '600' : '500',
+                            padding: '16px 20px',
+                            fontSize: '14px',
+                            transition: 'all 0.2s ease'
+                          }}
+                        >
+                          🏠 Classroom
+                        </Nav.Link>
+                      </Nav.Item>
+                    )}
                     <Nav.Item>
                       <Nav.Link 
                         eventKey="attendance" 
@@ -587,6 +623,126 @@ const StudentDashboard = () => {
               </Card>
 
               <Tab.Content>
+                {isOnlineOrHybrid && (
+                  <Tab.Pane eventKey="overview">
+                    <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', background: 'white' }}>
+                      <Card.Body style={{ padding: '24px' }}>
+                        {selectedCourse.onlineDetails && (
+                          <div style={{ marginBottom: '24px' }}>
+                            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', marginBottom: '12px' }}>Course details</h3>
+                            <p style={{ margin: 0, color: '#475569', fontSize: '15px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{selectedCourse.onlineDetails}</p>
+                          </div>
+                        )}
+                        {selectedCourse.classwork && (
+                          <div style={{ marginBottom: '24px' }}>
+                            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', marginBottom: '12px' }}>Classwork</h3>
+                            <p style={{ margin: 0, color: '#475569', fontSize: '15px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{selectedCourse.classwork}</p>
+                          </div>
+                        )}
+                        {selectedCourse.classGroupLink && (
+                          <div style={{ marginBottom: '24px' }}>
+                            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', marginBottom: '12px' }}>Class group</h3>
+                            <a
+                              href={selectedCourse.classGroupLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '10px 20px',
+                                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                                color: 'white',
+                                borderRadius: '10px',
+                                fontWeight: '600',
+                                textDecoration: 'none',
+                                fontSize: '14px',
+                              }}
+                            >
+                              Join class group →
+                            </a>
+                          </div>
+                        )}
+                        {videoLinks.length > 0 && (
+                          <div>
+                            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', marginBottom: '12px' }}>Recorded sessions</h3>
+                            <Row className="g-3">
+                              {videoLinks.map((url, index) => {
+                                const embedUrl = getYouTubeEmbedUrl(url);
+                                if (!embedUrl) return null;
+                                const videoId = embedUrl.split('/embed/')[1]?.split('?')[0] || '';
+                                return (
+                                  <Col key={index} xs={12} sm={6} md={4}>
+                                    <Card
+                                      style={{
+                                        border: '1px solid #e2e8f0',
+                                        borderRadius: '12px',
+                                        overflow: 'hidden',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                      }}
+                                      onClick={() => openVideoPopup(url)}
+                                      onMouseEnter={(e) => {
+                                        e.currentTarget.style.borderColor = '#6366f1';
+                                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.15)';
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.currentTarget.style.borderColor = '#e2e8f0';
+                                        e.currentTarget.style.boxShadow = 'none';
+                                      }}
+                                    >
+                                      <div style={{ aspectRatio: '16/9', background: '#0f172a', position: 'relative' }}>
+                                        {videoId ? (
+                                          <img
+                                            src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
+                                            alt=""
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                          />
+                                        ) : (
+                                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>▶</div>
+                                        )}
+                                        <div style={{
+                                          position: 'absolute',
+                                          inset: 0,
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          background: 'rgba(0,0,0,0.4)',
+                                        }}>
+                                          <div style={{
+                                            width: '56px',
+                                            height: '56px',
+                                            borderRadius: '50%',
+                                            background: 'rgba(255,255,255,0.9)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '24px',
+                                            color: '#6366f1',
+                                          }}>
+                                            ▶
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <Card.Body style={{ padding: '12px' }}>
+                                        <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>Session {index + 1}</span>
+                                      </Card.Body>
+                                    </Card>
+                                  </Col>
+                                );
+                              })}
+                            </Row>
+                          </div>
+                        )}
+                        {!selectedCourse.onlineDetails && !selectedCourse.classwork && !selectedCourse.classGroupLink && videoLinks.length === 0 && (
+                          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
+                            <p style={{ margin: 0, fontSize: '15px' }}>No classroom content added yet.</p>
+                          </div>
+                        )}
+                      </Card.Body>
+                    </Card>
+                  </Tab.Pane>
+                )}
                 <Tab.Pane eventKey="attendance">
                   <Card style={{ 
                     border: 'none',
@@ -1068,6 +1224,38 @@ const StudentDashboard = () => {
                 </Tab.Pane>
               </Tab.Content>
             </Tab.Container>
+
+            <Modal
+              show={showVideoModal}
+              onHide={() => setShowVideoModal(false)}
+              size="xl"
+              centered
+              style={{ marginTop: '20px' }}
+            >
+              <Modal.Header closeButton>
+                <Modal.Title>Video</Modal.Title>
+              </Modal.Header>
+              <Modal.Body style={{ padding: 0, background: '#000' }}>
+                {selectedVideoUrl && (
+                  <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden' }}>
+                    <iframe
+                      title="Video"
+                      src={getYouTubeEmbedUrl(selectedVideoUrl)}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        border: 'none',
+                      }}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                )}
+              </Modal.Body>
+            </Modal>
           </Container>
         </div>
         <StudentChatbot student={student} isOpen={chatbotOpen} onIsOpenChange={setChatbotOpen} />
@@ -1427,47 +1615,50 @@ const StudentDashboard = () => {
                         maxWidth: '100%'
                       }}
                     >
-                      {onlineClassroomCourses.map((course, index) => {
-                        const lightColors = [
-                          '#fef3f2', '#f0fdf4', '#eff6ff', '#faf5ff',
-                          '#fffbeb', '#f0f9ff', '#fdf2f8', '#f5f3ff'
-                        ];
-                        const badgeColors = [
-                          { bg: '#fee2e2', text: 'white' }, { bg: '#dcfce7', text: 'white' },
-                          { bg: '#dbeafe', text: 'white' }, { bg: '#f3e8ff', text: 'white' },
-                          { bg: '#fef3c7', text: 'white' }, { bg: '#cffafe', text: 'white' },
-                          { bg: '#fce7f3', text: 'white' }, { bg: '#ede9fe', text: 'white' }
-                        ];
-                        const cardColor = lightColors[index % lightColors.length];
-                        const badgeColor = badgeColors[index % badgeColors.length];
+                      {onlineClassroomCourses.map((course) => {
+                        const isHybrid = course.mode === 'hybrid';
+                        const accentColor = isHybrid ? '#6366f1' : '#0ea5e9';
+                        const accentLight = isHybrid ? '#e0e7ff' : '#e0f2fe';
+                        const shadowColor = isHybrid ? '99, 102, 241' : '14, 165, 233';
                         return (
                           <div key={course.id} style={{ width: '100%' }}>
                             <Card 
                               className="h-100" 
                               style={{ 
                                 border: '1px solid #e2e8f0',
+                                borderLeft: `4px solid ${accentColor}`,
                                 borderRadius: '12px',
-                                boxShadow: 'none',
+                                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04)',
                                 cursor: 'pointer',
-                                transition: 'all 0.2s ease',
-                                background: cardColor,
+                                transition: 'all 0.25s ease',
+                                background: '#ffffff',
                                 overflow: 'hidden'
                               }}
                               onClick={() => handleViewCourse(course)}
                               onMouseEnter={(e) => {
-                                e.currentTarget.style.borderColor = '#6366f1';
-                                e.currentTarget.style.boxShadow = '0 2px 8px rgba(99, 102, 241, 0.1)';
+                                e.currentTarget.style.borderColor = accentColor;
+                                e.currentTarget.style.boxShadow = `0 8px 24px rgba(${shadowColor}, 0.2), 0 4px 12px rgba(0, 0, 0, 0.08)`;
+                                e.currentTarget.style.transform = 'translateY(-2px)';
                               }}
                               onMouseLeave={(e) => {
                                 e.currentTarget.style.borderColor = '#e2e8f0';
-                                e.currentTarget.style.boxShadow = 'none';
+                                e.currentTarget.style.borderLeftWidth = '4px';
+                                e.currentTarget.style.borderLeftColor = accentColor;
+                                e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04)';
+                                e.currentTarget.style.transform = 'translateY(0)';
                               }}
                             >
                               <Card.Body className="d-flex flex-column" style={{ padding: '24px' }}>
-                                <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ 
+                                  marginBottom: '12px', 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  gap: '8px',
+                                  flexWrap: 'wrap'
+                                }}>
                                   <Badge style={{ 
-                                    background: badgeColor.bg,
-                                    color: badgeColor.text,
+                                    background: isHybrid ? '#a5b4fc' : '#7dd3fc',
+                                    color: '#ffffff',
                                     padding: '3px 8px',
                                     borderRadius: '6px',
                                     fontSize: '10px',
@@ -1479,8 +1670,8 @@ const StudentDashboard = () => {
                                     {course.subject}
                                   </Badge>
                                   <Badge style={{ 
-                                    background: course.mode === 'hybrid' ? '#e0e7ff' : '#dbeafe',
-                                    color: course.mode === 'hybrid' ? '#4338ca' : '#1d4ed8',
+                                    background: course.mode === 'hybrid' ? '#818cf8' : '#38bdf8',
+                                    color: '#ffffff',
                                     padding: '2px 6px',
                                     borderRadius: '4px',
                                     fontSize: '10px',
@@ -1490,6 +1681,11 @@ const StudentDashboard = () => {
                                     {course.mode === 'hybrid' ? 'Hybrid' : 'Online'}
                                   </Badge>
                                 </div>
+                                <div style={{ 
+                                  height: '1px', 
+                                  background: 'linear-gradient(90deg, #e2e8f0 0%, #cbd5e1 50%, #e2e8f0 100%)',
+                                  margin: '0 0 14px 0'
+                                }} />
                                 <h5 style={{ 
                                   margin: '0 0 16px 0',
                                   fontSize: '16px',
@@ -1505,12 +1701,12 @@ const StudentDashboard = () => {
                                   className="w-100"
                                   style={{ 
                                     background: 'transparent',
-                                    border: '1px solid #6366f1',
+                                    border: `1px solid ${accentColor}`,
                                     borderRadius: '8px',
                                     padding: '8px 14px',
                                     fontWeight: '500',
                                     fontSize: '13px',
-                                    color: '#6366f1',
+                                    color: accentColor,
                                     transition: 'all 0.2s ease'
                                   }}
                                   onClick={(e) => {
@@ -1518,12 +1714,14 @@ const StudentDashboard = () => {
                                     handleViewCourse(course);
                                   }}
                                   onMouseEnter={(e) => {
-                                    e.currentTarget.style.background = '#6366f1';
+                                    e.currentTarget.style.background = accentColor;
                                     e.currentTarget.style.color = 'white';
+                                    e.currentTarget.style.borderColor = accentColor;
                                   }}
                                   onMouseLeave={(e) => {
                                     e.currentTarget.style.background = 'transparent';
-                                    e.currentTarget.style.color = '#6366f1';
+                                    e.currentTarget.style.color = accentColor;
+                                    e.currentTarget.style.borderColor = accentColor;
                                   }}
                                 >
                                   View Details
