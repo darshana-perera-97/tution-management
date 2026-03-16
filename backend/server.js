@@ -886,7 +886,8 @@ app.post('/api/students', (req, res) => {
     const selectedCoursesArray = typeof selectedCourses === 'string' ? JSON.parse(selectedCourses) : selectedCourses;
 
     const validModes = ['physical', 'online', 'hybrid'];
-    const studentMode = mode && validModes.includes(mode) ? mode : 'physical';
+    const rawMode = (typeof mode === 'string' ? mode.trim() : '').toLowerCase();
+    const studentMode = rawMode && validModes.includes(rawMode) ? rawMode : 'physical';
 
     if (!fullName || !dob || !parentName || !contactNumber || !address || !grade) {
       return res.status(400).json({
@@ -1885,7 +1886,8 @@ app.post('/api/courses', (req, res) => {
     const { courseName, teacherId, grade, subject, courseFee, teacherPaymentPercentage, schedule, mode } = req.body;
 
     const validModes = ['physical', 'online', 'hybrid'];
-    const courseMode = mode && validModes.includes(mode) ? mode : 'physical';
+    const rawMode = (typeof mode === 'string' ? mode.trim() : '').toLowerCase();
+    const courseMode = rawMode && validModes.includes(rawMode) ? rawMode : 'physical';
 
     if (!courseName || !teacherId || !grade || !subject || !courseFee || !teacherPaymentPercentage) {
       return res.status(400).json({
@@ -2039,7 +2041,7 @@ const writeEnrollmentsData = (data) => {
 app.put('/api/courses/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const { enrolledStudents, schedule, courseName, subject, teacherId, grade, courseFee, teacherPaymentPercentage, onlineDetails, classwork, classGroupLink, videoRecordingLinks } = req.body;
+    const { enrolledStudents, schedule, courseName, subject, teacherId, grade, courseFee, teacherPaymentPercentage, mode, onlineDetails, classwork, classGroupLink, videoRecordingLinks } = req.body;
 
     const coursesData = readCoursesData();
     const studentsData = readStudentsData();
@@ -2123,6 +2125,11 @@ app.put('/api/courses/:id', (req, res) => {
         }
       }
       coursesData.courses[courseIndex].schedule = schedule;
+    }
+    if (mode !== undefined) {
+      const validModes = ['physical', 'online', 'hybrid'];
+      const rawMode = (typeof mode === 'string' ? mode.trim() : '').toLowerCase();
+      coursesData.courses[courseIndex].mode = rawMode && validModes.includes(rawMode) ? rawMode : 'physical';
     }
     if (onlineDetails !== undefined) {
       coursesData.courses[courseIndex].onlineDetails = typeof onlineDetails === 'string' ? onlineDetails : '';

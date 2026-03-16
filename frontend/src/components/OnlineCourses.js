@@ -36,6 +36,15 @@ const OnlineCourses = () => {
     fetchCourses();
   }, []);
 
+  const isOnlineOrHybrid = (mode) => {
+    const m = (mode || '').toLowerCase();
+    return m === 'online' || m === 'hybrid';
+  };
+  const getModeLabel = (mode) => {
+    const m = (mode || '').toLowerCase();
+    return m === 'online' ? 'Online' : m === 'hybrid' ? 'Hybrid' : 'Physical';
+  };
+
   const fetchCourses = async () => {
     try {
       setLoading(true);
@@ -43,9 +52,7 @@ const OnlineCourses = () => {
       const data = await response.json();
       if (data.success) {
         setCourses(data.courses || []);
-        const online = (data.courses || []).filter(
-          (c) => c.mode === 'online' || c.mode === 'hybrid'
-        );
+        const online = (data.courses || []).filter((c) => isOnlineOrHybrid(c.mode));
         setOnlineCourses(online);
       }
     } catch (err) {
@@ -158,9 +165,9 @@ const OnlineCourses = () => {
 
   return (
     <>
-      <div className="dashboard-header mb-4">
+      <div className="dashboard-header mb-4" style={{ textAlign: 'left' }}>
         <h2 className="dashboard-title">Online Courses</h2>
-        <p className="dashboard-subtitle">
+        <p className="dashboard-subtitle" style={{ textAlign: 'left' }}>
           Manage details, classwork, group link, and video recordings for online and hybrid courses.
         </p>
       </div>
@@ -204,13 +211,13 @@ const OnlineCourses = () => {
                     <HiOutlineBookOpen style={{ fontSize: '20px', color: '#6366f1' }} />
                     <Badge
                       style={{
-                        background: course.mode === 'hybrid' ? '#e0e7ff' : '#dbeafe',
-                        color: course.mode === 'hybrid' ? '#4338ca' : '#1d4ed8',
+                        background: getModeLabel(course.mode) === 'Hybrid' ? '#e0e7ff' : '#dbeafe',
+                        color: getModeLabel(course.mode) === 'Hybrid' ? '#4338ca' : '#1d4ed8',
                         border: 'none',
                         fontSize: '11px',
                       }}
                     >
-                      {course.mode === 'hybrid' ? 'Hybrid' : 'Online'}
+                      {getModeLabel(course.mode)}
                     </Badge>
                   </div>
                   <h6 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: '600', color: '#1e293b' }}>

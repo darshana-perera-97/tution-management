@@ -370,12 +370,16 @@ const Courses = () => {
     setLoading(true);
 
     try {
+      const payload = {
+        ...formData,
+        mode: (formData.mode || 'physical').toLowerCase(),
+      };
       const response = await fetch(`${API_URL}/api/courses`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -765,6 +769,11 @@ const Courses = () => {
     return normalizeGrade(grade1) === normalizeGrade(grade2);
   };
 
+  const getModeLabel = (mode) => {
+    const m = (mode || '').toLowerCase();
+    return m === 'online' ? 'Online' : m === 'hybrid' ? 'Hybrid' : 'Physical';
+  };
+
   return (
     <Container fluid>
       <div className="operators-header mb-4">
@@ -882,10 +891,10 @@ const Courses = () => {
                         fontWeight: '600',
                         padding: '4px 8px',
                         borderRadius: '6px',
-                        background: course.mode === 'online' ? '#dbeafe' : course.mode === 'hybrid' ? '#e0e7ff' : '#f1f5f9',
-                        color: course.mode === 'online' ? '#1d4ed8' : course.mode === 'hybrid' ? '#4338ca' : '#475569'
+                        background: getModeLabel(course.mode) === 'Online' ? '#dbeafe' : getModeLabel(course.mode) === 'Hybrid' ? '#e0e7ff' : '#f1f5f9',
+                        color: getModeLabel(course.mode) === 'Online' ? '#1d4ed8' : getModeLabel(course.mode) === 'Hybrid' ? '#4338ca' : '#475569'
                       }}>
-                        {course.mode === 'online' ? 'Online' : course.mode === 'hybrid' ? 'Hybrid' : 'Physical'}
+                        {getModeLabel(course.mode)}
                       </span>
                     </td>
                     <td style={{ padding: '16px 32px', textAlign: 'left' }}>
@@ -994,12 +1003,12 @@ const Courses = () => {
                         fontWeight: '600',
                         padding: '2px 6px',
                         borderRadius: '4px',
-                        background: course.mode === 'online' ? '#dbeafe' : course.mode === 'hybrid' ? '#e0e7ff' : '#f1f5f9',
-                        color: course.mode === 'online' ? '#1d4ed8' : course.mode === 'hybrid' ? '#4338ca' : '#475569',
+                        background: getModeLabel(course.mode) === 'Online' ? '#dbeafe' : getModeLabel(course.mode) === 'Hybrid' ? '#e0e7ff' : '#f1f5f9',
+                        color: getModeLabel(course.mode) === 'Online' ? '#1d4ed8' : getModeLabel(course.mode) === 'Hybrid' ? '#4338ca' : '#475569',
                         marginTop: '4px',
                         display: 'inline-block'
                       }}>
-                        {course.mode === 'online' ? 'Online' : course.mode === 'hybrid' ? 'Hybrid' : 'Physical'}
+                        {getModeLabel(course.mode)}
                       </span>
                     </div>
                     <div className="student-card-actions">
@@ -1225,7 +1234,7 @@ const Courses = () => {
                     </label>
                     <select
                       name="mode"
-                      value={formData.mode || 'physical'}
+                      value={['physical', 'online', 'hybrid'].includes(formData.mode) ? formData.mode : 'physical'}
                       onChange={handleChange}
                       required
                       className="student-form-select"
@@ -1234,6 +1243,9 @@ const Courses = () => {
                       <option value="online">Online</option>
                       <option value="hybrid">Hybrid</option>
                     </select>
+                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                      Choose how this course is delivered. Online/Hybrid courses appear in student Online Classroom.
+                    </div>
                   </div>
 
                   <div className="student-form-field">
