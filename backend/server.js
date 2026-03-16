@@ -82,6 +82,12 @@ const chatbotTokenUsagePath = path.join(__dirname, 'data', 'chatbotTokenUsage.js
 const extraClassesPath = path.join(__dirname, 'data', 'extraclasses.json');
 // Path to timetables data file
 const timetablesPath = path.join(__dirname, 'data', 'timetables.json');
+// Path to course tasks (classwork) data file
+const courseTasksPath = path.join(__dirname, 'data', 'courseTasks.json');
+// Path to task submissions data file
+const taskSubmissionsPath = path.join(__dirname, 'data', 'taskSubmissions.json');
+// Path to course notifications data file
+const courseNotificationsPath = path.join(__dirname, 'data', 'courseNotifications.json');
 
 // Helper function to read admin data
 const readAdminData = () => {
@@ -1855,6 +1861,15 @@ const writeCoursesData = (data) => {
 app.get('/api/courses', (req, res) => {
   try {
     const coursesData = readCoursesData();
+    const normalizeVideoLink = (item) => {
+      if (typeof item === 'string') return { id: item, url: item.trim(), title: '', description: '' };
+      return {
+        id: item.id || item.url,
+        url: item.url || '',
+        title: item.title || '',
+        description: item.description || ''
+      };
+    };
     const courses = coursesData.courses.map(course => ({
       id: course.id,
       courseName: course.courseName,
@@ -1865,7 +1880,14 @@ app.get('/api/courses', (req, res) => {
       courseFee: course.courseFee,
       teacherPaymentPercentage: course.teacherPaymentPercentage,
       schedule: course.schedule || [],
+      meetingLinks: Array.isArray(course.meetingLinks) ? course.meetingLinks : [],
+      videoRecordingLinks: Array.isArray(course.videoRecordingLinks)
+        ? course.videoRecordingLinks.map((item, i) => ({ ...normalizeVideoLink(item), id: normalizeVideoLink(item).id || `v${i}` }))
+        : [],
       enrolledStudents: course.enrolledStudents || [],
+      onlineDetails: course.onlineDetails || '',
+      classwork: course.classwork || '',
+      classGroupLink: course.classGroupLink || '',
       createdAt: course.createdAt
     }));
     res.json({
@@ -1972,6 +1994,7 @@ app.post('/api/courses', (req, res) => {
       courseFee: fee.toString(),
       teacherPaymentPercentage: percentage.toString(),
       schedule: Array.isArray(schedule) ? schedule : [],
+      meetingLinks: [],
       enrolledStudents: [],
       createdAt: new Date().toISOString()
     };
@@ -2042,7 +2065,7 @@ const writeEnrollmentsData = (data) => {
 app.put('/api/courses/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const { enrolledStudents, schedule, courseName, subject, teacherId, grade, courseFee, teacherPaymentPercentage, mode, onlineDetails, classwork, classGroupLink, videoRecordingLinks } = req.body;
+    const { enrolledStudents, schedule, courseName, subject, teacherId, grade, courseFee, teacherPaymentPercentage, mode, onlineDetails, classwork, classGroupLink, videoRecordingLinks, meetingLinks } = req.body;
 
     const coursesData = readCoursesData();
     const studentsData = readStudentsData();
@@ -2148,7 +2171,28 @@ app.put('/api/courses/:id', (req, res) => {
           message: 'videoRecordingLinks must be an array'
         });
       }
-      coursesData.courses[courseIndex].videoRecordingLinks = videoRecordingLinks.filter(l => typeof l === 'string' && l.trim());
+      coursesData.courses[courseIndex].videoRecordingLinks = videoRecordingLinks.map((item, i) => {
+        if (typeof item === 'string' && item.trim()) return { id: `v${Date.now()}-${i}`, url: item.trim(), title: '', description: '' };
+        if (item && typeof item === 'object' && item.url) return { id: item.id || `v${Date.now()}-${i}`, url: item.url.trim(), title: item.title || '', description: item.description || '' };
+        return null;
+      }).filter(Boolean);
+    }
+    if (meetingLinks !== undefined) {
+      if (!Array.isArray(meetingLinks)) {
+        return res.status(400).json({
+          success: false,
+          message: 'meetingLinks must be an array'
+        });
+      }
+      coursesData.courses[courseIndex].meetingLinks = meetingLinks.map((item, i) => ({
+        id: item.id || `m${Date.now()}-${i}`,
+        label: item.label || '',
+        url: item.url || '',
+        scheduleLabel: item.scheduleLabel || '',
+        meetingDate: item.meetingDate || '',
+        meetingTime: item.meetingTime || '',
+        linkType: item.linkType === 'extra' ? 'extra' : 'usual'
+      })).filter(m => m.url || m.label);
     }
 
     // Handle enrolled students update (only if provided)
@@ -2368,6 +2412,25 @@ app.post('/api/courses/:courseId/bulk-message', async (req, res) => {
       }
     }
 
+    // Store course notification in history
+    const courseNotificationsData = readCourseNotificationsData();
+    const nowIso = new Date().toISOString();
+    courseNotificationsData.notifications.push({
+      id: `n${Date.now()}`,
+      courseId,
+      message: message.trim(),
+      createdAt: nowIso,
+      sentCount,
+      totalStudents: enrolledStudents.length,
+    });
+    // Keep only latest 200 notifications overall
+    if (courseNotificationsData.notifications.length > 200) {
+      courseNotificationsData.notifications = courseNotificationsData.notifications
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 200);
+    }
+    writeCourseNotificationsData(courseNotificationsData);
+
     res.json({
       success: true,
       message: `Bulk message sent to ${sentCount} recipient(s)`,
@@ -2380,6 +2443,28 @@ app.post('/api/courses/:courseId/bulk-message', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Internal server error'
+    });
+  }
+});
+
+// Get last 10 bulk notifications for a course
+app.get('/api/courses/:courseId/notifications', (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const data = readCourseNotificationsData();
+    const list = (data.notifications || [])
+      .filter(n => n.courseId === courseId)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 10);
+    res.json({
+      success: true,
+      notifications: list,
+    });
+  } catch (error) {
+    console.error('Get course notifications error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
     });
   }
 });
@@ -3070,6 +3155,80 @@ const writeExtraClassesData = (data) => {
   }
 };
 
+// Helper function to read course tasks data
+const readCourseTasksData = () => {
+  try {
+    const data = fs.readFileSync(courseTasksPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    return { tasks: [] };
+  }
+};
+
+// Helper function to write course tasks data
+const writeCourseTasksData = (data) => {
+  try {
+    const dataDir = path.dirname(courseTasksPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(courseTasksPath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error writing course tasks data:', error);
+    return false;
+  }
+};
+
+// Helper function to read task submissions data
+const readTaskSubmissionsData = () => {
+  try {
+    const data = fs.readFileSync(taskSubmissionsPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    return { submissions: [] };
+  }
+};
+
+// Helper function to write task submissions data
+const writeTaskSubmissionsData = (data) => {
+  try {
+    const dataDir = path.dirname(taskSubmissionsPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(taskSubmissionsPath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error writing task submissions data:', error);
+    return false;
+  }
+};
+
+// Helper functions for course notifications
+const readCourseNotificationsData = () => {
+  try {
+    const data = fs.readFileSync(courseNotificationsPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    return { notifications: [] };
+  }
+};
+
+const writeCourseNotificationsData = (data) => {
+  try {
+    const dataDir = path.dirname(courseNotificationsPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    fs.writeFileSync(courseNotificationsPath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error('Error writing course notifications data:', error);
+    return false;
+  }
+};
+
 // Get all attendance records
 app.get('/api/attendance', (req, res) => {
   try {
@@ -3313,8 +3472,8 @@ app.post('/api/courses/:courseId/lms', async (req, res) => {
     const lmsData = readLmsContentData();
     let fileUrl = null;
 
-    // Handle file uploads (images and PDFs)
-    if ((type === 'image' || type === 'pdf') && req.files && req.files.file) {
+    // Handle file uploads (images, PDFs, and documents)
+    if ((type === 'image' || type === 'pdf' || type === 'doc') && req.files && req.files.file) {
       const file = req.files.file;
       const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       const filePath = path.join(uploadsPath, fileName);
@@ -3354,7 +3513,8 @@ app.post('/api/courses/:courseId/lms', async (req, res) => {
       if (course && course.enrolledStudents && course.enrolledStudents.length > 0) {
         const contentType = type === 'text' ? 'Text Content' : 
                           type === 'image' ? 'Image' : 
-                          type === 'pdf' ? 'PDF Document' : 'Link';
+                          type === 'pdf' ? 'PDF Document' : 
+                          type === 'doc' ? 'Document' : 'Link';
         
         course.enrolledStudents.forEach(studentId => {
           const student = studentsData.students.find(s => s.id === studentId);
@@ -3447,6 +3607,141 @@ app.delete('/api/courses/:courseId/lms/:contentId', (req, res) => {
       success: false,
       message: 'Internal server error'
     });
+  }
+});
+
+// Get course tasks (classwork)
+app.get('/api/courses/:courseId/tasks', (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const data = readCourseTasksData();
+    const tasks = (data.tasks || []).filter(t => t.courseId === courseId);
+    res.json({ success: true, tasks });
+  } catch (error) {
+    console.error('Get course tasks error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Add course task
+app.post('/api/courses/:courseId/tasks', (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { title, description, dueDate } = req.body;
+    if (!title || !title.trim()) {
+      return res.status(400).json({ success: false, message: 'Title is required' });
+    }
+
+    // Optional reference document upload for the task
+    let fileUrl = null;
+    let fileName = null;
+    if (req.files && req.files.attachment) {
+      const file = req.files.attachment;
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const uploadName = `task-${Date.now()}-${safeName}`;
+      const uploadPath = path.join(uploadsPath, uploadName);
+      file.mv(uploadPath, (err) => {
+        if (err) {
+          console.error('Error saving task attachment:', err);
+        }
+      });
+      fileUrl = `/uploads/${uploadName}`;
+      fileName = file.name;
+    }
+
+    const data = readCourseTasksData();
+    const newTask = {
+      id: Date.now().toString(),
+      courseId,
+      title: title.trim(),
+      description: (description || '').trim(),
+      dueDate: dueDate || null,
+      createdAt: new Date().toISOString(),
+      fileUrl: fileUrl || null,
+      fileName: fileName || null
+    };
+    data.tasks = data.tasks || [];
+    data.tasks.push(newTask);
+    if (!writeCourseTasksData(data)) {
+      return res.status(500).json({ success: false, message: 'Failed to save task' });
+    }
+    res.status(201).json({ success: true, task: newTask });
+  } catch (error) {
+    console.error('Add course task error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Delete course task
+app.delete('/api/courses/:courseId/tasks/:taskId', (req, res) => {
+  try {
+    const { courseId, taskId } = req.params;
+    const data = readCourseTasksData();
+    data.tasks = (data.tasks || []).filter(t => !(t.courseId === courseId && t.id === taskId));
+    if (!writeCourseTasksData(data)) {
+      return res.status(500).json({ success: false, message: 'Failed to delete task' });
+    }
+    const subData = readTaskSubmissionsData();
+    subData.submissions = (subData.submissions || []).filter(s => s.taskId !== taskId);
+    writeTaskSubmissionsData(subData);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete course task error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Get task submissions
+app.get('/api/courses/:courseId/tasks/:taskId/submissions', (req, res) => {
+  try {
+    const { courseId, taskId } = req.params;
+    const data = readTaskSubmissionsData();
+    const submissions = (data.submissions || []).filter(s => s.courseId === courseId && s.taskId === taskId);
+    res.json({ success: true, submissions });
+  } catch (error) {
+    console.error('Get submissions error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// Submit task (student upload - file: image, pdf, doc)
+app.post('/api/courses/:courseId/tasks/:taskId/submit', async (req, res) => {
+  try {
+    const { courseId, taskId } = req.params;
+    const { studentId } = req.body;
+    if (!studentId) {
+      return res.status(400).json({ success: false, message: 'studentId is required' });
+    }
+    let fileUrl = null;
+    if (req.files && req.files.file) {
+      const file = req.files.file;
+      const fileName = `submission-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const filePath = path.join(uploadsPath, fileName);
+      await file.mv(filePath);
+      fileUrl = `/uploads/${fileName}`;
+    }
+    if (!fileUrl) {
+      return res.status(400).json({ success: false, message: 'File is required' });
+    }
+    const data = readTaskSubmissionsData();
+    const newSub = {
+      id: Date.now().toString(),
+      taskId,
+      courseId,
+      studentId,
+      fileUrl,
+      fileName: req.files.file.name,
+      submittedAt: new Date().toISOString()
+    };
+    data.submissions = data.submissions || [];
+    data.submissions.push(newSub);
+    if (!writeTaskSubmissionsData(data)) {
+      return res.status(500).json({ success: false, message: 'Failed to save submission' });
+    }
+    res.status(201).json({ success: true, submission: newSub });
+  } catch (error) {
+    console.error('Submit task error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 
@@ -4586,6 +4881,24 @@ app.get('/api/student/chatbot/statistics', (req, res) => {
         }
       });
     }
+
+    // Store course notification in history
+    const courseNotificationsData = readCourseNotificationsData();
+    const nowIso = new Date().toISOString();
+    courseNotificationsData.notifications.push({
+      id: `n${Date.now()}`,
+      courseId,
+      message: message.trim(),
+      imagePath,
+      createdAt: nowIso,
+    });
+    // Keep only latest 200 notifications overall
+    if (courseNotificationsData.notifications.length > 200) {
+      courseNotificationsData.notifications = courseNotificationsData.notifications
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .slice(0, 200);
+    }
+    writeCourseNotificationsData(courseNotificationsData);
 
     // Count students who used chatbot today and total messages
     let studentsUsedToday = 0;

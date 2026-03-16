@@ -23,7 +23,8 @@ const StudentDashboard = () => {
   const [payments, setPayments] = useState([]);
   const [allAttendance, setAllAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('attendance');
+  const [activeTab, setActiveTab] = useState('calendar');
+  const [courseExtraClasses, setCourseExtraClasses] = useState([]);
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [timetables, setTimetables] = useState([]);
   const [selectedTimetable, setSelectedTimetable] = useState(null);
@@ -327,11 +328,21 @@ const StudentDashboard = () => {
   const handleViewCourse = async (course) => {
     setSelectedCourse(course);
     setShowCourseDetails(true);
-    const isOnlineOrHybrid = course.mode === 'online' || course.mode === 'hybrid';
-    setActiveTab(isOnlineOrHybrid ? 'overview' : 'attendance');
+    setActiveTab('calendar');
     if (student) {
       await fetchCourseAttendance(student.id, course.id);
       await fetchCourseLMS(course.id);
+      try {
+        const res = await fetch(`${API_URL}/api/extra-classes?courseId=${course.id}`);
+        const data = await res.json();
+        if (data.success) {
+          setCourseExtraClasses(data.extraClasses || []);
+        } else {
+          setCourseExtraClasses([]);
+        }
+      } catch {
+        setCourseExtraClasses([]);
+      }
     }
   };
 
@@ -423,7 +434,8 @@ const StudentDashboard = () => {
     setSelectedCourse(null);
     setAttendance([]);
     setLmsContent([]);
-    setActiveTab('attendance');
+    setCourseExtraClasses([]);
+    setActiveTab('calendar');
     setShowVideoModal(false);
     setSelectedVideoUrl('');
   };
@@ -539,54 +551,20 @@ const StudentDashboard = () => {
                     background: 'transparent',
                     padding: '0 16px'
                   }}>
-                    {isOnlineOrHybrid && (
-                      <Nav.Item>
-                        <Nav.Link 
-                          eventKey="overview" 
-                          style={{ 
-                            border: 'none',
-                            borderBottom: activeTab === 'overview' ? '3px solid #6366f1' : '3px solid transparent',
-                            color: activeTab === 'overview' ? '#6366f1' : '#64748b',
-                            fontWeight: activeTab === 'overview' ? '600' : '500',
-                            padding: '16px 20px',
-                            fontSize: '14px',
-                            transition: 'all 0.2s ease'
-                          }}
-                        >
-                          🏠 Classroom
-                        </Nav.Link>
-                      </Nav.Item>
-                    )}
                     <Nav.Item>
                       <Nav.Link 
-                        eventKey="attendance" 
+                        eventKey="calendar" 
                         style={{ 
                           border: 'none',
-                          borderBottom: activeTab === 'attendance' ? '3px solid #6366f1' : '3px solid transparent',
-                          color: activeTab === 'attendance' ? '#6366f1' : '#64748b',
-                          fontWeight: activeTab === 'attendance' ? '600' : '500',
+                          borderBottom: activeTab === 'calendar' ? '3px solid #6366f1' : '3px solid transparent',
+                          color: activeTab === 'calendar' ? '#6366f1' : '#64748b',
+                          fontWeight: activeTab === 'calendar' ? '600' : '500',
                           padding: '16px 20px',
                           fontSize: '14px',
                           transition: 'all 0.2s ease'
                         }}
                       >
-                        📊 Attendance
-                      </Nav.Link>
-                    </Nav.Item>
-                    <Nav.Item>
-                      <Nav.Link 
-                        eventKey="lms"
-                        style={{ 
-                          border: 'none',
-                          borderBottom: activeTab === 'lms' ? '3px solid #6366f1' : '3px solid transparent',
-                          color: activeTab === 'lms' ? '#6366f1' : '#64748b',
-                          fontWeight: activeTab === 'lms' ? '600' : '500',
-                          padding: '16px 20px',
-                          fontSize: '14px',
-                          transition: 'all 0.2s ease'
-                        }}
-                      >
-                        📚 Learning Materials
+                        📅 Calendar
                       </Nav.Link>
                     </Nav.Item>
                     <Nav.Item>
@@ -618,131 +596,144 @@ const StudentDashboard = () => {
                         )}
                       </Nav.Link>
                     </Nav.Item>
+                    <Nav.Item>
+                      <Nav.Link 
+                        eventKey="materials"
+                        style={{ 
+                          border: 'none',
+                          borderBottom: activeTab === 'materials' ? '3px solid #6366f1' : '3px solid transparent',
+                          color: activeTab === 'materials' ? '#6366f1' : '#64748b',
+                          fontWeight: activeTab === 'materials' ? '600' : '500',
+                          padding: '16px 20px',
+                          fontSize: '14px',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        📚 Study Materials
+                      </Nav.Link>
+                    </Nav.Item>
+                    <Nav.Item>
+                      <Nav.Link 
+                        eventKey="videos"
+                        style={{ 
+                          border: 'none',
+                          borderBottom: activeTab === 'videos' ? '3px solid #6366f1' : '3px solid transparent',
+                          color: activeTab === 'videos' ? '#6366f1' : '#64748b',
+                          fontWeight: activeTab === 'videos' ? '600' : '500',
+                          padding: '16px 20px',
+                          fontSize: '14px',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        🎥 Video Recording
+                      </Nav.Link>
+                    </Nav.Item>
+                    <Nav.Item>
+                      <Nav.Link 
+                        eventKey="classwork"
+                        style={{ 
+                          border: 'none',
+                          borderBottom: activeTab === 'classwork' ? '3px solid #6366f1' : '3px solid transparent',
+                          color: activeTab === 'classwork' ? '#6366f1' : '#64748b',
+                          fontWeight: activeTab === 'classwork' ? '600' : '500',
+                          padding: '16px 20px',
+                          fontSize: '14px',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        ✏️ Classwork
+                      </Nav.Link>
+                    </Nav.Item>
+                    <Nav.Item>
+                      <Nav.Link 
+                        eventKey="attendance" 
+                        style={{ 
+                          border: 'none',
+                          borderBottom: activeTab === 'attendance' ? '3px solid #6366f1' : '3px solid transparent',
+                          color: activeTab === 'attendance' ? '#6366f1' : '#64748b',
+                          fontWeight: activeTab === 'attendance' ? '600' : '500',
+                          padding: '16px 20px',
+                          fontSize: '14px',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        📊 Attendance
+                      </Nav.Link>
+                    </Nav.Item>
                   </Nav>
                 </Card.Body>
               </Card>
 
               <Tab.Content>
-                {isOnlineOrHybrid && (
-                  <Tab.Pane eventKey="overview">
-                    <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', background: 'white' }}>
-                      <Card.Body style={{ padding: '24px' }}>
-                        {selectedCourse.onlineDetails && (
-                          <div style={{ marginBottom: '24px' }}>
-                            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', marginBottom: '12px' }}>Course details</h3>
-                            <p style={{ margin: 0, color: '#475569', fontSize: '15px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{selectedCourse.onlineDetails}</p>
-                          </div>
-                        )}
-                        {selectedCourse.classwork && (
-                          <div style={{ marginBottom: '24px' }}>
-                            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', marginBottom: '12px' }}>Classwork</h3>
-                            <p style={{ margin: 0, color: '#475569', fontSize: '15px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{selectedCourse.classwork}</p>
-                          </div>
-                        )}
-                        {selectedCourse.classGroupLink && (
-                          <div style={{ marginBottom: '24px' }}>
-                            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', marginBottom: '12px' }}>Class group</h3>
-                            <a
-                              href={selectedCourse.classGroupLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                padding: '10px 20px',
-                                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                                color: 'white',
-                                borderRadius: '10px',
-                                fontWeight: '600',
-                                textDecoration: 'none',
-                                fontSize: '14px',
-                              }}
-                            >
-                              Join class group →
-                            </a>
-                          </div>
-                        )}
-                        {videoLinks.length > 0 && (
-                          <div>
-                            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', marginBottom: '12px' }}>Recorded sessions</h3>
-                            <Row className="g-3">
-                              {videoLinks.map((url, index) => {
-                                const embedUrl = getYouTubeEmbedUrl(url);
-                                if (!embedUrl) return null;
-                                const videoId = embedUrl.split('/embed/')[1]?.split('?')[0] || '';
-                                return (
-                                  <Col key={index} xs={12} sm={6} md={4}>
-                                    <Card
-                                      style={{
-                                        border: '1px solid #e2e8f0',
-                                        borderRadius: '12px',
-                                        overflow: 'hidden',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s ease',
-                                      }}
-                                      onClick={() => openVideoPopup(url)}
-                                      onMouseEnter={(e) => {
-                                        e.currentTarget.style.borderColor = '#6366f1';
-                                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.15)';
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        e.currentTarget.style.borderColor = '#e2e8f0';
-                                        e.currentTarget.style.boxShadow = 'none';
-                                      }}
+                <Tab.Pane eventKey="calendar">
+                  <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', background: 'white' }}>
+                    <Card.Body style={{ padding: '24px' }}>
+                      <div className="d-flex justify-content-between align-items-center mb-4">
+                        <h2 style={{ 
+                          margin: 0, 
+                          fontSize: '20px', 
+                          fontWeight: '700', 
+                          color: '#1e293b' 
+                        }}>
+                          Online Classroom
+                        </h2>
+                        <Badge style={{ 
+                          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          border: 'none'
+                        }}>
+                          {Array.isArray(selectedCourse.meetingLinks) ? selectedCourse.meetingLinks.length : 0} Links
+                        </Badge>
+                      </div>
+                      <Row>
+                        <Col style={{ textAlign: 'center' }}>
+                          {Array.isArray(selectedCourse.meetingLinks) && selectedCourse.meetingLinks.length > 0 ? (
+                            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'inline-block', textAlign: 'left' }}>
+                              {selectedCourse.meetingLinks.map((m) => (
+                                <li key={m.id} style={{ marginBottom: '10px', padding: '10px 12px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                    <span style={{ fontWeight: '600', fontSize: '14px', color: '#1e293b' }}>{m.label || 'Link'}</span>
+                                    <span style={{
+                                      padding: '2px 8px',
+                                      borderRadius: '999px',
+                                      background: m.linkType === 'extra' ? '#fef3c7' : '#e0e7ff',
+                                      color: m.linkType === 'extra' ? '#92400e' : '#3730a3',
+                                      fontSize: '11px',
+                                      fontWeight: '600'
+                                    }}>
+                                      {m.linkType === 'extra' ? 'Extra class' : 'Ussual Class'}
+                                    </span>
+                                  </div>
+                                  <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '4px' }}>
+                                    {m.meetingDate || '-'} {m.meetingTime || ''}
+                                  </div>
+                                  {m.url && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline-primary"
+                                      as="a"
+                                      href={m.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
                                     >
-                                      <div style={{ aspectRatio: '16/9', background: '#0f172a', position: 'relative' }}>
-                                        {videoId ? (
-                                          <img
-                                            src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
-                                            alt=""
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                          />
-                                        ) : (
-                                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>▶</div>
-                                        )}
-                                        <div style={{
-                                          position: 'absolute',
-                                          inset: 0,
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                          background: 'rgba(0,0,0,0.4)',
-                                        }}>
-                                          <div style={{
-                                            width: '56px',
-                                            height: '56px',
-                                            borderRadius: '50%',
-                                            background: 'rgba(255,255,255,0.9)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            fontSize: '24px',
-                                            color: '#6366f1',
-                                          }}>
-                                            ▶
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <Card.Body style={{ padding: '12px' }}>
-                                        <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>Session {index + 1}</span>
-                                      </Card.Body>
-                                    </Card>
-                                  </Col>
-                                );
-                              })}
-                            </Row>
-                          </div>
-                        )}
-                        {!selectedCourse.onlineDetails && !selectedCourse.classwork && !selectedCourse.classGroupLink && videoLinks.length === 0 && (
-                          <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
-                            <p style={{ margin: 0, fontSize: '15px' }}>No classroom content added yet.</p>
-                          </div>
-                        )}
-                      </Card.Body>
-                    </Card>
-                  </Tab.Pane>
-                )}
+                                      Join class
+                                    </Button>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p style={{ margin: 0, color: '#94a3b8' }}>No meeting links available for this course.</p>
+                          )}
+                        </Col>
+                        
+                      </Row>
+                    </Card.Body>
+                  </Card>
+                </Tab.Pane>
                 <Tab.Pane eventKey="attendance">
                   <Card style={{ 
                     border: 'none',
@@ -772,14 +763,7 @@ const StudentDashboard = () => {
                         </Badge>
                       </div>
                       {attendance.length === 0 ? (
-                        <div style={{ 
-                          textAlign: 'center', 
-                          padding: '60px 20px',
-                          color: '#94a3b8'
-                        }}>
-                          <div style={{ fontSize: '48px', marginBottom: '16px' }}>📅</div>
-                          <p style={{ margin: 0, fontSize: '16px' }}>No attendance records found.</p>
-                        </div>
+                        <p style={{ margin: 0, fontSize: '16px', color: '#94a3b8' }}>No attendance records found.</p>
                       ) : (
                         <div style={{ overflowX: 'auto' }}>
                           <Table responsive hover style={{ margin: 0 }}>
@@ -899,7 +883,7 @@ const StudentDashboard = () => {
                   </Card>
                 </Tab.Pane>
 
-                <Tab.Pane eventKey="lms">
+                <Tab.Pane eventKey="materials">
                   <Card style={{ 
                     border: 'none',
                     borderRadius: '16px',
@@ -914,7 +898,7 @@ const StudentDashboard = () => {
                           fontWeight: '700', 
                           color: '#1e293b' 
                         }}>
-                          Learning Materials
+                          Study Materials
                         </h2>
                         <Badge style={{ 
                           background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
@@ -928,21 +912,7 @@ const StudentDashboard = () => {
                         </Badge>
                       </div>
                     {lmsContent.length === 0 ? (
-                      <Card style={{ 
-                        border: 'none',
-                        borderRadius: '16px',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                        background: 'white'
-                      }}>
-                        <Card.Body style={{ 
-                          textAlign: 'center', 
-                          padding: '60px 20px',
-                          color: '#94a3b8'
-                        }}>
-                          <div style={{ fontSize: '48px', marginBottom: '16px' }}>📚</div>
-                          <p style={{ margin: 0, fontSize: '16px' }}>No learning materials available yet.</p>
-                        </Card.Body>
-                      </Card>
+                      <p style={{ margin: 0, fontSize: '16px', color: '#94a3b8' }}>No study materials available yet.</p>
                     ) : (
                       <Row className="g-4">
                         {lmsContent.map((content) => (
@@ -1134,14 +1104,7 @@ const StudentDashboard = () => {
                         </Badge>
                       </div>
                       {courseNotifications.length === 0 ? (
-                        <div style={{ 
-                          textAlign: 'center', 
-                          padding: '60px 20px',
-                          color: '#94a3b8'
-                        }}>
-                          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔔</div>
-                          <p style={{ margin: 0, fontSize: '16px' }}>No notifications for this course.</p>
-                        </div>
+                        <p style={{ margin: 0, fontSize: '16px', color: '#94a3b8' }}>No notifications for this course.</p>
                       ) : (
                         <div className="d-flex flex-column gap-3" style={{ textAlign: 'left' }}>
                           {courseNotifications.map((notification) => (
@@ -1218,6 +1181,128 @@ const StudentDashboard = () => {
                             </Card>
                           ))}
                         </div>
+                      )}
+                    </Card.Body>
+                  </Card>
+                </Tab.Pane>
+
+                <Tab.Pane eventKey="videos">
+                  <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', background: 'white' }}>
+                    <Card.Body style={{ padding: '24px' }}>
+                      <div className="d-flex justify-content-between align-items-center mb-4">
+                        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#1e293b' }}>
+                          Video Recording
+                        </h2>
+                        <Badge style={{ 
+                          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          border: 'none'
+                        }}>
+                          {videoLinks.length} Sessions
+                        </Badge>
+                      </div>
+                      {videoLinks.length === 0 ? (
+                        <p style={{ margin: 0, fontSize: '15px', color: '#94a3b8' }}>No video recordings available yet.</p>
+                      ) : (
+                        <Row className="g-3">
+                          {videoLinks.map((url, index) => {
+                            const embedUrl = getYouTubeEmbedUrl(url);
+                            if (!embedUrl) return null;
+                            const videoId = embedUrl.split('/embed/')[1]?.split('?')[0] || '';
+                            return (
+                              <Col key={index} xs={12} sm={6} md={4}>
+                                <Card
+                                  style={{
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '12px',
+                                    overflow: 'hidden',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                  }}
+                                  onClick={() => openVideoPopup(url)}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.borderColor = '#6366f1';
+                                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.15)';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.borderColor = '#e2e8f0';
+                                    e.currentTarget.style.boxShadow = 'none';
+                                  }}
+                                >
+                                  <div style={{ aspectRatio: '16/9', background: '#0f172a', position: 'relative' }}>
+                                    {videoId ? (
+                                      <img
+                                        src={`https://img.youtube.com/vi/${videoId}/mqdefault.jpg`}
+                                        alt=""
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                      />
+                                    ) : (
+                                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>▶</div>
+                                    )}
+                                    <div style={{
+                                      position: 'absolute',
+                                      inset: 0,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      background: 'rgba(0,0,0,0.4)',
+                                    }}>
+                                      <div style={{
+                                        width: '56px',
+                                        height: '56px',
+                                        borderRadius: '50%',
+                                        background: 'rgba(255,255,255,0.9)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '24px',
+                                        color: '#6366f1',
+                                      }}>
+                                        ▶
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <Card.Body style={{ padding: '12px' }}>
+                                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>Session {index + 1}</span>
+                                  </Card.Body>
+                                </Card>
+                              </Col>
+                            );
+                          })}
+                        </Row>
+                      )}
+                    </Card.Body>
+                  </Card>
+                </Tab.Pane>
+
+                <Tab.Pane eventKey="classwork">
+                  <Card style={{ border: 'none', borderRadius: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', background: 'white' }}>
+                    <Card.Body style={{ padding: '24px' }}>
+                      <div className="d-flex justify-content-between align-items-center mb-4">
+                        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#1e293b' }}>
+                          Classwork
+                        </h2>
+                        <Badge style={{ 
+                          background: selectedCourse.classwork ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#e5e7eb',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          border: 'none',
+                          color: selectedCourse.classwork ? '#ffffff' : '#4b5563'
+                        }}>
+                          {selectedCourse.classwork ? 'Available' : 'Not added'}
+                        </Badge>
+                      </div>
+                      {selectedCourse.classwork ? (
+                        <p style={{ margin: 0, color: '#475569', fontSize: '15px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                          {selectedCourse.classwork}
+                        </p>
+                      ) : (
+                        <p style={{ margin: 0, color: '#94a3b8' }}>No classwork details added for this course.</p>
                       )}
                     </Card.Body>
                   </Card>
