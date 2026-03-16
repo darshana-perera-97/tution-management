@@ -1861,6 +1861,7 @@ app.get('/api/courses', (req, res) => {
       subject: course.subject,
       teacherId: course.teacherId,
       grade: course.grade,
+      mode: (course.mode && ['physical', 'online', 'hybrid'].includes(course.mode)) ? course.mode : 'physical',
       courseFee: course.courseFee,
       teacherPaymentPercentage: course.teacherPaymentPercentage,
       schedule: course.schedule || [],
