@@ -37,6 +37,12 @@ const StudentDashboard = () => {
   const idCardRef = useRef(null);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [selectedVideoUrl, setSelectedVideoUrl] = useState('');
+  const [courseTasks, setCourseTasks] = useState([]);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [taskAnswerText, setTaskAnswerText] = useState('');
+  const [taskAnswerFile, setTaskAnswerFile] = useState(null);
+  const [submittingTask, setSubmittingTask] = useState(false);
 
   useEffect(() => {
     const isAuthenticated = localStorage.getItem('isStudentAuthenticated');
@@ -332,6 +338,7 @@ const StudentDashboard = () => {
     if (student) {
       await fetchCourseAttendance(student.id, course.id);
       await fetchCourseLMS(course.id);
+      await fetchCourseTasks(course.id);
       try {
         const res = await fetch(`${API_URL}/api/extra-classes?courseId=${course.id}`);
         const data = await res.json();
@@ -381,6 +388,52 @@ const StudentDashboard = () => {
     } catch (err) {
       console.error('Error fetching LMS content:', err);
       setLmsContent([]);
+    }
+  };
+
+  const fetchCourseTasks = async (courseId) => {
+    try {
+      const response = await fetch(`${API_URL}/api/courses/${courseId}/tasks`);
+      const data = await response.json();
+      if (data.success) {
+        setCourseTasks(data.tasks || []);
+      }
+    } catch (err) {
+      console.error('Error fetching course tasks:', err);
+      setCourseTasks([]);
+    }
+  };
+
+  const handleSubmitTask = async () => {
+    if (!selectedTask || !student || !taskAnswerFile || submittingTask) return;
+    try {
+      setSubmittingTask(true);
+      const form = new FormData();
+      form.append('studentId', student.id);
+      form.append('file', taskAnswerFile);
+      // taskAnswerText is currently not stored on the backend, but we could append later if API supports it
+      const response = await fetch(
+        `${API_URL}/api/courses/${selectedCourse.id}/tasks/${selectedTask.id}/submit`,
+        {
+          method: 'POST',
+          body: form,
+        }
+      );
+      const data = await response.json();
+      if (data.success) {
+        alert('Submission uploaded successfully.');
+        setTaskAnswerText('');
+        setTaskAnswerFile(null);
+        setShowTaskModal(false);
+        setSelectedTask(null);
+      } else {
+        alert(data.message || 'Failed to submit. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error submitting task:', err);
+      alert('Failed to submit. Please try again.');
+    } finally {
+      setSubmittingTask(false);
     }
   };
 
@@ -480,7 +533,12 @@ const StudentDashboard = () => {
     // Course Details View
     const courseNotifications = notifications.filter(n => n.courseId === selectedCourse.id);
     const isOnlineOrHybrid = selectedCourse.mode === 'online' || selectedCourse.mode === 'hybrid';
-    const videoLinks = Array.isArray(selectedCourse.videoRecordingLinks) ? selectedCourse.videoRecordingLinks : [];
+    // Normalize video links from course: can be array of strings or objects
+    const videoLinks = Array.isArray(selectedCourse.videoRecordingLinks)
+      ? selectedCourse.videoRecordingLinks
+          .map((v) => (typeof v === 'string' ? { url: v } : v || {}))
+          .filter((v) => v.url)
+      : [];
 
     return (
       <div className="student-dashboard" style={{ minHeight: '100vh', background: '#f8fafc' }}>
@@ -689,12 +747,12 @@ const StudentDashboard = () => {
                         </Badge>
                       </div>
                       <Row>
-                        <Col style={{ textAlign: 'center' }}>
+                        <Col style={{textAlign: 'left'}}>
                           {Array.isArray(selectedCourse.meetingLinks) && selectedCourse.meetingLinks.length > 0 ? (
-                            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'inline-block', textAlign: 'left' }}>
+                            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                               {selectedCourse.meetingLinks.map((m) => (
                                 <li key={m.id} style={{ marginBottom: '10px', padding: '10px 12px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                                     <span style={{ fontWeight: '600', fontSize: '14px', color: '#1e293b' }}>{m.label || 'Link'}</span>
                                     <span style={{
                                       padding: '2px 8px',
@@ -711,16 +769,27 @@ const StudentDashboard = () => {
                                     {m.meetingDate || '-'} {m.meetingTime || ''}
                                   </div>
                                   {m.url && (
-                                    <Button
-                                      size="sm"
-                                      variant="outline-primary"
-                                      as="a"
-                                      href={m.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      Join class
-                                    </Button>
+                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                      <Button
+                                        size="sm"
+                                        variant="outline-primary"
+                                        as="a"
+                                        href={m.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                      >
+                                        &lt; View Link &gt;
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline-secondary"
+                                        onClick={() => {
+                                          navigator.clipboard?.writeText(m.url).catch(() => {});
+                                        }}
+                                      >
+                                        Copy Link
+                                      </Button>
+                                    </div>
                                   )}
                                 </li>
                               ))}
@@ -1208,8 +1277,8 @@ const StudentDashboard = () => {
                         <p style={{ margin: 0, fontSize: '15px', color: '#94a3b8' }}>No video recordings available yet.</p>
                       ) : (
                         <Row className="g-3">
-                          {videoLinks.map((url, index) => {
-                            const embedUrl = getYouTubeEmbedUrl(url);
+                          {videoLinks.map((v, index) => {
+                            const embedUrl = getYouTubeEmbedUrl(v.url);
                             if (!embedUrl) return null;
                             const videoId = embedUrl.split('/embed/')[1]?.split('?')[0] || '';
                             return (
@@ -1222,7 +1291,7 @@ const StudentDashboard = () => {
                                     cursor: 'pointer',
                                     transition: 'all 0.2s ease',
                                   }}
-                                  onClick={() => openVideoPopup(url)}
+                                  onClick={() => openVideoPopup(v.url)}
                                   onMouseEnter={(e) => {
                                     e.currentTarget.style.borderColor = '#6366f1';
                                     e.currentTarget.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.15)';
@@ -1266,7 +1335,34 @@ const StudentDashboard = () => {
                                     </div>
                                   </div>
                                   <Card.Body style={{ padding: '12px' }}>
-                                    <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>Session {index + 1}</span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>
+                                        {v.title || `Session ${index + 1}`}
+                                      </span>
+                                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                        <Button
+                                          size="sm"
+                                          variant="outline-primary"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openVideoPopup(v.url);
+                                          }}
+                                        >
+                                          Play
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline-secondary"
+                                          as="a"
+                                          href={v.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          Open in new tab
+                                        </Button>
+                                      </div>
+                                    </div>
                                   </Card.Body>
                                 </Card>
                               </Col>
@@ -1286,23 +1382,61 @@ const StudentDashboard = () => {
                           Classwork
                         </h2>
                         <Badge style={{ 
-                          background: selectedCourse.classwork ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#e5e7eb',
+                          background: courseTasks.length > 0 ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' : '#e5e7eb',
                           padding: '6px 12px',
                           borderRadius: '8px',
                           fontSize: '12px',
                           fontWeight: '600',
                           border: 'none',
-                          color: selectedCourse.classwork ? '#ffffff' : '#4b5563'
+                          color: courseTasks.length > 0 ? '#ffffff' : '#4b5563'
                         }}>
-                          {selectedCourse.classwork ? 'Available' : 'Not added'}
+                          {courseTasks.length > 0 ? `${courseTasks.length} Task${courseTasks.length > 1 ? 's' : ''}` : 'No tasks'}
                         </Badge>
                       </div>
-                      {selectedCourse.classwork ? (
-                        <p style={{ margin: 0, color: '#475569', fontSize: '15px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
-                          {selectedCourse.classwork}
-                        </p>
+                      {selectedCourse.classwork && (
+                        <div style={{ marginBottom: '20px' }}>
+                          <h6 style={{ fontSize: '14px', fontWeight: '600', color: '#475569', marginBottom: '8px' }}>
+                            Teacher notes
+                          </h6>
+                          <p style={{ margin: 0, color: '#475569', fontSize: '15px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                            {selectedCourse.classwork}
+                          </p>
+                        </div>
+                      )}
+                      {courseTasks.length === 0 ? (
+                        !selectedCourse.classwork && (
+                          <p style={{ margin: 0, color: '#94a3b8' }}>No classwork details or tasks added for this course yet.</p>
+                        )
                       ) : (
-                        <p style={{ margin: 0, color: '#94a3b8' }}>No classwork details added for this course.</p>
+                        <Row className="g-3">
+                          {courseTasks.map((t) => (
+                            <Col md={6} lg={4} key={t.id}>
+                              <Card
+                                style={{ border: '1px solid #e2e8f0', borderRadius: '12px', cursor: 'pointer', textAlign: 'left' }}
+                                onClick={() => {
+                                  setSelectedTask(t);
+                                  setShowTaskModal(true);
+                                }}
+                              >
+                                <Card.Body>
+                                  <h6 style={{ marginBottom: '4px', fontWeight: '600', color: '#1e293b' }}>
+                                    {t.title}
+                                  </h6>
+                                  {t.description && (
+                                    <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>
+                                      {t.description}
+                                    </p>
+                                  )}
+                                  {t.dueDate && (
+                                    <p style={{ fontSize: '12px', color: '#64748b', marginBottom: 0 }}>
+                                      Due: {t.dueDate}
+                                    </p>
+                                  )}
+                                </Card.Body>
+                              </Card>
+                            </Col>
+                          ))}
+                        </Row>
                       )}
                     </Card.Body>
                   </Card>
@@ -1338,6 +1472,94 @@ const StudentDashboard = () => {
                       allowFullScreen
                     />
                   </div>
+                )}
+              </Modal.Body>
+            </Modal>
+
+            <Modal
+              show={showTaskModal}
+              onHide={() => {
+                setShowTaskModal(false);
+                setSelectedTask(null);
+              }}
+              centered
+            >
+              <Modal.Header closeButton>
+                <Modal.Title>Classwork details</Modal.Title>
+              </Modal.Header>
+              <Modal.Body style={{ textAlign: 'left' }}>
+                {selectedTask && (
+                  <>
+                    <h5 style={{ fontWeight: '600', marginBottom: '8px' }}>{selectedTask.title}</h5>
+                    {selectedTask.description && (
+                      <p style={{ fontSize: '14px', color: '#475569', whiteSpace: 'pre-wrap' }}>
+                        {selectedTask.description}
+                      </p>
+                    )}
+                    <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '4px' }}>
+                      <strong>Due date:</strong> {selectedTask.dueDate || 'Not set'}
+                    </p>
+                    {selectedTask.dueDate && (
+                      <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px' }}>
+                        <strong>Time remaining:</strong>{' '}
+                        {(() => {
+                          const now = new Date();
+                          const due = new Date(selectedTask.dueDate);
+                          const diffMs = due.getTime() - now.getTime();
+                          if (Number.isNaN(due.getTime())) return 'N/A';
+                          if (diffMs <= 0) return 'Past due';
+                          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                          const diffHours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+                          return `${diffDays} day${diffDays !== 1 ? 's' : ''} ${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
+                        })()}
+                      </p>
+                    )}
+                    {selectedTask.fileUrl && (
+                      <div style={{ marginBottom: '16px' }}>
+                        <Button
+                          size="sm"
+                          variant="outline-primary"
+                          as="a"
+                          href={`${API_URL}${selectedTask.fileUrl}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          View sample document
+                        </Button>
+                      </div>
+                    )}
+                    <hr />
+                    <h6 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>Submit your answers</h6>
+                    <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>
+                      You can submit your written answers or upload a document with your work.
+                    </p>
+                    <Form.Group className="mb-2">
+                      <Form.Label>Your answer (optional)</Form.Label>
+                      <Form.Control
+                        as="textarea"
+                        rows={3}
+                        placeholder="Write your answer here..."
+                        value={taskAnswerText}
+                        onChange={(e) => setTaskAnswerText(e.target.value)}
+                      />
+                    </Form.Group>
+                    <Form.Group className="mb-2">
+                      <Form.Label>Attach file (required)</Form.Label>
+                      <Form.Control
+                        type="file"
+                        accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                        onChange={(e) => setTaskAnswerFile(e.target.files?.[0] || null)}
+                      />
+                    </Form.Group>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={!taskAnswerFile || submittingTask}
+                      onClick={handleSubmitTask}
+                    >
+                      {submittingTask ? 'Submitting...' : 'Submit'}
+                    </Button>
+                  </>
                 )}
               </Modal.Body>
             </Modal>
@@ -1682,7 +1904,7 @@ const StudentDashboard = () => {
                   </p>
                   {onlineClassroomCourses.length === 0 ? (
                     <div style={{ 
-                      textAlign: 'center', 
+                      textAlign: 'left', 
                       padding: '40px 20px',
                       color: '#94a3b8',
                       background: '#f8fafc',

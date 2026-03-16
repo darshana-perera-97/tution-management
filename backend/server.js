@@ -1751,6 +1751,7 @@ app.get('/api/students/:studentId/notifications', (req, res) => {
     const paymentsData = readPaymentsData();
     const coursesData = readCoursesData();
     const lmsData = readLmsContentData();
+    const courseNotificationsData = readCourseNotificationsData();
     
     const notifications = [];
 
@@ -1813,6 +1814,22 @@ app.get('/api/students/:studentId/notifications', (req, res) => {
         });
       });
     });
+
+    // Get course-level notifications sent from Online Courses (Notifications tab)
+    if (courseNotificationsData && Array.isArray(courseNotificationsData.notifications)) {
+      courseNotificationsData.notifications
+        .filter(n => studentCourses.some(course => course.id === n.courseId))
+        .forEach(n => {
+          notifications.push({
+            id: `course-${n.id}-${studentId}`,
+            type: 'course',
+            title: 'Course notification',
+            message: n.message,
+            date: n.createdAt,
+            courseId: n.courseId,
+          });
+        });
+    }
 
     // Sort by date (newest first)
     notifications.sort((a, b) => new Date(b.date) - new Date(a.date));

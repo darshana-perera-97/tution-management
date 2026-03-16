@@ -63,6 +63,8 @@ const OnlineCourses = () => {
   const [uploadingMaterial, setUploadingMaterial] = useState(false);
   const [selectedMeetingIndex, setSelectedMeetingIndex] = useState(null);
   const [courseNotifications, setCourseNotifications] = useState([]);
+  const [showSubmissionsModal, setShowSubmissionsModal] = useState(false);
+  const [selectedTaskForSubmissions, setSelectedTaskForSubmissions] = useState(null);
 
   useEffect(() => {
     fetchCourses();
@@ -508,7 +510,6 @@ const OnlineCourses = () => {
                   </div>
                   <Row>
                     <Col md={5}>
-                      <h6 style={{ fontWeight: '600', marginBottom: '10px', color: '#64748b' }}>Meeting links</h6>
                       {formData.meetingLinks.length === 0 ? (
                         <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px' }}>No meeting links. Use &quot;Add Meeting Links&quot; above.</p>
                       ) : (
@@ -548,30 +549,6 @@ const OnlineCourses = () => {
                           ))}
                         </ul>
                       )}
-                      <Card className="mt-3" style={{ border: '1px solid #e2e8f0' }}>
-                        <Card.Body style={{ padding: '14px' }}>
-                          <h6 style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>Regular schedule</h6>
-                          {(selectedCourse.schedule || []).length === 0 ? <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>No schedule set.</p> : (
-                            <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '13px' }}>
-                              {(selectedCourse.schedule || []).map((s, i) => (
-                                <li key={i}>{s.day}: {s.startTime || '-'} – {s.endTime || '-'}</li>
-                              ))}
-                            </ul>
-                          )}
-                        </Card.Body>
-                      </Card>
-                      <Card className="mt-2" style={{ border: '1px solid #e2e8f0' }}>
-                        <Card.Body style={{ padding: '14px' }}>
-                          <h6 style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>Extra classes</h6>
-                          {extraClasses.length === 0 ? <p style={{ margin: 0, color: '#94a3b8', fontSize: '13px' }}>No extra classes.</p> : (
-                            <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '13px' }}>
-                              {extraClasses.map((ec, i) => (
-                                <li key={i}>{ec.date} at {ec.time}{ec.endTime ? ` – ${ec.endTime}` : ''}</li>
-                              ))}
-                            </ul>
-                          )}
-                        </Card.Body>
-                      </Card>
                     </Col>
                     <Col md={7}>
                       <h6 style={{ fontWeight: '600', marginBottom: '10px', color: '#64748b' }}>Details</h6>
@@ -608,10 +585,29 @@ const OnlineCourses = () => {
                               <p style={{ marginBottom: '8px' }}><strong>Date:</strong> {m.meetingDate || '—'}</p>
                               <p style={{ marginBottom: '8px' }}><strong>Time:</strong> {m.meetingTime || '—'}</p>
                               {m.scheduleLabel ? <p style={{ marginBottom: '8px' }}><strong>Schedule note:</strong> {m.scheduleLabel}</p> : null}
-                              <p style={{ marginBottom: '12px' }}>
-                                <strong>Link:</strong>{' '}
-                                <a href={m.url} target="_blank" rel="noopener noreferrer">{m.url || '—'}</a>
-                              </p>
+                              <div style={{ marginBottom: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                <Button
+                                  size="sm"
+                                  variant="primary"
+                                  as="a"
+                                  href={m.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Join Class
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline-secondary"
+                                  onClick={() => {
+                                    if (m.url) {
+                                      navigator.clipboard?.writeText(m.url).catch(() => {});
+                                    }
+                                  }}
+                                >
+                                  Copy Link
+                                </Button>
+                              </div>
                               <div>
                                 <Button
                                   size="sm"
@@ -740,8 +736,29 @@ const OnlineCourses = () => {
                               {v.description && <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>{v.description}</p>}
                               <a href={v.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', wordBreak: 'break-all' }}>{v.url}</a>
                               <div style={{ marginTop: '10px' }}>
-                                <Button size="sm" variant="outline-secondary" className="me-1" onClick={() => { setEditingVideo(i); setVideoForm({ url: v.url || '', title: v.title || '', description: v.description || '' }); setShowVideoModal(true); }}>Edit</Button>
-                                <Button size="sm" variant="outline-danger" onClick={() => removeVideo(i)}>Remove</Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline-secondary"
+                                  className="me-1"
+                                  onClick={() => {
+                                    setEditingVideo(i);
+                                    setVideoForm({ url: v.url || '', title: v.title || '', description: v.description || '' });
+                                    setShowVideoModal(true);
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline-danger"
+                                  onClick={() => {
+                                    if (window.confirm('Remove this video recording?')) {
+                                      removeVideo(i);
+                                    }
+                                  }}
+                                >
+                                  Remove
+                                </Button>
                               </div>
                             </Card.Body>
                           </Card>
@@ -772,18 +789,19 @@ const OnlineCourses = () => {
                               <h6 style={{ marginBottom: '4px' }}>{t.title}</h6>
                               {t.description && <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '8px' }}>{t.description}</p>}
                               {t.dueDate && <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '8px' }}>Due: {t.dueDate}</p>}
-                              <Button size="sm" variant="outline-primary" className="me-1" onClick={() => fetchSubmissionsForTask(t.id)}>View submissions</Button>
+                              <Button
+                                size="sm"
+                                variant="outline-primary"
+                                className="me-1"
+                                onClick={() => {
+                                  fetchSubmissionsForTask(t.id);
+                                  setSelectedTaskForSubmissions(t);
+                                  setShowSubmissionsModal(true);
+                                }}
+                              >
+                                View submissions
+                              </Button>
                               <Button size="sm" variant="outline-danger" onClick={() => deleteTask(t.id)}>Delete</Button>
-                              {(taskSubmissions[t.id] || []).length > 0 && (
-                                <div style={{ marginTop: '12px', fontSize: '13px' }}>
-                                  <strong>Submissions:</strong>
-                                  <ul style={{ margin: '4px 0 0 0', paddingLeft: '20px' }}>
-                                    {(taskSubmissions[t.id] || []).map(s => (
-                                      <li key={s.id}><a href={`${API_URL}${s.fileUrl}`} target="_blank" rel="noopener noreferrer">{s.fileName || 'File'}</a> ({s.submittedAt ? new Date(s.submittedAt).toLocaleString() : ''})</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
                             </Card.Body>
                           </Card>
                         </Col>
@@ -987,6 +1005,88 @@ const OnlineCourses = () => {
             <Button variant="secondary" onClick={() => { setShowTaskModal(false); setTaskAttachment(null); }}>Cancel</Button>
             <Button variant="primary" onClick={addTask} disabled={!taskForm.title.trim()}>Add Task</Button>
           </Modal.Footer>
+        </Modal>
+
+        <Modal
+          show={showSubmissionsModal}
+          onHide={() => {
+            setShowSubmissionsModal(false);
+            setSelectedTaskForSubmissions(null);
+          }}
+          size="lg"
+          centered
+        >
+          <Modal.Header closeButton>
+            <Modal.Title>
+              {selectedTaskForSubmissions ? `Submissions – ${selectedTaskForSubmissions.title}` : 'Submissions'}
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body style={{ textAlign: 'left' }}>
+            {selectedTaskForSubmissions && (taskSubmissions[selectedTaskForSubmissions.id] || []).length > 0 ? (
+              <>
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <span style={{ fontSize: '14px', color: '#64748b' }}>
+                    Total submissions: {(taskSubmissions[selectedTaskForSubmissions.id] || []).length}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline-primary"
+                    onClick={() => {
+                      const subs = taskSubmissions[selectedTaskForSubmissions.id] || [];
+                      subs.forEach((s) => {
+                        if (s.fileUrl) {
+                          const url = `${API_URL}${s.fileUrl}`;
+                          window.open(url, '_blank');
+                        }
+                      });
+                    }}
+                  >
+                    Download all
+                  </Button>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <Table striped bordered hover responsive size="sm">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Student</th>
+                        <th>File</th>
+                        <th>Submitted at</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(taskSubmissions[selectedTaskForSubmissions.id] || []).map((s, index) => (
+                        <tr key={s.id}>
+                          <td>{index + 1}</td>
+                          <td>{s.studentName || s.studentId || '-'}</td>
+                          <td>
+                            {s.fileUrl ? (
+                              <a
+                                href={`${API_URL}${s.fileUrl}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {s.fileName || 'File'}
+                              </a>
+                            ) : (
+                              '-'
+                            )}
+                          </td>
+                          <td>
+                            {s.submittedAt
+                              ? new Date(s.submittedAt).toLocaleString()
+                              : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              </>
+            ) : (
+              <p style={{ margin: 0, color: '#94a3b8' }}>No submissions for this task yet.</p>
+            )}
+          </Modal.Body>
         </Modal>
       </div>
     );
