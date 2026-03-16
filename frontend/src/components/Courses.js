@@ -21,7 +21,8 @@ import {
   HiOutlineDocumentText,
   HiOutlineUsers,
   HiOutlineSparkles,
-  HiOutlinePhoto
+  HiOutlinePhoto,
+  HiOutlineGlobeAlt
 } from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
@@ -120,6 +121,7 @@ const Courses = () => {
     subject: '',
     courseFee: '',
     teacherPaymentPercentage: '',
+    mode: 'physical',
     schedule: [] // Array of { day: '', startTime: '', endTime: '' }
   });
 
@@ -380,7 +382,7 @@ const Courses = () => {
 
       if (data.success) {
         setSuccess('Course created successfully!');
-        setFormData({ courseName: '', teacherId: '', grade: '', subject: '', courseFee: '', teacherPaymentPercentage: '', schedule: [] });
+        setFormData({ courseName: '', teacherId: '', grade: '', subject: '', courseFee: '', teacherPaymentPercentage: '', mode: 'physical', schedule: [] });
         setShowModal(false);
         fetchCourses();
         setTimeout(() => setSuccess(''), 3000);
@@ -420,7 +422,7 @@ const Courses = () => {
 
   const handleClose = () => {
     setShowModal(false);
-    setFormData({ courseName: '', teacherId: '', grade: '', subject: '', courseFee: '', teacherPaymentPercentage: '', schedule: [] });
+    setFormData({ courseName: '', teacherId: '', grade: '', subject: '', courseFee: '', teacherPaymentPercentage: '', mode: 'physical', schedule: [] });
     setError('');
     setSuccess('');
   };
@@ -810,6 +812,7 @@ const Courses = () => {
                   <th className="text-start">Subject</th>
                   <th className="text-start">Teacher</th>
                   <th className="text-start">Grade</th>
+                  <th className="text-start">Mode</th>
                   <th className="text-start">Course Fee</th>
                   <th className="text-start">Actions</th>
                 </tr>
@@ -817,7 +820,7 @@ const Courses = () => {
             <tbody>
               {paginatedCourses.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ padding: '60px 20px', textAlign: 'center' }}>
+                  <td colSpan="8" style={{ padding: '60px 20px', textAlign: 'center' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                       <HiOutlineBookOpen style={{ fontSize: '48px', color: '#94a3b8', opacity: 0.5 }} />
                       <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px' }}>
@@ -872,6 +875,18 @@ const Courses = () => {
                           {course.grade}
                         </span>
                       </div>
+                    </td>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
+                      <span style={{
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        background: course.mode === 'online' ? '#dbeafe' : course.mode === 'hybrid' ? '#e0e7ff' : '#f1f5f9',
+                        color: course.mode === 'online' ? '#1d4ed8' : course.mode === 'hybrid' ? '#4338ca' : '#475569'
+                      }}>
+                        {course.mode === 'online' ? 'Online' : course.mode === 'hybrid' ? 'Hybrid' : 'Physical'}
+                      </span>
                     </td>
                     <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -974,6 +989,18 @@ const Courses = () => {
                   <Card.Body>
                     <div className="student-card-header mb-0">
                       <h5 className="student-card-name mb-0">{course.courseName}</h5>
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        background: course.mode === 'online' ? '#dbeafe' : course.mode === 'hybrid' ? '#e0e7ff' : '#f1f5f9',
+                        color: course.mode === 'online' ? '#1d4ed8' : course.mode === 'hybrid' ? '#4338ca' : '#475569',
+                        marginTop: '4px',
+                        display: 'inline-block'
+                      }}>
+                        {course.mode === 'online' ? 'Online' : course.mode === 'hybrid' ? 'Hybrid' : 'Physical'}
+                      </span>
                     </div>
                     <div className="student-card-actions">
                       <div className="student-actions-grid">
@@ -1188,6 +1215,24 @@ const Courses = () => {
                       <option value="Grade 13">Grade 13</option>
                       <option value="After AL">After AL</option>
                       <option value="After OL">After OL</option>
+                    </select>
+                  </div>
+
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineGlobeAlt className="student-form-label-icon" />
+                      Learning Mode
+                    </label>
+                    <select
+                      name="mode"
+                      value={formData.mode || 'physical'}
+                      onChange={handleChange}
+                      required
+                      className="student-form-select"
+                    >
+                      <option value="physical">Physical (In-person)</option>
+                      <option value="online">Online</option>
+                      <option value="hybrid">Hybrid</option>
                     </select>
                   </div>
 
@@ -1426,6 +1471,16 @@ const Courses = () => {
                     </label>
                     <div className="student-details-value">{selectedCourse.grade}</div>
               </div>
+
+                  <div className="student-form-field">
+                    <label className="student-form-label">
+                      <HiOutlineGlobeAlt className="student-form-label-icon" />
+                      Mode
+                    </label>
+                    <div className="student-details-value">
+                      {selectedCourse.mode === 'online' ? 'Online' : selectedCourse.mode === 'hybrid' ? 'Hybrid' : 'Physical'}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Right Column */}

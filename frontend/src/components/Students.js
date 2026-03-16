@@ -20,7 +20,8 @@ import {
   HiOutlineTrash,
   HiOutlineMagnifyingGlass,
   HiOutlinePlus,
-  HiOutlineXMark
+  HiOutlineXMark,
+  HiOutlineGlobeAlt
 } from 'react-icons/hi2';
 import '../App.css';
 import API_URL from '../config';
@@ -51,7 +52,8 @@ const Students = () => {
     studentWhatsAppNumber: '',
     parentWhatsAppNumber: '',
     address: '',
-    grade: ''
+    grade: '',
+    mode: 'physical'
   });
   const [selectedCourses, setSelectedCourses] = useState([]);
   const [studentImage, setStudentImage] = useState(null);
@@ -236,6 +238,7 @@ const Students = () => {
       formDataToSend.append('parentWhatsAppNumber', formData.parentWhatsAppNumber || '');
       formDataToSend.append('address', formData.address);
       formDataToSend.append('grade', formData.grade);
+      formDataToSend.append('mode', formData.mode || 'physical');
       formDataToSend.append('selectedCourses', JSON.stringify(selectedCourses));
       
       if (studentImage) {
@@ -259,7 +262,8 @@ const Students = () => {
           studentWhatsAppNumber: '',
           parentWhatsAppNumber: '',
           address: '',
-          grade: ''
+          grade: '',
+          mode: 'physical'
         });
         setSelectedCourses([]);
         setStudentImage(null);
@@ -315,7 +319,8 @@ const Students = () => {
       studentWhatsAppNumber: '',
       parentWhatsAppNumber: '',
       address: '',
-      grade: ''
+      grade: '',
+      mode: 'physical'
     });
     setSelectedCourses([]);
     setStudentImage(null);
@@ -932,6 +937,7 @@ const Students = () => {
                 <th style={{ width: '60px' }} className="text-start">#</th>
                 <th className="text-start">Full Name</th>
                 <th style={{ width: '180px' }} className="text-start">Grade</th>
+                <th className="text-start">Mode</th>
                 <th className="text-start">Contact Number</th>
                 <th style={{ width: '280px' }} className="text-start">Actions</th>
               </tr>
@@ -939,7 +945,7 @@ const Students = () => {
             <tbody>
               {paginatedStudents.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="text-center py-5" style={{ color: '#64748b' }}>
+                  <td colSpan="6" className="text-center py-5" style={{ color: '#64748b' }}>
                     <div style={{ 
                       display: 'flex', 
                       flexDirection: 'column', 
@@ -1027,6 +1033,18 @@ const Students = () => {
                         <HiOutlineAcademicCap size={16} style={{ color: '#94a3b8' }} />
                         <span>{student.grade}</span>
                       </div>
+                    </td>
+                    <td style={{ padding: '16px 32px', textAlign: 'left' }}>
+                      <span style={{
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        background: student.mode === 'online' ? '#dbeafe' : student.mode === 'hybrid' ? '#e0e7ff' : '#f1f5f9',
+                        color: student.mode === 'online' ? '#1d4ed8' : student.mode === 'hybrid' ? '#4338ca' : '#475569'
+                      }}>
+                        {student.mode === 'online' ? 'Online' : student.mode === 'hybrid' ? 'Hybrid' : 'Physical'}
+                      </span>
                     </td>
                     <td style={{ padding: '16px 32px', textAlign: 'left' }}>
                       <div style={{ 
@@ -1161,7 +1179,21 @@ const Students = () => {
                       }}>
                         <HiOutlineUser size={20} />
                       </div>
-                      <h5 className="student-card-name mb-0">{student.fullName}</h5>
+                      <div>
+                        <h5 className="student-card-name mb-0">{student.fullName}</h5>
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          padding: '2px 6px',
+                          borderRadius: '4px',
+                          background: student.mode === 'online' ? '#dbeafe' : student.mode === 'hybrid' ? '#e0e7ff' : '#f1f5f9',
+                          color: student.mode === 'online' ? '#1d4ed8' : student.mode === 'hybrid' ? '#4338ca' : '#475569',
+                          marginTop: '4px',
+                          display: 'inline-block'
+                        }}>
+                          {student.mode === 'online' ? 'Online' : student.mode === 'hybrid' ? 'Hybrid' : 'Physical'}
+                        </span>
+                      </div>
                     </div>
                     <div className="student-card-actions">
                       <div className="student-actions-grid">
@@ -1288,6 +1320,24 @@ const Students = () => {
                       className="student-form-input"
                     />
                   </div>
+                </div>
+
+                <div className="student-form-field">
+                  <label className="student-form-label">
+                    <HiOutlineGlobeAlt className="student-form-label-icon" />
+                    Learning Mode
+                  </label>
+                  <select
+                    name="mode"
+                    value={formData.mode || 'physical'}
+                    onChange={handleChange}
+                    required
+                    className="student-form-input"
+                  >
+                    <option value="physical">Physical (In-person)</option>
+                    <option value="online">Online</option>
+                    <option value="hybrid">Hybrid</option>
+                  </select>
                 </div>
 
                 <div className="student-form-field">
@@ -1667,6 +1717,16 @@ const Students = () => {
 
                   <div className="student-form-field">
                     <label className="student-form-label">
+                      <HiOutlineGlobeAlt className="student-form-label-icon" />
+                      Mode
+                    </label>
+                    <div className="student-details-value">
+                      {selectedStudent.mode === 'online' ? 'Online' : selectedStudent.mode === 'hybrid' ? 'Hybrid' : 'Physical'}
+                    </div>
+                  </div>
+
+                  <div className="student-form-field">
+                    <label className="student-form-label">
                       <HiOutlineClock className="student-form-label-icon" />
                       Created At
                     </label>
@@ -1813,6 +1873,7 @@ const Students = () => {
                         <th>Course Name</th>
                         <th>Subject</th>
                         <th>Grade</th>
+                        <th>Mode</th>
                         <th>Course Fee</th>
                         <th style={{ width: '100px' }}>Actions</th>
                       </tr>
@@ -1824,6 +1885,18 @@ const Students = () => {
                           <td>{course.courseName}</td>
                           <td>{course.subject || '-'}</td>
                           <td>{course.grade}</td>
+                          <td>
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              background: course.mode === 'online' ? '#dbeafe' : course.mode === 'hybrid' ? '#e0e7ff' : '#f1f5f9',
+                              color: course.mode === 'online' ? '#1d4ed8' : course.mode === 'hybrid' ? '#4338ca' : '#475569'
+                            }}>
+                              {course.mode === 'online' ? 'Online' : course.mode === 'hybrid' ? 'Hybrid' : 'Physical'}
+                            </span>
+                          </td>
                               <td>
                                 {course.courseFee ? (
                                   <span style={{ 

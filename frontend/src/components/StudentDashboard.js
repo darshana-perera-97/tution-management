@@ -103,6 +103,13 @@ const StudentDashboard = () => {
     }
   };
 
+  // Online Classroom: only courses that are (1) online or hybrid and (2) the logged-in student is enrolled in
+  const onlineClassroomCourses = (allCourses || []).filter(
+    (c) =>
+      (c.mode === 'online' || c.mode === 'hybrid') &&
+      enrolledCourseIds.includes(c.id)
+  );
+
   // Filter courses based on search query
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -1373,6 +1380,164 @@ const StudentDashboard = () => {
 
             {/* Second and Third Columns - Courses (Horizontal Scroll) */}
             <Col xs={12} lg={8}>
+              {/* Online Classroom - courses in online or hybrid mode (undefined mode = physical) */}
+              <Card style={{ 
+                border: 'none',
+                borderRadius: '16px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                background: 'white',
+                marginBottom: '20px'
+              }}>
+                <Card.Body style={{ padding: '20px', textAlign: 'left' }}>
+                  <h2 style={{ 
+                    margin: 0,
+                    fontSize: '24px',
+                    fontWeight: '700',
+                    color: '#1e293b',
+                    textAlign: 'left',
+                    marginBottom: '4px'
+                  }}>
+                    Online Classroom
+                  </h2>
+                  <p style={{ 
+                    margin: '0 0 20px 0',
+                    color: '#64748b',
+                    fontSize: '14px',
+                    textAlign: 'left'
+                  }}>
+                    Courses delivered online or in hybrid mode
+                  </p>
+                  {onlineClassroomCourses.length === 0 ? (
+                    <div style={{ 
+                      textAlign: 'center', 
+                      padding: '40px 20px',
+                      color: '#94a3b8',
+                      background: '#f8fafc',
+                      borderRadius: '12px'
+                    }}>
+                      <div style={{ fontSize: '40px', marginBottom: '12px' }}>🖥️</div>
+                      <p style={{ margin: 0, fontSize: '14px' }}>No online or hybrid courses enrolled.</p>
+                    </div>
+                  ) : (
+                    <div 
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                        gap: '20px',
+                        maxWidth: '100%'
+                      }}
+                    >
+                      {onlineClassroomCourses.map((course, index) => {
+                        const lightColors = [
+                          '#fef3f2', '#f0fdf4', '#eff6ff', '#faf5ff',
+                          '#fffbeb', '#f0f9ff', '#fdf2f8', '#f5f3ff'
+                        ];
+                        const badgeColors = [
+                          { bg: '#fee2e2', text: 'white' }, { bg: '#dcfce7', text: 'white' },
+                          { bg: '#dbeafe', text: 'white' }, { bg: '#f3e8ff', text: 'white' },
+                          { bg: '#fef3c7', text: 'white' }, { bg: '#cffafe', text: 'white' },
+                          { bg: '#fce7f3', text: 'white' }, { bg: '#ede9fe', text: 'white' }
+                        ];
+                        const cardColor = lightColors[index % lightColors.length];
+                        const badgeColor = badgeColors[index % badgeColors.length];
+                        return (
+                          <div key={course.id} style={{ width: '100%' }}>
+                            <Card 
+                              className="h-100" 
+                              style={{ 
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '12px',
+                                boxShadow: 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                background: cardColor,
+                                overflow: 'hidden'
+                              }}
+                              onClick={() => handleViewCourse(course)}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = '#6366f1';
+                                e.currentTarget.style.boxShadow = '0 2px 8px rgba(99, 102, 241, 0.1)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = '#e2e8f0';
+                                e.currentTarget.style.boxShadow = 'none';
+                              }}
+                            >
+                              <Card.Body className="d-flex flex-column" style={{ padding: '24px' }}>
+                                <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <Badge style={{ 
+                                    background: badgeColor.bg,
+                                    color: badgeColor.text,
+                                    padding: '3px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '10px',
+                                    fontWeight: '600',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px',
+                                    border: 'none'
+                                  }}>
+                                    {course.subject}
+                                  </Badge>
+                                  <Badge style={{ 
+                                    background: course.mode === 'hybrid' ? '#e0e7ff' : '#dbeafe',
+                                    color: course.mode === 'hybrid' ? '#4338ca' : '#1d4ed8',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    fontSize: '10px',
+                                    fontWeight: '600',
+                                    border: 'none'
+                                  }}>
+                                    {course.mode === 'hybrid' ? 'Hybrid' : 'Online'}
+                                  </Badge>
+                                </div>
+                                <h5 style={{ 
+                                  margin: '0 0 16px 0',
+                                  fontSize: '16px',
+                                  fontWeight: '600',
+                                  color: '#1e293b',
+                                  lineHeight: '1.4'
+                                }}>
+                                  {course.courseName}
+                                </h5>
+                                <div style={{ flex: 1 }}></div>
+                                <Button 
+                                  variant="outline-primary"
+                                  className="w-100"
+                                  style={{ 
+                                    background: 'transparent',
+                                    border: '1px solid #6366f1',
+                                    borderRadius: '8px',
+                                    padding: '8px 14px',
+                                    fontWeight: '500',
+                                    fontSize: '13px',
+                                    color: '#6366f1',
+                                    transition: 'all 0.2s ease'
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleViewCourse(course);
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = '#6366f1';
+                                    e.currentTarget.style.color = 'white';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.color = '#6366f1';
+                                  }}
+                                >
+                                  View Details
+                                </Button>
+                              </Card.Body>
+                            </Card>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Card.Body>
+              </Card>
+
               <Card style={{ 
                 border: 'none',
                 borderRadius: '16px',

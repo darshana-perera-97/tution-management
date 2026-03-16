@@ -882,8 +882,11 @@ const sendWhatsAppToMultiple = async (phoneNumbers, message, imagePath = null) =
 // Create new student
 app.post('/api/students', (req, res) => {
   try {
-    const { fullName, dob, parentName, contactNumber, studentWhatsAppNumber, parentWhatsAppNumber, address, grade, selectedCourses } = req.body;
+    const { fullName, dob, parentName, contactNumber, studentWhatsAppNumber, parentWhatsAppNumber, address, grade, mode, selectedCourses } = req.body;
     const selectedCoursesArray = typeof selectedCourses === 'string' ? JSON.parse(selectedCourses) : selectedCourses;
+
+    const validModes = ['physical', 'online', 'hybrid'];
+    const studentMode = mode && validModes.includes(mode) ? mode : 'physical';
 
     if (!fullName || !dob || !parentName || !contactNumber || !address || !grade) {
       return res.status(400).json({
@@ -933,6 +936,7 @@ app.post('/api/students', (req, res) => {
       whatsappNumber: studentWhatsAppNumber || parentWhatsAppNumber || contactNumber, // Keep for backward compatibility
       address,
       grade,
+      mode: studentMode,
       password: defaultPassword, // Default password
       imageUrl: imageUrl,
       createdAt: new Date().toISOString()
@@ -1878,7 +1882,10 @@ app.get('/api/courses', (req, res) => {
 // Create new course
 app.post('/api/courses', (req, res) => {
   try {
-    const { courseName, teacherId, grade, subject, courseFee, teacherPaymentPercentage, schedule } = req.body;
+    const { courseName, teacherId, grade, subject, courseFee, teacherPaymentPercentage, schedule, mode } = req.body;
+
+    const validModes = ['physical', 'online', 'hybrid'];
+    const courseMode = mode && validModes.includes(mode) ? mode : 'physical';
 
     if (!courseName || !teacherId || !grade || !subject || !courseFee || !teacherPaymentPercentage) {
       return res.status(400).json({
@@ -1958,6 +1965,7 @@ app.post('/api/courses', (req, res) => {
       subject,
       teacherId,
       grade,
+      mode: courseMode,
       courseFee: fee.toString(),
       teacherPaymentPercentage: percentage.toString(),
       schedule: Array.isArray(schedule) ? schedule : [],
@@ -1977,6 +1985,7 @@ app.post('/api/courses', (req, res) => {
           subject: newCourse.subject,
           teacherId: newCourse.teacherId,
           grade: newCourse.grade,
+          mode: newCourse.mode,
           courseFee: newCourse.courseFee,
           teacherPaymentPercentage: newCourse.teacherPaymentPercentage,
           schedule: newCourse.schedule,
