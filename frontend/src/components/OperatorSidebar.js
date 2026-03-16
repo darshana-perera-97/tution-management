@@ -8,6 +8,7 @@ import {
   HiOutlineGlobeAlt,
   HiOutlineCreditCard,
   HiOutlineClipboardDocumentCheck,
+  HiOutlineCurrencyDollar,
   HiOutlineArrowRightOnRectangle,
   HiChevronLeft,
   HiChevronRight
@@ -23,6 +24,7 @@ const OperatorSidebar = ({ activeItem, onItemClick, className, onLogout, isColla
     { id: 'online-courses', label: 'Online Courses', icon: HiOutlineGlobeAlt },
     { id: 'payments', label: 'Payments', icon: HiOutlineCreditCard },
     { id: 'attendance', label: 'Attendance', icon: HiOutlineClipboardDocumentCheck },
+    { id: 'daily-report', label: 'Daily Report', icon: HiOutlineCurrencyDollar },
   ];
 
   return (

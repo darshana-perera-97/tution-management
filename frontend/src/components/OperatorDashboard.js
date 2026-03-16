@@ -16,6 +16,7 @@ import Courses from './Courses';
 import Payments from './Payments';
 import Attendance from './Attendance';
 import OnlineCourses from './OnlineCourses';
+import DailyReport from './DailyReport';
 import '../App.css';
 import API_URL from '../config';
 
@@ -250,6 +251,8 @@ const OperatorDashboard = () => {
               <Payments />
             ) : activeItem === 'attendance' ? (
               <Attendance />
+            ) : activeItem === 'daily-report' ? (
+              <DailyReport />
             ) : (
               <>
                 <div className="dashboard-header mb-4">
